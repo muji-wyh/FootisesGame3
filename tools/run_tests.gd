@@ -1,0 +1,170 @@
+extends SceneTree
+
+## Headless test harness for the combat simulation. Run with:
+##   godot --headless --script res://tools/run_tests.gd
+## Scripts inputs into the Arena and asserts outcomes (movement, hits, blocking,
+## hitstun, projectiles, meter, supers, KO). Prints a PASS/FAIL summary.
+
+const DELTA := 1.0 / 60.0
+
+class Manual extends InputController:
+	var frame := InputFrame.new()
+	func poll(_s: Object, _o: Object) -> InputFrame:
+		return frame.duplicate_frame()
+
+var _passed := 0
+var _failed := 0
+
+func _check(label: String, condition: bool) -> void:
+	if condition:
+		_passed += 1
+		print("  PASS: ", label)
+	else:
+		_failed += 1
+		print("  FAIL: ", label)
+
+func _mk(dx: int, dy: int, press: int = 0, held: int = -1) -> InputFrame:
+	if held == -1:
+		held = press
+	return InputFrame.new(dx, dy, held, press)
+
+func _build() -> Dictionary:
+	var arena := Arena.new()
+	root.add_child(arena)
+	var c1 := Manual.new()
+	var c2 := Manual.new()
+	var f1 := Fighter.new()
+	var f2 := Fighter.new()
+	f1.setup(CharacterLibrary.create("kael"), c1, GameConst.Side.P1, -2.4)
+	f2.setup(CharacterLibrary.create("rho"), c2, GameConst.Side.P2, 2.4)
+	arena.setup_fighters(f1, f2)
+	arena.set_active(true)
+	return {"arena": arena, "f1": f1, "f2": f2, "c1": c1, "c2": c2}
+
+func _step(ctx: Dictionary, p1: InputFrame, p2: InputFrame, n: int) -> void:
+	for i in range(n):
+		ctx["c1"].frame = p1
+		ctx["c2"].frame = p2
+		ctx["arena"].step(DELTA)
+
+func _neutral() -> InputFrame:
+	return _mk(0, 0)
+
+func _initialize() -> void:
+	print("=== Brawl Arena combat tests ===")
+	_test_walk()
+	_test_normal_hit()
+	_test_block()
+	_test_fireball()
+	_test_super()
+	_test_ko()
+	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
+	if _failed == 0:
+		print("ALL TESTS PASSED")
+	else:
+		print("THERE WERE FAILURES")
+	quit()
+
+func _test_walk() -> void:
+	print("[walk]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var start_x: float = f1.position.x
+	# P1 holds forward (toward P2 on the right).
+	_step(ctx, _mk(1, 0), _neutral(), 30)
+	_check("P1 walks forward", f1.position.x > start_x + 0.5)
+	ctx["arena"].queue_free()
+
+func _test_normal_hit() -> void:
+	print("[normal hit]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	# Place them within jab range.
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var hp_before: int = f2.health
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 20)
+	_check("P2 took jab damage", f2.health < hp_before)
+	_check("P1 gained meter on hit", f1.meter > 0)
+	ctx["arena"].queue_free()
+
+func _test_block() -> void:
+	print("[block]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var hp_before: int = f2.health
+	var saw_blockstun := false
+	# P2 holds back (away from P1, i.e. to the right = +1) while P1 jabs.
+	for i in range(20):
+		ctx["c1"].frame = _mk(0, 0, GameConst.Btn.LP) if i == 0 else _mk(0, 0)
+		ctx["c2"].frame = _mk(1, 0)
+		ctx["arena"].step(DELTA)
+		if f2.state == Fighter.State.BLOCKSTUN:
+			saw_blockstun = true
+	_check("blocked jab deals no life damage (chip 0)", f2.health == hp_before)
+	_check("P2 entered blockstun", saw_blockstun)
+	ctx["arena"].queue_free()
+
+func _test_fireball() -> void:
+	print("[fireball]")
+	var ctx := _build()
+	var f2: Fighter = ctx["f2"]
+	var arena: Arena = ctx["arena"]
+	# Keep distance; perform QCF + LP as P1.
+	var hp_before: int = f2.health
+	_step(ctx, _mk(0, -1), _neutral(), 3)        # down
+	_step(ctx, _mk(1, -1), _neutral(), 3)        # down-forward
+	_step(ctx, _mk(1, 0, GameConst.Btn.LP), _neutral(), 1)  # forward + punch
+	# The projectile spawns on the move's active frame (startup=12), not instantly.
+	_step(ctx, _neutral(), _mk(0, 0), 14)
+	_check("a projectile spawned", arena.projectiles.size() >= 1)
+	# Let the fireball travel into P2 (standing, not blocking).
+	_step(ctx, _neutral(), _mk(0, 0), 90)
+	_check("fireball hit P2 for damage", f2.health < hp_before)
+	ctx["arena"].queue_free()
+
+func _test_super() -> void:
+	print("[super]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var arena: Arena = ctx["arena"]
+	f1.meter = f1.character.max_meter   # grant full meter
+	var hp_before: int = f2.health
+	# QCF QCF + HP as P1.
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(1, -1), _neutral(), 2)
+	_step(ctx, _mk(1, 0), _neutral(), 2)
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(1, -1), _neutral(), 2)
+	_step(ctx, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
+	_check("super consumed meter", f1.meter < f1.character.max_meter)
+	_step(ctx, _neutral(), _mk(0, 0), 90)
+	_check("super dealt heavy damage", hp_before - f2.health >= 200)
+	ctx["arena"].queue_free()
+
+func _test_ko() -> void:
+	print("[ko]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var arena: Arena = ctx["arena"]
+	var ko_side := [-1]
+	arena.ko.connect(func(loser): ko_side[0] = loser)
+	# Corner P2 against the right wall so knockback can't carry it out of range.
+	f1.position.x = 5.4
+	f2.position.x = 6.3
+	# Mash heavy punch while pressing forward to stay on top of the cornered P2.
+	var ticks := 0
+	while not f2.is_dead() and ticks < 2500:
+		_step(ctx, _mk(1, 0, GameConst.Btn.HP), _mk(0, 0), 1)
+		_step(ctx, _mk(1, 0), _mk(0, 0), 16)
+		ticks += 17
+	_check("P2 was KO'd", f2.is_dead())
+	_check("KO signal fired for P2", ko_side[0] == GameConst.Side.P2)
+	ctx["arena"].queue_free()
