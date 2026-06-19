@@ -19,6 +19,14 @@ extends Resource
 @export var jump_h_speed: float = 3.2
 @export var gravity: float = 28.0
 
+## Optional model-backed rig. If model_path points to an importable scene (FBX/glTF),
+## MatchScene builds an AnimatedFighterRig; otherwise it uses the procedural blockout.
+## These default to the Kubold/Maskman orientation (3ds Max Z-up -> stand upright).
+@export var model_path: String = ""
+@export var model_euler_deg: Vector3 = Vector3.ZERO
+@export var model_scale: float = 1.0
+@export var model_face_deg: float = 0.0   # extra yaw so the model faces its opponent
+
 ## Move tables, filled via add_move().
 var moves: Dictionary = {}            # id -> MoveData
 var normals: Array[MoveData] = []     # button-triggered

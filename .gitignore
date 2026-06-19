@@ -23,3 +23,15 @@ Thumbs.db
 /.tools/
 godot*.exe
 *.tpz
+
+# Licensed Unity assets (Fighters Pack, Kubold Fighting Animset Pro) — kept local,
+# NEVER committed. The model-backed rig falls back to the procedural blockout when
+# these are absent, so a clean clone still runs.
+assets/models/**/*.fbx
+assets/models/**/*.FBX
+assets/models/**/*.tga
+assets/models/**/*.fbx.import
+assets/models/**/*.FBX.import
+assets/models/**/*.tga.import
+_probe/
+

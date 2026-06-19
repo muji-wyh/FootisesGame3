@@ -181,6 +181,7 @@ func _start_move(m: MoveData) -> void:
 	if m.kind == GameConst.MoveKind.SUPER:
 		_add_meter(-m.meter_cost)
 	_goto(State.ATTACK)
+	state_frame = 0   # ensure a fresh attack even when cancelling ATTACK -> ATTACK
 	velocity.x = 0
 	move_started.emit(m)
 

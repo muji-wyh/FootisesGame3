@@ -41,6 +41,9 @@ extends Resource
 ## Optional sound effect name (in AudioManager) played when the move starts; "" -> whoosh.
 @export var sfx: String = ""
 
+## Optional animation clip name (Kubold) for the model-backed rig; "" -> a default.
+@export var anim_clip: String = ""
+
 ## Hitbox geometry, facing-relative (+x points toward the opponent). Live during the
 ## active window. Expressed as a centre offset and half-extents-ish size box.
 @export var hit_offset: Vector3 = Vector3(0.9, 1.0, 0.0)

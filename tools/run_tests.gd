@@ -63,6 +63,7 @@ func _initialize() -> void:
 	_test_blaze_roster()
 	_test_multihit()
 	_test_move_sfx()
+	_test_animated_rig()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -270,4 +271,20 @@ func _test_move_sfx() -> void:
 	_check("fireball has its own sfx", fb != null and fb.sfx == "fire")
 	_check("hurricane has its own sfx", hur != null and hur.sfx == "spin")
 	_check("super has its own sfx", sup != null and sup.sfx == "super")
+
+func _test_animated_rig() -> void:
+	print("[animated rig]")
+	var kael := CharacterLibrary.create("kael")
+	if kael.model_path == "" or not ResourceLoader.exists(kael.model_path):
+		print("  SKIP: model assets not present (clean clone)")
+		return
+	var arig := AnimatedFighterRig.new()
+	root.add_child(arig)
+	arig.build(kael)
+	_check("animated rig built ok", arig.ok)
+	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
+	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
+	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
+	arig.queue_free()
+
 

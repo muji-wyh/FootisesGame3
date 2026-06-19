@@ -73,9 +73,22 @@ func _ready() -> void:
 	round_manager.start()
 
 func _attach_rig(f: Fighter, ch: CharacterData) -> void:
-	var rig := FighterRig.new()
-	f.add_child(rig)
-	rig.build(ch)
+	var rig: Node = null
+	# Use the model-backed rig when the (licensed, gitignored) model is present;
+	# otherwise fall back to the procedural blockout so a clean clone still runs.
+	if ch.model_path != "" and ResourceLoader.exists(ch.model_path):
+		var arig := AnimatedFighterRig.new()
+		f.add_child(arig)
+		arig.build(ch)
+		if arig.ok:
+			rig = arig
+		else:
+			arig.queue_free()
+	if rig == null:
+		var brig := FighterRig.new()
+		f.add_child(brig)
+		brig.build(ch)
+		rig = brig
 	f.rig = rig
 	f.update_visual()
 
