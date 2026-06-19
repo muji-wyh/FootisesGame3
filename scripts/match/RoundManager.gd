@@ -1,0 +1,124 @@
+class_name RoundManager
+extends Node
+
+## Drives the match flow: intro -> fight -> round end -> next round / match end.
+## Owns round timing and scoring; tells the Arena when to simulate. Emits signals the
+## HUD listens to. Best-of-three: first side to GameConst.ROUNDS_TO_WIN wins the match.
+
+signal announce(text: String)
+signal announce_clear()
+signal timer_changed(seconds: int)
+signal rounds_changed(p1_wins: int, p2_wins: int)
+signal match_over(winner_side: int)
+
+enum Phase { INTRO, FIGHT, ROUND_OVER, MATCH_OVER }
+
+const INTRO_TICKS := 120
+const FIGHT_BANNER_TICKS := 45
+const ROUND_OVER_TICKS := 150
+
+var arena: Arena
+var phase: int = Phase.INTRO
+var phase_timer: int = 0
+var round_number: int = 1
+var p1_wins: int = 0
+var p2_wins: int = 0
+var time_left_ticks: int = GameConst.ROUND_TIME_SECONDS * GameConst.TICK_RATE
+var _round_winner: int = -1
+
+func start() -> void:
+	arena.ko.connect(_on_ko)
+	_begin_intro()
+
+func _begin_intro() -> void:
+	phase = Phase.INTRO
+	phase_timer = INTRO_TICKS
+	time_left_ticks = GameConst.ROUND_TIME_SECONDS * GameConst.TICK_RATE
+	_round_winner = -1
+	arena.set_active(false)
+	for f in arena.fighters:
+		f.set_intro()
+	rounds_changed.emit(p1_wins, p2_wins)
+	timer_changed.emit(GameConst.ROUND_TIME_SECONDS)
+	announce.emit("Round %d" % round_number)
+
+## Called every physics tick by Match.
+func tick(delta: float) -> void:
+	match phase:
+		Phase.INTRO:
+			_tick_intro(delta)
+		Phase.FIGHT:
+			_tick_fight(delta)
+		Phase.ROUND_OVER:
+			_tick_round_over(delta)
+		Phase.MATCH_OVER:
+			pass
+
+func _tick_intro(_delta: float) -> void:
+	phase_timer -= 1
+	if phase_timer == FIGHT_BANNER_TICKS:
+		announce.emit("Fight!")
+		arena.set_active(true)
+		for f in arena.fighters:
+			f._goto(Fighter.State.IDLE)
+	if phase_timer <= 0:
+		announce_clear.emit()
+		phase = Phase.FIGHT
+
+func _tick_fight(delta: float) -> void:
+	arena.step(delta)
+	time_left_ticks -= 1
+	if time_left_ticks % GameConst.TICK_RATE == 0:
+		timer_changed.emit(time_left_ticks / GameConst.TICK_RATE)
+	if time_left_ticks <= 0 and _round_winner < 0:
+		_decide_by_time()
+
+func _tick_round_over(_delta: float) -> void:
+	phase_timer -= 1
+	if phase_timer <= 0:
+		_advance_after_round()
+
+func _on_ko(loser_side: int) -> void:
+	if phase != Phase.FIGHT:
+		return
+	_round_winner = 1 - loser_side
+	_end_round()
+
+func _decide_by_time() -> void:
+	var f1: Fighter = arena.fighters[0]
+	var f2: Fighter = arena.fighters[1]
+	if f1.health > f2.health:
+		_round_winner = GameConst.Side.P1
+	elif f2.health > f1.health:
+		_round_winner = GameConst.Side.P2
+	else:
+		_round_winner = GameConst.Side.P1   # tie-break to P1 for the slice
+	_end_round()
+
+func _end_round() -> void:
+	phase = Phase.ROUND_OVER
+	phase_timer = ROUND_OVER_TICKS
+	if _round_winner == GameConst.Side.P1:
+		p1_wins += 1
+	else:
+		p2_wins += 1
+	arena.set_active(false)
+	var winner: Fighter = arena.fighters[_round_winner]
+	var loser: Fighter = arena.fighters[1 - _round_winner]
+	winner.set_win()
+	loser.set_ko()
+	rounds_changed.emit(p1_wins, p2_wins)
+	announce.emit("%s wins the round" % winner.character.display_name)
+
+func _advance_after_round() -> void:
+	if p1_wins >= GameConst.ROUNDS_TO_WIN or p2_wins >= GameConst.ROUNDS_TO_WIN:
+		phase = Phase.MATCH_OVER
+		var winner_side := GameConst.Side.P1 if p1_wins > p2_wins else GameConst.Side.P2
+		announce.emit("%s WINS" % arena.fighters[winner_side].character.display_name)
+		match_over.emit(winner_side)
+		return
+	round_number += 1
+	arena.reset_positions()
+	for f in arena.fighters:
+		f.reset_for_round()
+	_begin_intro()

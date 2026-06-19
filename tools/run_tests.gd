@@ -58,6 +58,7 @@ func _initialize() -> void:
 	_test_fireball()
 	_test_super()
 	_test_ko()
+	_test_round_flow()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -168,3 +169,39 @@ func _test_ko() -> void:
 	_check("P2 was KO'd", f2.is_dead())
 	_check("KO signal fired for P2", ko_side[0] == GameConst.Side.P2)
 	ctx["arena"].queue_free()
+
+func _test_round_flow() -> void:
+	print("[round flow]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var arena: Arena = ctx["arena"]
+	var rm := RoundManager.new()
+	root.add_child(rm)
+	rm.arena = arena
+	var winner := [-1]
+	rm.match_over.connect(func(w): winner[0] = w)
+	rm.start()
+
+	var reached_fight := false
+	var safety := 0
+	while rm.phase != RoundManager.Phase.MATCH_OVER and safety < 8000:
+		safety += 1
+		if rm.phase == RoundManager.Phase.FIGHT:
+			reached_fight = true
+			if f2.health > 150:
+				f2.health = 120           # cap so each round ends quickly
+			f1.position.x = f2.position.x - 0.85   # stay in heavy-punch range
+			ctx["c1"].frame = _mk(1, 0, GameConst.Btn.HP)
+			ctx["c2"].frame = _mk(0, 0)
+		else:
+			ctx["c1"].frame = _neutral()
+			ctx["c2"].frame = _neutral()
+		rm.tick(DELTA)
+
+	_check("round flow reached FIGHT phase", reached_fight)
+	_check("match ended", rm.phase == RoundManager.Phase.MATCH_OVER)
+	_check("P1 won enough rounds", rm.p1_wins == GameConst.ROUNDS_TO_WIN)
+	_check("match_over fired for P1", winner[0] == GameConst.Side.P1)
+	rm.queue_free()
+	arena.queue_free()

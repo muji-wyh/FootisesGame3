@@ -1,0 +1,122 @@
+class_name HUD
+extends CanvasLayer
+
+## Heads-up display: per-side health and meter bars (depleting toward the centre), a
+## round timer, round-win pips, fighter names, and a centre banner for announcements.
+## Built entirely from Control nodes in code and updated via signals from the fighters
+## and the RoundManager.
+
+const BASE_W := 1280.0
+const HP_W := 540.0
+const HP_H := 30.0
+const MP_W := 360.0
+const MP_H := 12.0
+
+var _hp_fill := [null, null]
+var _mp_fill := [null, null]
+var _pips := [[], []]
+var _banner: Label
+var _timer_label: Label
+
+func build(p1: CharacterData, p2: CharacterData) -> void:
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(root)
+
+	_build_side(root, 0, p1, 40.0)
+	_build_side(root, 1, p2, BASE_W - 40.0 - HP_W)
+
+	_timer_label = _label(root, Vector2(BASE_W * 0.5 - 60.0, 18.0), Vector2(120.0, 50.0), 40)
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_timer_label.text = str(GameConst.ROUND_TIME_SECONDS)
+
+	_banner = _label(root, Vector2(BASE_W * 0.5 - 400.0, 190.0), Vector2(800.0, 90.0), 64)
+	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_banner.add_theme_color_override("font_color", Color(1, 0.92, 0.5))
+	_banner.text = ""
+
+func _build_side(root: Control, side: int, ch: CharacterData, x: float) -> void:
+	# Health bar.
+	_panel(root, Vector2(x - 3, 25), Vector2(HP_W + 6, HP_H + 6), Color(0, 0, 0, 0.6))
+	_panel(root, Vector2(x, 28), Vector2(HP_W, HP_H), Color(0.2, 0.05, 0.05))
+	var hp := _panel(root, Vector2(x, 28), Vector2(HP_W, HP_H), ch.color)
+	_hp_fill[side] = {"rect": hp, "x": x}
+
+	# Meter bar.
+	var mx := x if side == 0 else x + HP_W - MP_W
+	_panel(root, Vector2(mx, 66), Vector2(MP_W, MP_H), Color(0.1, 0.1, 0.12))
+	var mp := _panel(root, Vector2(mx, 66), Vector2(MP_W, MP_H), ch.accent)
+	_mp_fill[side] = {"rect": mp, "x": mx}
+	mp.size.x = 0
+
+	# Name.
+	var name_pos := Vector2(x, 84) if side == 0 else Vector2(x + HP_W - 220, 84)
+	var nm := _label(root, name_pos, Vector2(220, 28), 20)
+	nm.text = ch.display_name
+	if side == 1:
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+	# Round pips, near the inner edge.
+	for i in range(GameConst.ROUNDS_TO_WIN):
+		var px := (x + HP_W - 18 - i * 22) if side == 0 else (x + 4 + i * 22)
+		var pip := _panel(root, Vector2(px, 64), Vector2(16, 16), Color(0.25, 0.25, 0.3))
+		_pips[side].append(pip)
+
+# --- updates ---------------------------------------------------------------
+
+func set_health(side: int, current: int, maximum: int) -> void:
+	var frac := clampf(float(current) / float(max(1, maximum)), 0.0, 1.0)
+	var info = _hp_fill[side]
+	var rect: ColorRect = info["rect"]
+	rect.size.x = HP_W * frac
+	if side == 1:
+		rect.position.x = info["x"] + HP_W * (1.0 - frac)
+
+func set_meter(side: int, current: int, maximum: int) -> void:
+	var frac := clampf(float(current) / float(max(1, maximum)), 0.0, 1.0)
+	var info = _mp_fill[side]
+	var rect: ColorRect = info["rect"]
+	rect.size.x = MP_W * frac
+	if side == 1:
+		rect.position.x = info["x"] + MP_W * (1.0 - frac)
+
+func set_timer(seconds: int) -> void:
+	_timer_label.text = str(max(0, seconds))
+
+func set_rounds(p1_wins: int, p2_wins: int) -> void:
+	_fill_pips(0, p1_wins)
+	_fill_pips(1, p2_wins)
+
+func _fill_pips(side: int, wins: int) -> void:
+	for i in range(_pips[side].size()):
+		var pip: ColorRect = _pips[side][i]
+		pip.color = Color(1.0, 0.8, 0.2) if i < wins else Color(0.25, 0.25, 0.3)
+
+func show_banner(text: String) -> void:
+	_banner.text = text
+
+func clear_banner() -> void:
+	_banner.text = ""
+
+# --- factory ---------------------------------------------------------------
+
+func _panel(parent: Control, pos: Vector2, size: Vector2, color: Color) -> ColorRect:
+	var r := ColorRect.new()
+	r.position = pos
+	r.size = size
+	r.color = color
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(r)
+	return r
+
+func _label(parent: Control, pos: Vector2, size: Vector2, font_size: int) -> Label:
+	var l := Label.new()
+	l.position = pos
+	l.size = size
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 6)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(l)
+	return l

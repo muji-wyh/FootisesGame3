@@ -389,5 +389,20 @@ func set_win() -> void:
 func set_intro() -> void:
 	_goto(State.INTRO)
 
+func reset_for_round() -> void:
+	health = character.max_health
+	velocity = Vector3.ZERO
+	current_move = null
+	move_connected = false
+	stun_timer = 0
+	launched = false
+	hitstop = 0
+	on_ground = true
+	position.y = 0
+	input_buffer.clear()
+	_goto(State.IDLE)
+	health_changed.emit(health, character.max_health)
+	meter_changed.emit(meter, character.max_meter)
+
 func is_dead() -> bool:
 	return health <= 0
