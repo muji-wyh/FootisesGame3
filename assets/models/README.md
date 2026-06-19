@@ -35,3 +35,44 @@ gameplay. To use an imported model instead of the procedural blockout:
 
 > Tip: tell me your model's **bone names** and **animation clip names** (or just drop the
 > `.fbx` here) and I can build the model-backed rig and verify it imports and renders.
+
+## What's wired in this project
+
+`AnimatedFighterRig` (scripts/fighter/) loads a model, **grafts** animation clips onto its
+skeleton, strips horizontal root motion (in-place), tints it with the character colour, and
+plays clips from `Fighter` state. A character opts in via `CharacterData.model_path`; if the
+(gitignored) model is missing, `MatchScene` falls back to the procedural blockout.
+
+Currently **Kael** (blue) and **Blaze** (orange) use `maskman.fbx` + the Kubold mocap clips
+(`anims/KB_*.fbx`). These share one skeleton family (Mixamo/Biped naming), so the clips graft
+directly with **no retargeting**. Per-move clips are set via `MoveData.anim_clip`
+(e.g. `KB_p_Jab_R_1`, `KB_p_Uppercut_R`, `KB_Projectile_1`, `KB_Superpunch`).
+
+Expected drop-in layout (all gitignored):
+```
+assets/models/maskman.fbx                 # Kubold "Maskman" model
+assets/models/anims/KB_*.fbx              # Kubold Fighting Animset Pro clips
+```
+
+## Using the Fighters Pack characters (needs retargeting)
+
+The Fighters Pack meshes use an **Unreal** skeleton (`pelvis, spine_01, upperarm_l,
+thigh_l, calf_l`), while the Kubold clips use a **Mixamo/Biped** skeleton
+(`Hips, Spine, LeftArm, LeftUpLeg, LeftLeg`). They are NOT directly compatible, so the clips
+must be **retargeted**. The robust path is Godot's editor retargeter:
+
+1. Select `Fighter_NN_Mesh.FBX` in the FileSystem dock → **Import** tab → **Advanced…**.
+2. Under the skeleton node, open **Retarget → Bone Map**, choose **SkeletonProfileHumanoid**,
+   and use **auto-map** (fix any unmapped bones by hand). Reimport.
+3. Do the same for each `KB_*.fbx` (map its skeleton to the same humanoid profile and enable
+   **Rest Fixer**). Reimport.
+4. Both are now on the humanoid profile, so the retargeted clips play on the Fighter mesh.
+   Point that character's `CharacterData.model_path` at the Fighter FBX.
+
+> This is an editor (GUI) workflow; it can't be done blind/headless reliably. Until it's set
+> up, those characters use the Maskman reskin so the build still ships.
+
+## Texture note (web)
+The packs ship **4K–8K TGA** textures (3–5 GB total) — impractical for a web build. This
+project uses solid tinted materials instead, keeping the export small. To use real textures,
+import them with **Process → Size Limit ≤ 1024** + VRAM compression and pick a small subset.

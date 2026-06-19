@@ -169,29 +169,31 @@ static func _blaze() -> CharacterData:
 	c.walk_speed = 3.6
 	c.back_speed = 2.9
 	c.jump_velocity = 9.8
+	c.model_path = "res://assets/models/maskman.fbx"
+	c.model_face_deg = 90.0
 
 	c.add_move(_move({"id": "st_lp", "display_name": "Jab", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.LP, "startup": 4, "active": 3, "recovery": 8,
 		"damage": 30, "hitstun": 14, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID,
-		"knockback": 1.2, "anim_limb": "arm_r", "anim_extend": 0.45,
+		"knockback": 1.2, "anim_limb": "arm_r", "anim_extend": 0.45, "anim_clip": "KB_p_Jab_R_1",
 		"cancel_into": ["st_hp", "fireball", "uppercut", "hurricane", "super_inferno"]}))
 
 	c.add_move(_move({"id": "st_hp", "display_name": "Fierce", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.HP, "startup": 7, "active": 4, "recovery": 15,
 		"damage": 75, "hitstun": 20, "blockstun": 12, "hitstop": 9, "guard": GameConst.Guard.MID,
-		"knockback": 2.2, "anim_limb": "arm_r", "anim_extend": 0.8,
+		"knockback": 2.2, "anim_limb": "arm_r", "anim_extend": 0.8, "anim_clip": "KB_p_Hook_R",
 		"cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]}))
 
 	c.add_move(_move({"id": "cr_lk", "display_name": "Low Kick", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.LK, "crouching": true, "startup": 5, "active": 3, "recovery": 9,
 		"damage": 28, "hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.LOW,
-		"knockback": 1.0, "anim_limb": "leg_r", "anim_extend": 0.7,
+		"knockback": 1.0, "anim_limb": "leg_r", "anim_extend": 0.7, "anim_clip": "KB_crouch_p_LowKick_L",
 		"cancel_into": ["fireball", "hurricane", "super_inferno"]}))
 
 	c.add_move(_move({"id": "st_hk", "display_name": "Roundhouse", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.HK, "startup": 11, "active": 4, "recovery": 20,
 		"damage": 88, "hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID,
-		"knockback": 3.0, "launch": true, "launch_velocity": 7.0,
+		"knockback": 3.0, "launch": true, "launch_velocity": 7.0, "anim_clip": "KB_AxeKick",
 		"anim_limb": "leg_r", "anim_extend": 0.95}))
 
 	c.add_move(_move({"id": "fireball", "display_name": "Flare Bolt", "kind": GameConst.MoveKind.SPECIAL,
@@ -199,14 +201,14 @@ static func _blaze() -> CharacterData:
 		"damage": 55, "hitstun": 18, "blockstun": 12, "hitstop": 4, "guard": GameConst.Guard.MID,
 		"knockback": 1.5, "meter_gain": 12, "projectile": true, "projectile_speed": 8.0,
 		"projectile_life": 100, "sfx": "fire", "anim_limb": "arm_r", "anim_extend": 0.7,
-		"hit_size": Vector3(0.6, 0.6, 0.6)}))
+		"anim_clip": "KB_Projectile_1", "hit_size": Vector3(0.6, 0.6, 0.6)}))
 
 	# Rising uppercut: 2-hit anti-air launcher.
 	c.add_move(_move({"id": "uppercut", "display_name": "Blaze Rise", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.DP, "startup": 5, "active": 10, "recovery": 30,
 		"damage": 60, "hits": 2, "hit_gap": 5, "hitstun": 22, "blockstun": 14, "hitstop": 9,
 		"guard": GameConst.Guard.MID, "knockback": 1.2, "launch": true, "launch_velocity": 10.0,
-		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9,
+		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_p_Uppercut_R",
 		"hit_offset": Vector3(0.7, 1.6, 0.0), "hit_size": Vector3(0.8, 1.4, 0.7)}))
 
 	# Hurricane kick: advancing 3-hit. Low knockback per hit so the victim stays in range.
@@ -214,7 +216,7 @@ static func _blaze() -> CharacterData:
 		"button": GameConst.Btn.LK, "motion": MotionParser.QCB, "startup": 9, "active": 20, "recovery": 22,
 		"damage": 35, "hits": 3, "hit_gap": 6, "hitstun": 16, "blockstun": 12, "hitstop": 6,
 		"guard": GameConst.Guard.MID, "knockback": 1.0, "advance": 5.0, "meter_gain": 8,
-		"sfx": "spin", "anim_limb": "leg_r", "anim_extend": 0.95,
+		"sfx": "spin", "anim_limb": "leg_r", "anim_extend": 0.95, "anim_clip": "KB_m_RoundhouseKickRight",
 		"hit_offset": Vector3(0.9, 1.0, 0.0), "hit_size": Vector3(1.0, 1.1, 0.7)}))
 
 	# Super: advancing 5-hit flaming rush.
@@ -223,6 +225,6 @@ static func _blaze() -> CharacterData:
 		"startup": 8, "active": 22, "recovery": 44, "damage": 52, "hits": 5, "hit_gap": 4,
 		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 8, "guard": GameConst.Guard.MID,
 		"knockback": 1.3, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
-		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0,
+		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
 	return c

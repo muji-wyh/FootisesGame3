@@ -94,16 +94,20 @@ trades work) → update facing → pose rigs → KO check.
 recovery, damage, hitstun/blockstun, guard level, knockback, meter, hitbox geometry,
 cancel routes. No engine changes needed to rebalance.
 
-## Swapping in real 3D characters (Mixamo)
+## Real 3D characters (FBX / Mixamo / Kubold)
 
-The blockout fighters are intentionally swappable. The rig only *reads* `Fighter` state;
-it never affects gameplay. To use rigged Mixamo characters:
+The blockout fighters are swappable — the rig only *reads* `Fighter` state, it never
+affects gameplay. **`AnimatedFighterRig` is already implemented**: a character that sets
+`CharacterData.model_path` gets an imported model whose animation clips are grafted on and
+driven from `Fighter.state` / `current_move` (per-move clip via `MoveData.anim_clip`). If
+the model is missing, `MatchScene` falls back to the procedural blockout, so a clean clone
+still runs.
 
-1. Import the Mixamo glTF/FBX + animations into `assets/models/`.
-2. Replace `FighterRig.build()` to instance the model + an `AnimationTree`, and
-   `FighterRig.pose()` to drive the animation state machine from `Fighter.state` /
-   `current_move` instead of rotating primitive limbs.
-3. Nothing else changes — frame data, hitboxes, AI, HUD and rounds are model-agnostic.
+Dropping the licensed **Fighters Pack** + **Kubold Fighting Animset Pro** FBX into
+`assets/models/` (gitignored) reskins Kael & Blaze with the animated Maskman model + mocap
+clips. See `assets/models/README.md` for the import details, the per-pack skeleton notes,
+and the editor **retargeting** workflow needed to animate the Unreal-rigged Fighters Pack
+characters with the Kubold (Mixamo/Biped) clips.
 
 ## Scope
 
