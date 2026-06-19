@@ -1,0 +1,107 @@
+# Brawl Arena
+
+An original **2.5D fighting game** (3D models on a 2D plane, *Street Fighter 6*–style)
+that runs in **Chrome** via Godot 4's HTML5/WebAssembly export. Built as a vertical
+slice: two characters, one stage, local 2-player and vs-CPU, with a full fighting-game
+combat loop.
+
+> **Legal:** This project contains **no** Street Fighter assets, characters, or names.
+> All content is original or royalty-free: fighters are placeholder blockout models and
+> all audio is self-synthesised (CC0, see `tools/gen_audio.py`).
+
+## Tech stack
+
+| | |
+|---|---|
+| Engine | Godot 4.7 (standard / GDScript build) |
+| Language | Typed GDScript |
+| Rendering | `gl_compatibility` (WebGL2-friendly) |
+| Target | HTML5 / WASM, no-threads (runs from any static host) |
+| Simulation | Deterministic fixed **60 Hz** tick; frame-based timing; data-driven moves |
+
+## Controls
+
+| Action | Player 1 | Player 2 |
+|---|---|---|
+| Move / crouch / jump | `W A S D` | Arrow keys |
+| Light / Heavy punch | `F` / `G` | `J` / `K` |
+| Light / Heavy kick | `C` / `V` | `N` / `M` |
+
+Gamepads: P1 = device 0, P2 = device 1 (D-pad + face buttons). `Esc` returns to the menu.
+
+**Specials** (motion + button, facing the opponent):
+- Fireball — *down, down-forward, forward* + punch (Kael)
+- Rising / lunging special — *forward, down, down-forward* + punch
+- Super — *qcf, qcf* + button (requires a full meter)
+
+## Run it
+
+Godot 4.7 is installed at `C:\uworks\tools\Godot_v4.7-stable_win64.exe` on this machine.
+
+```powershell
+# Play in the editor / desktop
+& C:\uworks\tools\Godot_v4.7-stable_win64.exe --path C:\uworks\FootisesGame3
+
+# Run the headless combat/round/AI test suite (17 assertions)
+& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
+```
+
+## Build & play in Chrome
+
+```powershell
+# 1. Export the web build (templates already installed)
+& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 `
+    --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
+
+# 2. Serve it (sets application/wasm + isolation headers)
+python tools/serve.py 8090
+
+# 3. Open http://localhost:8090/ in Chrome
+```
+
+The build is verified to boot and play in Chromium (Edge) — see `tools/shotter/shot.js`,
+which drives the build headlessly and screenshots the menu and a live match.
+
+## Architecture
+
+Everything runs on a deterministic fixed tick; presentation only ever *reads* simulation
+state. The CPU is "just another controller", so combat code never special-cases it.
+
+```
+scripts/
+  core/        Constants, InputBuffer, MotionParser (special-move detection)
+  input/       InputFrame, InputController, PlayerController
+  ai/          CpuController                      (range-based AI, emits inputs)
+  combat/      MoveData, CharacterData, HitResolver, Projectile
+  data/        CharacterLibrary                   (the roster + frame data, as code)
+  fighter/     Fighter (state machine + combat), FighterRig (procedural model)
+  stage/       Stage                              (floor/walls/lights, built in code)
+  match/       Arena (the step loop), FightCamera, RoundManager, MatchScene
+  ui/          Main, MainMenu, CharacterSelect, ResultsScreen, HUD
+  autoload/    Game (singleton: input map, match config), AudioManager
+```
+
+**Per-tick order** (`Arena.step`): poll inputs → advance both fighters → spawn/move
+projectiles → resolve pushboxes/stage bounds → `HitResolver` (snapshot then apply, so
+trades work) → update facing → pose rigs → KO check.
+
+**Tuning:** all balance lives in `CharacterLibrary.gd` as `MoveData` — startup/active/
+recovery, damage, hitstun/blockstun, guard level, knockback, meter, hitbox geometry,
+cancel routes. No engine changes needed to rebalance.
+
+## Swapping in real 3D characters (Mixamo)
+
+The blockout fighters are intentionally swappable. The rig only *reads* `Fighter` state;
+it never affects gameplay. To use rigged Mixamo characters:
+
+1. Import the Mixamo glTF/FBX + animations into `assets/models/`.
+2. Replace `FighterRig.build()` to instance the model + an `AnimationTree`, and
+   `FighterRig.pose()` to drive the animation state machine from `Fighter.state` /
+   `current_move` instead of rotating primitive limbs.
+3. Nothing else changes — frame data, hitboxes, AI, HUD and rounds are model-agnostic.
+
+## Scope
+
+In: 2 characters, 1 stage, local 2P + vs CPU, normals/specials/supers, blocking,
+hitstun/knockdown, combos, projectiles, best-of-3 rounds, menus, audio.
+Out (future): online/rollback netcode, larger roster, training/arcade modes.
