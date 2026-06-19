@@ -10,6 +10,7 @@ var arena: Arena
 var camera: FightCamera
 var hud: HUD
 var round_manager: RoundManager
+var audio: AudioManager
 var f1: Fighter
 var f2: Fighter
 
@@ -53,6 +54,13 @@ func _ready() -> void:
 	hud.build(c1, c2)
 	add_child(hud)
 	_wire_hud(c1, c2)
+
+	audio = AudioManager.new()
+	add_child(audio)
+	audio.wire_fighter(f1)
+	audio.wire_fighter(f2)
+	audio.wire_arena(arena)
+	audio.start_bgm()
 
 	round_manager = RoundManager.new()
 	add_child(round_manager)

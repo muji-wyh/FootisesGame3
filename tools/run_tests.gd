@@ -59,6 +59,7 @@ func _initialize() -> void:
 	_test_super()
 	_test_ko()
 	_test_round_flow()
+	_test_cpu_ai()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -204,4 +205,26 @@ func _test_round_flow() -> void:
 	_check("P1 won enough rounds", rm.p1_wins == GameConst.ROUNDS_TO_WIN)
 	_check("match_over fired for P1", winner[0] == GameConst.Side.P1)
 	rm.queue_free()
+	arena.queue_free()
+
+func _test_cpu_ai() -> void:
+	print("[cpu ai]")
+	seed(20260619)
+	var arena := Arena.new()
+	root.add_child(arena)
+	var human := Manual.new()                 # P1 stands still
+	var cpu := CpuController.new(2)            # P2 is the AI (difficulty 2)
+	var f1 := Fighter.new()
+	var f2 := Fighter.new()
+	f1.setup(CharacterLibrary.create("rho"), human, GameConst.Side.P1, -2.4)
+	f2.setup(CharacterLibrary.create("kael"), cpu, GameConst.Side.P2, 2.4)
+	arena.setup_fighters(f1, f2)
+	arena.set_active(true)
+	var start_x2: float = f2.position.x
+	var hp1_before: int = f1.health
+	for i in range(600):
+		human.frame = _neutral()
+		arena.step(DELTA)
+	_check("CPU advanced toward the player", f2.position.x < start_x2 - 0.5)
+	_check("CPU dealt damage to the idle player", f1.health < hp1_before)
 	arena.queue_free()

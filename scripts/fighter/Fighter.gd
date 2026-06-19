@@ -18,6 +18,7 @@ signal meter_changed(current: int, maximum: int)
 signal move_started(move: MoveData)
 signal contact(blocked: bool, move: MoveData)   # this fighter connected an attack
 signal got_hit(blocked: bool)                    # this fighter was hit
+signal jumped()
 
 enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN }
 
@@ -140,6 +141,7 @@ func _start_jump(inp: InputFrame) -> void:
 	velocity.y = character.jump_velocity
 	velocity.x = float(inp.dir_x) * character.jump_h_speed
 	on_ground = false
+	jumped.emit()
 
 func _step_air(_inp: InputFrame) -> void:
 	pass   # no air actions in the slice; gravity handled in _apply_physics
