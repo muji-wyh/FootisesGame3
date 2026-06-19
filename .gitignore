@@ -35,3 +35,7 @@ assets/models/**/*.FBX.import
 assets/models/**/*.tga.import
 _probe/
 
+
+# stray dev probe files
+_probe_inst.gd*
+tools/probe2.gd*
