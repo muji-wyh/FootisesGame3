@@ -82,10 +82,9 @@ func _poke(roll: float) -> void:
 		_press(GameConst.Btn.HK, false)
 
 func _special(sp: MoveData, facing: int) -> void:
-	if sp.motion == MotionParser.DP:
-		_motion(MotionParser.DP, sp.button, facing)
-	else:
-		_motion(MotionParser.QCF, sp.button, facing)
+	if sp.motion.is_empty():
+		return
+	_motion(sp.motion, sp.button, facing)
 
 func _approach(toward: int, dist: float) -> InputFrame:
 	if dist > 1.15:

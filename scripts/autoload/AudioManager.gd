@@ -5,7 +5,7 @@ extends Node
 ## pool of AudioStreamPlayers lets several effects overlap. BGM loops by replaying on the
 ## `finished` signal. Safe in headless mode (the dummy audio driver makes play() a no-op).
 
-const SFX := ["hit", "block", "whoosh", "jump", "ko"]
+const SFX := ["hit", "block", "whoosh", "jump", "ko", "fire", "rising", "spin", "super"]
 const POOL_SIZE := 8
 
 var _streams := {}
@@ -46,7 +46,7 @@ func _free_player() -> AudioStreamPlayer:
 # --- wiring ----------------------------------------------------------------
 
 func wire_fighter(f: Fighter) -> void:
-	f.move_started.connect(func(_m): play("whoosh", -5.0))
+	f.move_started.connect(func(m): play(m.sfx if m.sfx != "" else "whoosh", -4.0))
 	f.contact.connect(func(blocked, _m): play("block" if blocked else "hit"))
 	f.jumped.connect(func(): play("jump", -7.0))
 

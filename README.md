@@ -2,7 +2,7 @@
 
 An original **2.5D fighting game** (3D models on a 2D plane, *Street Fighter 6*–style)
 that runs in **Chrome** via Godot 4's HTML5/WebAssembly export. Built as a vertical
-slice: two characters, one stage, local 2-player and vs-CPU, with a full fighting-game
+slice: three characters, one stage, local 2-player and vs-CPU, with a full fighting-game
 combat loop.
 
 > **Legal:** This project contains **no** Street Fighter assets, characters, or names.
@@ -30,9 +30,14 @@ combat loop.
 Gamepads: P1 = device 0, P2 = device 1 (D-pad + face buttons). `Esc` returns to the menu.
 
 **Specials** (motion + button, facing the opponent):
-- Fireball — *down, down-forward, forward* + punch (Kael)
-- Rising / lunging special — *forward, down, down-forward* + punch
-- Super — *qcf, qcf* + button (requires a full meter)
+- Fireball — *down, down-forward, forward* + punch
+- Rising uppercut — *forward, down, down-forward* + punch (anti-air launcher)
+- Hurricane kick — *down, down-back, back* + kick (Blaze; advancing multi-hit)
+- Super — *qcf, qcf* + button (requires a full meter; multi-hit on Blaze)
+
+**Roster:** **Kael** (balanced zoner), **Rho** (heavy bruiser), **Blaze** (fiery rushdown
+with a fireball, anti-air uppercut, multi-hit hurricane kick, and a multi-hit super).
+Each special has its own synthesized sound effect.
 
 ## Run it
 
@@ -42,7 +47,7 @@ Godot 4.7 is installed at `C:\uworks\tools\Godot_v4.7-stable_win64.exe` on this 
 # Play in the editor / desktop
 & C:\uworks\tools\Godot_v4.7-stable_win64.exe --path C:\uworks\FootisesGame3
 
-# Run the headless combat/round/AI test suite (17 assertions)
+# Run the headless combat/round/AI test suite (27 assertions)
 & C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
 ```
 
@@ -102,6 +107,6 @@ it never affects gameplay. To use rigged Mixamo characters:
 
 ## Scope
 
-In: 2 characters, 1 stage, local 2P + vs CPU, normals/specials/supers, blocking,
-hitstun/knockdown, combos, projectiles, best-of-3 rounds, menus, audio.
+In: 3 characters, 1 stage, local 2P + vs CPU, normals/specials/supers (incl. multi-hit),
+blocking, hitstun/knockdown, combos, projectiles, best-of-3 rounds, menus, audio.
 Out (future): online/rollback netcode, larger roster, training/arcade modes.

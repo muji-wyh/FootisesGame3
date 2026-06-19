@@ -125,6 +125,67 @@ def bgm():
     return out
 
 
+def fire():
+    # Fireball cast: descending tone + lowpassed whoosh + crackle.
+    n = int(RATE * 0.26)
+    out = []
+    prev = 0.0
+    for i in range(n):
+        t = i / RATE
+        tone = math.sin(2 * math.pi * (200 * math.exp(-t * 3.0) + 110) * t)
+        noise = random.uniform(-1, 1)
+        prev = 0.8 * prev + 0.2 * noise
+        crackle = random.uniform(-1, 1) if random.random() < 0.04 else 0.0
+        e = math.exp(-t * 9.0)
+        out.append((0.5 * tone + 0.4 * prev + 0.5 * crackle) * e)
+    return out
+
+
+def rising():
+    # Rising uppercut: ascending tone + whoosh.
+    n = int(RATE * 0.30)
+    out = []
+    prev = 0.0
+    for i in range(n):
+        t = i / RATE
+        f = 200 + 600 * (t / (n / RATE))
+        tone = math.sin(2 * math.pi * f * t)
+        noise = random.uniform(-1, 1)
+        prev = 0.85 * prev + 0.15 * noise
+        out.append((0.5 * tone + 0.4 * prev) * _env(i, n, 0.01, 0.12))
+    return out
+
+
+def spin():
+    # Hurricane kick: rotating tremolo whoosh.
+    n = int(RATE * 0.40)
+    out = []
+    prev = 0.0
+    for i in range(n):
+        t = i / RATE
+        lfo = 0.5 + 0.5 * math.sin(2 * math.pi * 22.0 * t)
+        noise = random.uniform(-1, 1)
+        prev = 0.8 * prev + 0.2 * noise
+        e = math.sin(math.pi * (t / (n / RATE)))
+        out.append(0.6 * prev * lfo * e)
+    return out
+
+
+def supercast():
+    # Super: bright sweep + low boom + noise flash.
+    n = int(RATE * 0.60)
+    out = []
+    prev = 0.0
+    for i in range(n):
+        t = i / RATE
+        sweep = math.sin(2 * math.pi * (150 + 700 * (t / (n / RATE))) * t)
+        boom = math.sin(2 * math.pi * (90 * math.exp(-t * 2.0) + 50) * t) * math.exp(-t * 3.0)
+        noise = random.uniform(-1, 1)
+        prev = 0.7 * prev + 0.3 * noise
+        out.append((0.4 * sweep + 0.5 * boom + 0.4 * prev) * _env(i, n, 0.005, 0.25))
+    return out
+
+
 if __name__ == "__main__":
     random.seed(7)
     _write("hit.wav", hit())
@@ -133,4 +194,8 @@ if __name__ == "__main__":
     _write("jump.wav", jump())
     _write("ko.wav", ko())
     _write("bgm.wav", bgm())
+    _write("fire.wav", fire())
+    _write("rising.wav", rising())
+    _write("spin.wav", spin())
+    _write("super.wav", supercast())
     print("done")

@@ -34,6 +34,13 @@ extends Resource
 @export var launch_velocity: float = 7.0
 @export var meter_gain: int = 8              # attacker meter gained on hit
 
+## Multi-hit: a move can connect `hits` times, with `hit_gap` ticks between connections.
+@export var hits: int = 1
+@export var hit_gap: int = 8
+
+## Optional sound effect name (in AudioManager) played when the move starts; "" -> whoosh.
+@export var sfx: String = ""
+
 ## Hitbox geometry, facing-relative (+x points toward the opponent). Live during the
 ## active window. Expressed as a centre offset and half-extents-ish size box.
 @export var hit_offset: Vector3 = Vector3(0.9, 1.0, 0.0)

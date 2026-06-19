@@ -28,15 +28,15 @@ func _mk(dx: int, dy: int, press: int = 0, held: int = -1) -> InputFrame:
 		held = press
 	return InputFrame.new(dx, dy, held, press)
 
-func _build() -> Dictionary:
+func _build(id1: String = "kael", id2: String = "rho") -> Dictionary:
 	var arena := Arena.new()
 	root.add_child(arena)
 	var c1 := Manual.new()
 	var c2 := Manual.new()
 	var f1 := Fighter.new()
 	var f2 := Fighter.new()
-	f1.setup(CharacterLibrary.create("kael"), c1, GameConst.Side.P1, -2.4)
-	f2.setup(CharacterLibrary.create("rho"), c2, GameConst.Side.P2, 2.4)
+	f1.setup(CharacterLibrary.create(id1), c1, GameConst.Side.P1, -2.4)
+	f2.setup(CharacterLibrary.create(id2), c2, GameConst.Side.P2, 2.4)
 	arena.setup_fighters(f1, f2)
 	arena.set_active(true)
 	return {"arena": arena, "f1": f1, "f2": f2, "c1": c1, "c2": c2}
@@ -60,6 +60,9 @@ func _initialize() -> void:
 	_test_ko()
 	_test_round_flow()
 	_test_cpu_ai()
+	_test_blaze_roster()
+	_test_multihit()
+	_test_move_sfx()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -228,3 +231,43 @@ func _test_cpu_ai() -> void:
 	_check("CPU advanced toward the player", f2.position.x < start_x2 - 0.5)
 	_check("CPU dealt damage to the idle player", f1.health < hp1_before)
 	arena.queue_free()
+
+func _test_blaze_roster() -> void:
+	print("[blaze roster]")
+	_check("roster includes blaze", CharacterLibrary.ids().has("blaze"))
+	var b := CharacterLibrary.create("blaze")
+	_check("blaze display name", b.display_name == "Blaze")
+	_check("blaze has 3 specials", b.specials.size() == 3)
+	_check("blaze has 1 super", b.supers.size() == 1)
+	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
+
+func _test_multihit() -> void:
+	print("[multi-hit]")
+	var ctx := _build("blaze", "rho")
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	# Corner P2 so Blaze's advancing hurricane keeps connecting.
+	f1.position.x = 5.2
+	f2.position.x = 6.2
+	var hits := [0]
+	f1.contact.connect(func(blocked, _m): if not blocked: hits[0] += 1)
+	var hp_before: int = f2.health
+	# Cyclone Kick: QCB ( down, down-back, back ) + LK.
+	_step(ctx, _mk(0, -1), _neutral(), 3)
+	_step(ctx, _mk(-1, -1), _neutral(), 3)
+	_step(ctx, _mk(-1, 0, GameConst.Btn.LK), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 75)
+	_check("hurricane connected multiple times", hits[0] >= 2)
+	_check("multi-hit dealt cumulative damage", hp_before - f2.health >= 70)
+	ctx["arena"].queue_free()
+
+func _test_move_sfx() -> void:
+	print("[per-move sfx]")
+	var b := CharacterLibrary.create("blaze")
+	var fb := b.get_move("fireball")
+	var hur := b.get_move("hurricane")
+	var sup := b.get_move("super_inferno")
+	_check("fireball has its own sfx", fb != null and fb.sfx == "fire")
+	_check("hurricane has its own sfx", hur != null and hur.sfx == "spin")
+	_check("super has its own sfx", sup != null and sup.sfx == "super")
+

@@ -44,7 +44,8 @@ var active: bool = false            # round running? set by RoundManager
 
 # Combat bookkeeping
 var current_move: MoveData = null
-var move_connected: bool = false
+var move_hits_done: int = 0
+var move_hit_cooldown: int = 0
 var stun_timer: int = 0
 var launched: bool = false
 var hitstop: int = 0
@@ -175,7 +176,8 @@ func _motion_ok(m: MoveData) -> bool:
 
 func _start_move(m: MoveData) -> void:
 	current_move = m
-	move_connected = false
+	move_hits_done = 0
+	move_hit_cooldown = 0
 	if m.kind == GameConst.MoveKind.SUPER:
 		_add_meter(-m.meter_cost)
 	_goto(State.ATTACK)
@@ -187,6 +189,8 @@ func _step_attack(inp: InputFrame) -> void:
 	if m == null:
 		_goto(State.IDLE)
 		return
+	if move_hit_cooldown > 0:
+		move_hit_cooldown -= 1
 	# Lunge / advance during start-up + active.
 	if m.advance > 0.0 and state_frame < m.startup + m.active:
 		velocity.x = facing * m.advance
@@ -196,7 +200,7 @@ func _step_attack(inp: InputFrame) -> void:
 	if m.projectile and state_frame == m.startup:
 		pending_projectiles.append(m)
 	# Cancel into a follow-up on hit (combos) once this move has connected.
-	if move_connected and not m.cancel_into.is_empty() and m.is_recovering(state_frame):
+	if move_hits_done > 0 and not m.cancel_into.is_empty() and m.is_recovering(state_frame):
 		var nxt := _select_cancel(inp, m)
 		if nxt:
 			_start_move(nxt)
@@ -257,7 +261,8 @@ func _is_locked_out() -> bool:
 
 func _apply_block(m: MoveData, attacker_facing: int) -> void:
 	current_move = null
-	move_connected = false
+	move_hits_done = 0
+	move_hit_cooldown = 0
 	stun_timer = m.blockstun
 	_goto(State.BLOCKSTUN)
 	if m.chip > 0:
@@ -267,7 +272,8 @@ func _apply_block(m: MoveData, attacker_facing: int) -> void:
 
 func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 	current_move = null
-	move_connected = false
+	move_hits_done = 0
+	move_hit_cooldown = 0
 	_damage(m.damage)
 	if health <= 0:
 		return   # KO handled by RoundManager observing health
@@ -339,7 +345,9 @@ func hurtboxes() -> Array[AABB]:
 
 ## The live melee hitbox this tick, or null. Projectiles are handled separately.
 func active_hitbox() -> AABB:
-	if state != State.ATTACK or current_move == null or move_connected:
+	if state != State.ATTACK or current_move == null:
+		return AABB()
+	if move_hits_done >= current_move.hits or move_hit_cooldown > 0:
 		return AABB()
 	if current_move.projectile:
 		return AABB()
@@ -371,7 +379,8 @@ func gain_meter(amount: int) -> void:
 	_add_meter(amount)
 
 func mark_connected(blocked: bool, m: MoveData) -> void:
-	move_connected = true
+	move_hits_done += 1
+	move_hit_cooldown = m.hit_gap
 	hitstop = m.hitstop
 	if not blocked:
 		_add_meter(m.meter_gain)
@@ -395,7 +404,8 @@ func reset_for_round() -> void:
 	health = character.max_health
 	velocity = Vector3.ZERO
 	current_move = null
-	move_connected = false
+	move_hits_done = 0
+	move_hit_cooldown = 0
 	stun_timer = 0
 	launched = false
 	hitstop = 0
