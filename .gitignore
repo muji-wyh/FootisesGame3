@@ -1,0 +1,25 @@
+# Godot 4 .gitignore
+
+# Godot-specific import cache and generated files
+.godot/
+/android/
+/build/
+/export/
+
+# Exported web build output (regenerate via Godot export)
+/web-build/
+
+# Imported translations and temp files
+*.translation
+*.tmp
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local tooling (Godot editor binary, export templates) live outside the repo,
+# but ignore them here too in case they are copied in.
+/.tools/
+godot*.exe
+*.tpz
