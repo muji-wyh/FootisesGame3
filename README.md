@@ -1,9 +1,7 @@
 # Brawl Arena
 
 An original **2.5D fighting game** (3D models on a 2D plane, *Street Fighter 6*–style)
-that runs in **Chrome** via Godot 4's HTML5/WebAssembly export. Built as a vertical
-slice: three characters, one stage, local 2-player and vs-CPU, with a full fighting-game
-combat loop.
+that runs in **Chrome** via Godot 4's HTML5/WebAssembly export.
 
 > **Legal:** This project contains **no** Street Fighter assets, characters, or names.
 > All content is original or royalty-free: fighters are placeholder blockout models and
@@ -35,20 +33,6 @@ Gamepad: device 0 (D-pad; face buttons + shoulders for the 6 attacks). A second 
 can use a gamepad on device 1 in Local 2P; there is no keyboard layout for P2.
 `Esc` returns to the menu. Attacks differ by stance: hold **down** for crouching normals
 (lows), or attack while **jumping** for air normals (overheads).
-
-**Specials** (motion + button, facing the opponent):
-- Fireball — *down, down-forward, forward* + punch
-- Rising uppercut — *forward, down, down-forward* + punch (anti-air launcher)
-- Hurricane kick — *down, down-back, back* + kick (Blaze; advancing multi-hit)
-- Super — *qcf, qcf* + button (requires a full meter; multi-hit on Blaze)
-
-**Roster:** **Blaze** — a fiery rushdown shoto with a fireball, an anti-air uppercut, a
-multi-hit hurricane kick, and a multi-hit super. Each special has its own synthesized
-sound effect.
-
-**Animation Gallery** (main-menu item): a big scene showing one character per Kubold mocap
-clip (~235), each looping its animation with a name label. Pan with WASD, raise/lower with
-Q/E, `Esc` to return. (Requires the licensed model/anim FBX in `assets/models/`.)
 
 ## Run it
 
@@ -119,9 +103,3 @@ Dropping the licensed **Fighters Pack** + **Kubold Fighting Animset Pro** FBX in
 clips. See `assets/models/README.md` for the import details, the per-pack skeleton notes,
 and the editor **retargeting** workflow needed to animate the Unreal-rigged Fighters Pack
 characters with the Kubold (Mixamo/Biped) clips.
-
-## Scope
-
-In: 3 characters, 1 stage, local 2P + vs CPU, normals/specials/supers (incl. multi-hit),
-blocking, hitstun/knockdown, combos, projectiles, best-of-3 rounds, menus, audio.
-Out (future): online/rollback netcode, larger roster, training/arcade modes.
