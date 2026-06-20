@@ -54,6 +54,10 @@ var stun_timer: int = 0
 var launched: bool = false
 var hitstop: int = 0
 var hit_strength: int = 0    # 0=light, 1=medium, 2=heavy (for hit-reaction animation)
+var hit_height: int = GameConst.HitHeight.MID  # vertical zone struck (reaction height)
+var hit_crouch: bool = false       # victim was crouching when struck
+var hit_air: bool = false          # victim was airborne when struck
+var hit_from_back: bool = false    # victim was struck from behind (cross-up)
 var input_buffer := InputBuffer.new()
 
 # Dash double-tap tracking
@@ -356,7 +360,7 @@ func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
-	hit_strength = _strength_of(m)
+	_record_hit_context(m, attacker_facing)
 	_damage(m.damage)
 	if health <= 0:
 		return   # KO handled by RoundManager observing health
@@ -380,6 +384,18 @@ func _step_stun() -> void:
 	stun_timer -= 1
 	if stun_timer <= 0:
 		_goto(State.IDLE)
+
+## Capture the context of an incoming hit (strength, height, stance, direction) so the
+## rig can pick a matching directional reaction. Read at the moment of impact, before the
+## state transition to HITSTUN.
+func _record_hit_context(m: MoveData, attacker_facing: int) -> void:
+	hit_strength = _strength_of(m)
+	hit_height = m.effective_hit_height()
+	hit_air = not on_ground
+	hit_crouch = on_ground and (state == State.CROUCH or input_buffer.latest().dir_y < 0)
+	# attacker_facing points from the attacker toward this fighter; if we face the same
+	# way, our back is to the attacker -> struck from behind (a cross-up).
+	hit_from_back = facing == attacker_facing
 
 ## Classify an attack's strength for the hit-reaction animation.
 func _strength_of(m: MoveData) -> int:
@@ -507,6 +523,10 @@ func reset_for_round() -> void:
 	launched = false
 	hitstop = 0
 	hit_strength = 0
+	hit_height = GameConst.HitHeight.MID
+	hit_crouch = false
+	hit_air = false
+	hit_from_back = false
 	on_ground = true
 	position.y = 0
 	input_buffer.clear()

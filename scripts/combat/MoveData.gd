@@ -28,6 +28,10 @@ extends Resource
 @export var hitstop: int = 8                 # impact freeze for both fighters
 @export var guard: int = GameConst.Guard.MID
 @export var knockback: float = 2.0           # horizontal pushback applied to victim
+
+## Vertical zone this attack strikes, driving the victim's hit-reaction height. AUTO
+## derives it from `guard` (overhead/air -> HIGH, low -> LOW, else MID).
+@export var hit_height: int = GameConst.HitHeight.AUTO
 @export var pushback_self: float = 0.4       # pushback applied to attacker on block
 @export var advance: float = 0.0             # forward self-movement while performing (lunges)
 @export var launch: bool = false             # sends victim airborne (juggle)
@@ -63,6 +67,18 @@ extends Resource
 
 func total_frames() -> int:
 	return startup + active + recovery
+
+## Effective strike height, resolving AUTO from the guard property. STAND-blockable
+## overheads strike high, lows strike low, everything else strikes mid.
+func effective_hit_height() -> int:
+	if hit_height != GameConst.HitHeight.AUTO:
+		return hit_height
+	match guard:
+		GameConst.Guard.OVERHEAD:
+			return GameConst.HitHeight.HIGH
+		GameConst.Guard.LOW:
+			return GameConst.HitHeight.LOW
+	return GameConst.HitHeight.MID
 
 func is_active(state_frame: int) -> bool:
 	return state_frame >= startup and state_frame < startup + active

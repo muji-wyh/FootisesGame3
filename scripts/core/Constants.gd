@@ -45,6 +45,24 @@ enum Guard {
 	OVERHEAD,  # block only by holding back while standing
 }
 
+## Vertical zone an attack strikes on the victim. Drives which hit-reaction animation
+## plays (head / torso / legs). AUTO derives it from the move's Guard.
+enum HitHeight {
+	AUTO,   # derive from guard (overhead/air -> HIGH, low -> LOW, else MID)
+	HIGH,   # head / upper body
+	MID,    # torso
+	LOW,    # legs
+}
+
+## Counter classification (SF6-style). Detected from the victim's state at the moment of
+## impact: hitting an opponent during their attack start-up/active frames is a Counter;
+## hitting during their attack recovery is the more punishing Punish Counter.
+enum Counter {
+	NONE,
+	COUNTER,
+	PUNISH,
+}
+
 ## Move categories, used for cancel rules and meter.
 enum MoveKind {
 	NORMAL,
