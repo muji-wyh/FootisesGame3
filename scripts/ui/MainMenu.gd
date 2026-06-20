@@ -42,6 +42,10 @@ func _ready() -> void:
 	b2.pressed.connect(func(): _start(GameConst.Mode.VS_CPU))
 	vb.add_child(b2)
 
+	var b_gallery := _button("ANIMATION GALLERY")
+	b_gallery.pressed.connect(func(): Game.goto_scene("res://scenes/ui/AnimationGallery.tscn"))
+	vb.add_child(b_gallery)
+
 	var b3 := _button("QUIT")
 	b3.pressed.connect(func(): get_tree().quit())
 	vb.add_child(b3)

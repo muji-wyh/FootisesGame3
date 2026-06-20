@@ -45,6 +45,10 @@ Gamepads: P1 = device 0, P2 = device 1 (D-pad; face buttons + shoulders for the 
 with a fireball, anti-air uppercut, multi-hit hurricane kick, and a multi-hit super).
 Each special has its own synthesized sound effect.
 
+**Animation Gallery** (main-menu item): a big scene showing one character per Kubold mocap
+clip (~235), each looping its animation with a name label. Pan with WASD, raise/lower with
+Q/E, `Esc` to return. (Requires the licensed model/anim FBX in `assets/models/`.)
+
 ## Run it
 
 Godot 4.7 is installed at `C:\uworks\tools\Godot_v4.7-stable_win64.exe` on this machine.

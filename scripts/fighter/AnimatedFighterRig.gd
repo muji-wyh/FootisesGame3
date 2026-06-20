@@ -157,6 +157,15 @@ func _length(clip: String) -> float:
 ## --- setup helpers ---------------------------------------------------------
 
 func _graft_animations() -> void:
+	var lib := build_kb_library()
+	if _player.has_animation_library(LIB):
+		_player.remove_animation_library(LIB)
+	_player.add_animation_library(LIB, lib)
+
+## Build the shared Kubold animation library (clips grafted, root motion cancelled, looping
+## clips flagged). Static so the Animation Gallery can build it once and share it across
+## many characters.
+static func build_kb_library() -> AnimationLibrary:
 	var lib := AnimationLibrary.new()
 	for path in ANIM_FILES:
 		var ps := load(path) as PackedScene
@@ -174,13 +183,11 @@ func _graft_animations() -> void:
 					anim.loop_mode = Animation.LOOP_LINEAR
 				lib.add_animation(clip_name, anim)
 		inst.free()
-	if _player.has_animation_library(LIB):
-		_player.remove_animation_library(LIB)
-	_player.add_animation_library(LIB, lib)
+	return lib
 
 ## Cancel the root bone's HORIZONTAL travel (so clips play in place) while keeping its
 ## vertical height/bob - removing the track entirely would collapse the character.
-func _strip_root_motion(anim: Animation) -> void:
+static func _strip_root_motion(anim: Animation) -> void:
 	for i in range(anim.get_track_count()):
 		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
 			continue
@@ -218,7 +225,11 @@ func _ground_and_tint(character: CharacterData) -> void:
 ## Apply the (downscaled, web-friendly) Maskman textures per surface, with a gentle
 ## per-character tint. Falls back to a flat colour if the textures aren't present.
 func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
-	var tint: Color = character.color.lerp(Color.WHITE, 0.55)
+	apply_maskman_materials(mesh, character.color.lerp(Color.WHITE, 0.55), character.color)
+
+## Static, reusable: texture a Maskman mesh per surface (body/head/mask/eye) with `tint`,
+## falling back to `flat` if a texture is missing. Used by the rig and the Animation Gallery.
+static func apply_maskman_materials(mesh: MeshInstance3D, tint: Color, flat: Color) -> void:
 	var surface_tex := {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
 	for s in range(mesh.mesh.get_surface_count()):
 		var smat := mesh.mesh.surface_get_material(s)
@@ -238,7 +249,7 @@ func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
 			mat.albedo_texture = tex
 			mat.albedo_color = tint
 		else:
-			mat.albedo_color = character.color
+			mat.albedo_color = flat
 		mesh.set_surface_override_material(s, mat)
 
 ## Ground the model so the boot SOLES sit on the floor, using the actual animated idle
@@ -278,7 +289,7 @@ func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 	for c in node.get_children():
 		_collect_meshes(c, out)
 
-func _find(node: Node, klass: String) -> Node:
+static func _find(node: Node, klass: String) -> Node:
 	if node.is_class(klass):
 		return node
 	for c in node.get_children():

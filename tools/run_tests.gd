@@ -70,6 +70,7 @@ func _initialize() -> void:
 	_test_jump_in()
 	_test_air_clips_distinct()
 	_test_hit_strength()
+	_test_kb_library()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -389,5 +390,13 @@ func _test_hit_strength() -> void:
 	_check("light hit -> strength 0", _hit_with(GameConst.Btn.LP) == 0)
 	_check("medium hit -> strength 1", _hit_with(GameConst.Btn.MP) == 1)
 	_check("heavy hit -> strength 2", _hit_with(GameConst.Btn.HP) == 2)
+
+func _test_kb_library() -> void:
+	print("[kb library / gallery source]")
+	if not ResourceLoader.exists("res://assets/models/maskman.fbx"):
+		print("  SKIP: model assets not present (clean clone)")
+		return
+	var lib := AnimatedFighterRig.build_kb_library()
+	_check("kb library exposes 200+ clips for the gallery", lib.get_animation_list().size() > 200)
 
 
