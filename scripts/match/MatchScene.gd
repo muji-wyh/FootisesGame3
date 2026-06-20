@@ -16,6 +16,7 @@ var f2: Fighter
 
 var _match_over: bool = false
 var _post_match_timer: int = 0
+var _slowmo := SlowMoDirector.new()
 
 func _ready() -> void:
 	var stage := Stage.new()
@@ -45,6 +46,7 @@ func _ready() -> void:
 	arena = Arena.new()
 	add_child(arena)
 	arena.setup_fighters(f1, f2)
+	arena.ko.connect(func(_loser): _slowmo.request(0.3, 30, true))   # dramatic KO finish
 
 	camera = FightCamera.new()
 	add_child(camera)
@@ -149,9 +151,12 @@ func _hit_y(victim: Fighter) -> float:
 			return 0.55
 	return 1.1
 
-## A fighter was hit as a Counter / Punish Counter: flash the HUD call-out.
+## A fighter was hit as a Counter / Punish Counter: flash the HUD call-out, and on a
+## Punish Counter add a brief slow-motion beat.
 func _on_countered(kind: int) -> void:
 	hud.show_counter(kind)
+	if kind == GameConst.Counter.PUNISH:
+		_slowmo.request(0.35, 12)
 
 func _physics_process(delta: float) -> void:
 	round_manager.tick(delta)
@@ -161,10 +166,19 @@ func _physics_process(delta: float) -> void:
 	f2.update_visual()
 	hud.tick_counter()
 	camera.track(f1.position, f2.position)
+	# Slow-motion beats (Punish Counter / KO): advance the director and apply its scale.
+	_slowmo.tick()
+	Engine.time_scale = _slowmo.scale
 	if _match_over:
 		_post_match_timer -= 1
 		if _post_match_timer <= 0:
 			Game.goto_scene("res://scenes/ui/ResultsScreen.tscn")
+
+## Restore normal time flow when leaving the match (guards against a scene change while a
+## slow-motion dip is active).
+func _exit_tree() -> void:
+	_slowmo.reset()
+	Engine.time_scale = 1.0
 
 func _on_match_over(winner_side: int) -> void:
 	_match_over = true

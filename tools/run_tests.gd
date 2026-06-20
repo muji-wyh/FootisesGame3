@@ -79,6 +79,7 @@ func _initialize() -> void:
 	_test_reaction_clips()
 	_test_hitstop_tiers()
 	_test_impact_fx_smoke()
+	_test_slowmo_director()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -594,3 +595,19 @@ func _test_impact_fx_smoke() -> void:
 	spark.setup(Color(1.0, 0.5, 0.2), 1.3)
 	_check("hit spark built core + ring", spark.get_child_count() == 2)
 	spark.free()
+
+func _test_slowmo_director() -> void:
+	print("[slow-mo director]")
+	var d := SlowMoDirector.new()
+	_check("starts at normal speed", d.scale == 1.0 and not d.active())
+	d.request(0.3, 5)
+	_check("dip engaged at < 1x", d.active() and d.scale < 1.0)
+	for i in range(5):
+		d.tick()
+	_check("speed restored after the dip", d.scale == 1.0 and not d.active())
+	d.request(0.3, 5)
+	_check("re-trigger blocked during cooldown", not d.active())
+	d.request(0.3, 8, true)
+	_check("KO (force) overrides cooldown", d.active() and d.scale < 1.0)
+	d.reset()
+	_check("reset clears the dip", d.scale == 1.0 and not d.active())
