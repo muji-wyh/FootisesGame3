@@ -71,6 +71,9 @@ func _initialize() -> void:
 	_test_air_clips_distinct()
 	_test_hit_strength()
 	_test_kb_library()
+	_test_counter()
+	_test_punish_counter()
+	_test_counter_clean_hit()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -399,4 +402,59 @@ func _test_kb_library() -> void:
 	var lib := AnimatedFighterRig.build_kb_library()
 	_check("kb library exposes 200+ clips for the gallery", lib.get_animation_list().size() > 200)
 
+func _test_counter() -> void:
+	print("[counter hit]")
+	# Counter: strike the opponent during their attack start-up. P1's fast jab (startup 4)
+	# lands while P2's slow Stand HP (startup 9) is still starting up.
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var kinds := [GameConst.Counter.NONE]
+	f2.countered.connect(func(k): kinds[0] = k)
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _mk(0, 0, GameConst.Btn.HP), 1)
+	_step(ctx, _neutral(), _neutral(), 8)
+	_check("counter hit detected", kinds[0] == GameConst.Counter.COUNTER)
+	_check("counter forced >= medium reaction", f2.hit_strength >= 1)
+	_check("counter recorded on victim", f2.last_counter == GameConst.Counter.COUNTER)
+	ctx["arena"].queue_free()
 
+func _test_punish_counter() -> void:
+	print("[punish counter]")
+	# Punish: strike the opponent during their attack RECOVERY. P2 whiffs a slow Stand HP
+	# while P1 is out of range, then P1 steps in and jabs during the recovery.
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var kinds := [GameConst.Counter.NONE]
+	f2.countered.connect(func(k): kinds[0] = k)
+	f1.position.x = -3.0
+	f2.position.x = 0.0
+	_step(ctx, _neutral(), _mk(0, 0, GameConst.Btn.HP), 1)
+	_step(ctx, _neutral(), _neutral(), 13)
+	_check("f2 is in attack recovery",
+		f2.state == Fighter.State.ATTACK and f2.current_move != null and f2.current_move.is_recovering(f2.state_frame))
+	# Step into range and punish.
+	f1.position.x = -0.84
+	f2.position.x = 0.0
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 7)
+	_check("punish counter detected", kinds[0] == GameConst.Counter.PUNISH)
+	_check("punish forced heavy reaction", f2.hit_strength == 2)
+	ctx["arena"].queue_free()
+
+func _test_counter_clean_hit() -> void:
+	print("[no false counter]")
+	# A normal hit on a neutral (non-attacking) opponent is NOT a counter.
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var kinds := [GameConst.Counter.NONE]
+	f2.countered.connect(func(k): kinds[0] = k)
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 10)
+	_check("clean hit is not a counter", kinds[0] == GameConst.Counter.NONE)
+	_check("victim counter kind stays NONE", f2.last_counter == GameConst.Counter.NONE)
+	ctx["arena"].queue_free()

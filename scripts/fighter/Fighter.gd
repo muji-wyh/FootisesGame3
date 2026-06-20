@@ -18,6 +18,7 @@ signal meter_changed(current: int, maximum: int)
 signal move_started(move: MoveData)
 signal contact(blocked: bool, move: MoveData)   # this fighter connected an attack
 signal got_hit(blocked: bool)                    # this fighter was hit
+signal countered(kind: int)                      # this fighter was hit as a Counter/Punish
 signal jumped()
 
 enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN }
@@ -29,6 +30,8 @@ const DASH_WINDOW := 12      # ticks within which a second tap triggers a dash
 const DASH_DURATION := 16
 const DASH_SPEED := 7.5
 const BACKDASH_SPEED := 7.0
+const COUNTER_BONUS_HITSTUN := 6    # extra hitstun on a Counter Hit
+const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo window)
 
 # Configuration
 var character: CharacterData
@@ -58,6 +61,7 @@ var hit_height: int = GameConst.HitHeight.MID  # vertical zone struck (reaction 
 var hit_crouch: bool = false       # victim was crouching when struck
 var hit_air: bool = false          # victim was airborne when struck
 var hit_from_back: bool = false    # victim was struck from behind (cross-up)
+var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
 var input_buffer := InputBuffer.new()
 
 # Dash double-tap tracking
@@ -357,10 +361,23 @@ func _apply_block(m: MoveData, attacker_facing: int) -> void:
 	launched = false
 
 func _apply_hit(m: MoveData, attacker_facing: int) -> void:
+	var counter := _counter_kind()   # read before current_move is cleared
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
+	last_counter = counter
 	_record_hit_context(m, attacker_facing)
+	# Counter hits force a heavier reaction and add hitstun (a combo window on Punish).
+	var bonus_stun := 0
+	match counter:
+		GameConst.Counter.PUNISH:
+			hit_strength = 2
+			bonus_stun = PUNISH_BONUS_HITSTUN
+		GameConst.Counter.COUNTER:
+			hit_strength = maxi(hit_strength, 1)
+			bonus_stun = COUNTER_BONUS_HITSTUN
+	if counter != GameConst.Counter.NONE:
+		countered.emit(counter)
 	_damage(m.damage)
 	if health <= 0:
 		return   # KO handled by RoundManager observing health
@@ -369,13 +386,23 @@ func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 		velocity.y = m.launch_velocity
 		velocity.x = attacker_facing * m.knockback
 		on_ground = false
-		stun_timer = m.hitstun
+		stun_timer = m.hitstun + bonus_stun
 		_goto(State.HITSTUN)
 	else:
 		launched = false
-		stun_timer = m.hitstun
+		stun_timer = m.hitstun + bonus_stun
 		velocity.x = attacker_facing * m.knockback
 		_goto(State.HITSTUN)
+
+## Counter classification from this fighter's state at the instant of being hit: being
+## struck during the start-up/active frames of one's own attack is a Counter; during its
+## recovery is the harsher Punish Counter. Must be read before current_move is cleared.
+func _counter_kind() -> int:
+	if state == State.ATTACK and current_move != null:
+		if current_move.is_recovering(state_frame):
+			return GameConst.Counter.PUNISH
+		return GameConst.Counter.COUNTER
+	return GameConst.Counter.NONE
 
 func _step_stun() -> void:
 	velocity.x *= STUN_FRICTION
@@ -527,6 +554,7 @@ func reset_for_round() -> void:
 	hit_crouch = false
 	hit_air = false
 	hit_from_back = false
+	last_counter = GameConst.Counter.NONE
 	on_ground = true
 	position.y = 0
 	input_buffer.clear()

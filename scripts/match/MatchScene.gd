@@ -97,10 +97,16 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	f1.meter_changed.connect(func(c, m): hud.set_meter(0, c, m))
 	f2.health_changed.connect(func(c, m): hud.set_health(1, c, m))
 	f2.meter_changed.connect(func(c, m): hud.set_meter(1, c, m))
+	f1.countered.connect(_on_countered)
+	f2.countered.connect(_on_countered)
 	hud.set_health(0, f1.health, c1.max_health)
 	hud.set_health(1, f2.health, c2.max_health)
 	hud.set_meter(0, 0, c1.max_meter)
 	hud.set_meter(1, 0, c2.max_meter)
+
+## A fighter was hit as a Counter / Punish Counter: flash the HUD call-out.
+func _on_countered(kind: int) -> void:
+	hud.show_counter(kind)
 
 func _physics_process(delta: float) -> void:
 	round_manager.tick(delta)
@@ -108,6 +114,7 @@ func _physics_process(delta: float) -> void:
 	# the previous round's pose into the next round.
 	f1.update_visual()
 	f2.update_visual()
+	hud.tick_counter()
 	camera.track(f1.position, f2.position)
 	if _match_over:
 		_post_match_timer -= 1

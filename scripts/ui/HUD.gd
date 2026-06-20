@@ -17,6 +17,8 @@ var _mp_fill := [null, null]
 var _pips := [[], []]
 var _banner: Label
 var _timer_label: Label
+var _counter_label: Label
+var _counter_timer: int = 0
 
 func build(p1: CharacterData, p2: CharacterData) -> void:
 	var root := Control.new()
@@ -35,6 +37,12 @@ func build(p1: CharacterData, p2: CharacterData) -> void:
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.add_theme_color_override("font_color", Color(1, 0.92, 0.5))
 	_banner.text = ""
+
+	# Counter / Punish Counter call-out, shown briefly on a counter hit. Its own label and
+	# timer so it never clobbers (or is clobbered by) round announcements.
+	_counter_label = _label(root, Vector2(BASE_W * 0.5 - 350.0, 300.0), Vector2(700.0, 70.0), 52)
+	_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_counter_label.text = ""
 
 func _build_side(root: Control, side: int, ch: CharacterData, x: float) -> void:
 	# Health bar.
@@ -98,6 +106,25 @@ func show_banner(text: String) -> void:
 
 func clear_banner() -> void:
 	_banner.text = ""
+
+## Flash a COUNTER / PUNISH COUNTER call-out. Auto-clears after a short time; drive the
+## countdown from the match's fixed tick via tick_counter().
+const COUNTER_TICKS := 55
+
+func show_counter(kind: int) -> void:
+	if kind == GameConst.Counter.PUNISH:
+		_counter_label.text = "PUNISH COUNTER"
+		_counter_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.15))
+	else:
+		_counter_label.text = "COUNTER"
+		_counter_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.25))
+	_counter_timer = COUNTER_TICKS
+
+func tick_counter() -> void:
+	if _counter_timer > 0:
+		_counter_timer -= 1
+		if _counter_timer == 0:
+			_counter_label.text = ""
 
 # --- factory ---------------------------------------------------------------
 
