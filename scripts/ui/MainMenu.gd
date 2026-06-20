@@ -52,7 +52,7 @@ func _ready() -> void:
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help.add_theme_font_size_override("font_size", 16)
 	help.add_theme_color_override("font_color", Color(0.7, 0.72, 0.8))
-	help.text = "P1: WASD move  -  F/G punch  -  C/V kick        P2: Arrows  -  J/K punch  -  N/M kick\nSpecials: down, down-forward, forward + punch (fireball)   -   ESC to menu"
+	help.text = "P1: WASD move - F/G/H punch - V/B/N kick      P2: Arrows - J/K/L punch - M/,/. kick\nDouble-tap forward/back = dash   -   crouch & jump have their own attacks   -   ESC to menu"
 	vb.add_child(help)
 
 	b1.call_deferred("grab_focus")

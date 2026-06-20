@@ -20,11 +20,15 @@ signal contact(blocked: bool, move: MoveData)   # this fighter connected an atta
 signal got_hit(blocked: bool)                    # this fighter was hit
 signal jumped()
 
-enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN }
+enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN }
 
 const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.42
 const STUN_FRICTION := 0.82
+const DASH_WINDOW := 12      # ticks within which a second tap triggers a dash
+const DASH_DURATION := 16
+const DASH_SPEED := 7.5
+const BACKDASH_SPEED := 7.0
 
 # Configuration
 var character: CharacterData
@@ -50,6 +54,14 @@ var stun_timer: int = 0
 var launched: bool = false
 var hitstop: int = 0
 var input_buffer := InputBuffer.new()
+
+# Dash double-tap tracking
+var _tick: int = 0
+var _prev_fwd: bool = false
+var _prev_back: bool = false
+var _fwd_tap: int = -100
+var _back_tap: int = -100
+var _dash_req: int = 0
 
 # Presentation (optional; null in headless tests)
 var rig: Node = null
@@ -83,6 +95,8 @@ func advance(delta: float) -> void:
 	if hitstop > 0:
 		hitstop -= 1
 		return
+	_tick += 1
+	_update_dash_taps(input_buffer.latest())
 	state_frame += 1
 	var inp := input_buffer.latest()
 	match state:
@@ -92,6 +106,10 @@ func advance(delta: float) -> void:
 			_step_air(inp)
 		State.ATTACK:
 			_step_attack(inp)
+		State.DASH_F:
+			_step_dash(inp, true)
+		State.DASH_B:
+			_step_dash(inp, false)
 		State.HITSTUN, State.BLOCKSTUN:
 			_step_stun()
 		State.KNOCKDOWN:
@@ -101,6 +119,22 @@ func advance(delta: float) -> void:
 		State.INTRO, State.WIN:
 			velocity = Vector3.ZERO
 	_apply_physics(delta)
+
+## Track facing-relative forward/back taps to detect dash double-taps.
+func _update_dash_taps(inp: InputFrame) -> void:
+	_dash_req = 0
+	var fwd := inp.dir_x * facing > 0
+	var back := inp.dir_x * facing < 0
+	if fwd and not _prev_fwd:
+		if _tick - _fwd_tap <= DASH_WINDOW:
+			_dash_req = 1
+		_fwd_tap = _tick
+	if back and not _prev_back:
+		if _tick - _back_tap <= DASH_WINDOW:
+			_dash_req = -1
+		_back_tap = _tick
+	_prev_fwd = fwd
+	_prev_back = back
 
 func update_facing() -> void:
 	if not _is_actionable():
@@ -116,6 +150,12 @@ func update_visual() -> void:
 # --- neutral / movement ----------------------------------------------------
 
 func _step_neutral(inp: InputFrame) -> void:
+	if _dash_req > 0:
+		_start_dash(true)
+		return
+	if _dash_req < 0:
+		_start_dash(false)
+		return
 	var move := _select_move(inp)
 	if move:
 		_start_move(move)
@@ -144,26 +184,58 @@ func _start_jump(inp: InputFrame) -> void:
 	on_ground = false
 	jumped.emit()
 
-func _step_air(_inp: InputFrame) -> void:
-	pass   # no air actions in the slice; gravity handled in _apply_physics
+func _step_air(inp: InputFrame) -> void:
+	# Air normals: attack while airborne keeps momentum; gravity continues.
+	var move := _select_move(inp)
+	if move:
+		_start_move(move)
+
+func _start_dash(forward: bool) -> void:
+	if forward:
+		_goto(State.DASH_F)
+		velocity.x = facing * DASH_SPEED
+	else:
+		_goto(State.DASH_B)
+		velocity.x = -facing * BACKDASH_SPEED
+	state_frame = 0
+
+func _step_dash(inp: InputFrame, forward: bool) -> void:
+	# A forward dash can be cancelled into an attack.
+	if forward:
+		var move := _select_move(inp)
+		if move:
+			_start_move(move)
+			return
+	if state_frame >= DASH_DURATION:
+		velocity.x = 0
+		_goto(State.IDLE)
 
 # --- attacks ---------------------------------------------------------------
 
+func _current_stance(inp: InputFrame) -> int:
+	if not on_ground:
+		return GameConst.Stance.AIR
+	if inp.dir_y < 0:
+		return GameConst.Stance.CROUCH
+	return GameConst.Stance.STAND
+
 func _select_move(inp: InputFrame) -> MoveData:
-	if inp.pressed == 0 or not on_ground:
+	if inp.pressed == 0:
 		return null
-	# Supers first (require meter + motion), then specials, then normals.
-	for m in character.supers:
-		if (inp.pressed & m.button) and meter >= m.meter_cost and _motion_ok(m):
-			return m
-	for m in character.specials:
-		if (inp.pressed & m.button) and _motion_ok(m):
-			return m
-	var crouching := inp.dir_y < 0
+	var stance := _current_stance(inp)
+	# Specials/supers are ground-only here.
+	if on_ground:
+		for m in character.supers:
+			if (inp.pressed & m.button) and meter >= m.meter_cost and _motion_ok(m):
+				return m
+		for m in character.specials:
+			if (inp.pressed & m.button) and _motion_ok(m):
+				return m
+	# Normals: match button and the current stance, with a same-button fallback.
 	var fallback: MoveData = null
 	for m in character.normals:
 		if inp.pressed & m.button:
-			if m.crouching == crouching:
+			if m.stance == stance:
 				return m
 			if fallback == null:
 				fallback = m
@@ -192,9 +264,15 @@ func _step_attack(inp: InputFrame) -> void:
 		return
 	if move_hit_cooldown > 0:
 		move_hit_cooldown -= 1
-	# Lunge / advance during start-up + active.
-	if m.advance > 0.0 and state_frame < m.startup + m.active:
-		velocity.x = facing * m.advance
+	var is_air := m.stance == GameConst.Stance.AIR
+	if is_air:
+		# Air normals keep horizontal momentum; gravity + landing end the move.
+		if on_ground:
+			current_move = null
+			_goto(State.IDLE)
+			return
+	elif m.advance > 0.0 and state_frame < m.startup + m.active:
+		velocity.x = facing * m.advance   # ground lunge/advance
 	else:
 		velocity.x = 0
 	# Spawn a projectile on the first active frame.
@@ -208,7 +286,7 @@ func _step_attack(inp: InputFrame) -> void:
 			return
 	if state_frame >= m.total_frames():
 		current_move = null
-		_goto(State.IDLE)
+		_goto(State.IDLE if on_ground else State.JUMP)
 
 func _select_cancel(inp: InputFrame, from_move: MoveData) -> MoveData:
 	if inp.pressed == 0:
@@ -324,6 +402,10 @@ func _on_landed() -> void:
 	match state:
 		State.JUMP:
 			_goto(State.IDLE)
+		State.ATTACK:
+			# Landed during an air normal -> recover.
+			current_move = null
+			_goto(State.IDLE)
 		State.HITSTUN:
 			if launched:
 				launched = false
@@ -338,7 +420,7 @@ func hurtboxes() -> Array[AABB]:
 	var boxes: Array[AABB] = []
 	if state in [State.KNOCKDOWN, State.KO]:
 		return boxes
-	var crouching := state == State.CROUCH or (current_move != null and current_move.crouching and state == State.ATTACK)
+	var crouching := state == State.CROUCH or (current_move != null and current_move.stance == GameConst.Stance.CROUCH and state == State.ATTACK)
 	var height := 1.15 if crouching else 1.75
 	var center := position + Vector3(0, height * 0.5, 0)
 	boxes.append(AABB(center - Vector3(0.42, height * 0.5, 0.35), Vector3(0.84, height, 0.7)))

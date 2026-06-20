@@ -64,6 +64,9 @@ func _initialize() -> void:
 	_test_multihit()
 	_test_move_sfx()
 	_test_animated_rig()
+	_test_six_buttons()
+	_test_dash()
+	_test_air_attack()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -286,5 +289,52 @@ func _test_animated_rig() -> void:
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
 	arig.queue_free()
+
+func _test_six_buttons() -> void:
+	print("[six buttons]")
+	var k := CharacterLibrary.create("kael")
+	_check("18 normals (6 buttons x 3 stances)", k.normals.size() == 18)
+	var st_mp := k.get_move("st_mp")
+	_check("standing MP exists", st_mp != null and st_mp.button == GameConst.Btn.MP and st_mp.stance == GameConst.Stance.STAND)
+	var cr_mk := k.get_move("cr_mk")
+	_check("crouch MK is a low", cr_mk != null and cr_mk.stance == GameConst.Stance.CROUCH and cr_mk.guard == GameConst.Guard.LOW)
+	var air_hp := k.get_move("air_hp")
+	_check("air HP is an overhead", air_hp != null and air_hp.stance == GameConst.Stance.AIR and air_hp.guard == GameConst.Guard.OVERHEAD)
+
+func _test_dash() -> void:
+	print("[dash]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var start_x: float = f1.position.x
+	var saw_dash := false
+	# Double-tap forward: tap, release, tap (within the dash window).
+	var seq := [_mk(1, 0), _mk(0, 0), _mk(1, 0)]
+	for fr in seq:
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		if f1.state == Fighter.State.DASH_F:
+			saw_dash = true
+	for i in range(10):
+		ctx["c1"].frame = _mk(1, 0)
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		if f1.state == Fighter.State.DASH_F:
+			saw_dash = true
+	_check("forward dash triggered", saw_dash)
+	_check("dash moved forward quickly", f1.position.x > start_x + 1.2)
+	ctx["arena"].queue_free()
+
+func _test_air_attack() -> void:
+	print("[air attack]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	_step(ctx, _mk(0, 1), _neutral(), 1)   # press up -> jump
+	_step(ctx, _mk(0, 0), _neutral(), 5)   # rise
+	_check("airborne after jump", not f1.on_ground)
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)   # air LP
+	_check("air normal started", f1.current_move != null and f1.current_move.stance == GameConst.Stance.AIR)
+	_check("still airborne during air attack", not f1.on_ground)
+	ctx["arena"].queue_free()
 
 

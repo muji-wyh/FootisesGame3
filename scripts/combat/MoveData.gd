@@ -12,7 +12,7 @@ extends Resource
 ## Trigger. Normals fire on a button press; specials/supers also require `motion`.
 @export var button: int = GameConst.Btn.LP
 @export var motion: Array[int] = []          # numpad motion, e.g. MotionParser.QCF
-@export var crouching: bool = false          # must be crouching to perform
+@export var stance: int = GameConst.Stance.STAND   # STAND / CROUCH / AIR normal
 @export var meter_cost: int = 0              # meter required (supers)
 
 ## Frame data (ticks).
