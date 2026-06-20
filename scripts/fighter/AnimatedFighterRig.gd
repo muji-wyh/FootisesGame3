@@ -47,6 +47,8 @@ var _model: Node3D
 var _player: AnimationPlayer
 var _cur_clip: String = ""
 var _cur_move: MoveData = null
+var _grounded: bool = false
+var _skel: Skeleton3D
 
 func build(character: CharacterData) -> void:
 	_facing_pivot = Node3D.new()
@@ -65,6 +67,7 @@ func build(character: CharacterData) -> void:
 	_player = _find(_model, "AnimationPlayer") as AnimationPlayer
 	if _player == null:
 		return
+	_skel = _find(_model, "Skeleton3D") as Skeleton3D
 
 	_graft_animations()
 	_ground_and_tint(character)
@@ -77,6 +80,9 @@ func build(character: CharacterData) -> void:
 func pose(f: Fighter) -> void:
 	if not ok:
 		return
+	if not _grounded:
+		_grounded = true
+		_reground_to_pose()
 	_facing_pivot.rotation.y = 0.0 if f.facing >= 0 else PI
 
 	if f.state == Fighter.State.ATTACK:
@@ -212,6 +218,27 @@ func _ground_and_tint(character: CharacterData) -> void:
 		if lowest != INF:
 			var foot_in_rig: Vector3 = _model.transform.basis * lowest_origin
 			_model.position.y -= foot_in_rig.y
+
+## Refine grounding using the ACTUAL animated (idle stance) pose, not the rest pose - the
+## boxing stance bends the knees so the feet sit lower than rest. Runs once, on the first
+## visual tick (when the rig is in the tree and the pose can be evaluated).
+func _reground_to_pose() -> void:
+	if _skel == null:
+		return
+	if _player:
+		_player.advance(0.0)
+	var lowest := INF
+	var lowest_origin := Vector3.ZERO
+	for bone in ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]:
+		var bi := _skel.find_bone(bone)
+		if bi >= 0:
+			var o: Vector3 = _skel.get_bone_global_pose(bi).origin
+			if o.y < lowest:
+				lowest = o.y
+				lowest_origin = o
+	if lowest != INF:
+		var foot_in_rig: Vector3 = _model.transform * (_skel.transform * lowest_origin)
+		_model.position.y -= foot_in_rig.y
 
 func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D:
