@@ -3,7 +3,7 @@
 - [ ] 1.1 Add a `CANCEL_BUFFER` tick constant to `Fighter` and change `_select_cancel` to accept a follow-up whose button is found via `input_buffer.pressed_within(button, CANCEL_BUFFER)` instead of requiring `inp.pressed` on the exact tick.
 - [ ] 1.2 In `_step_attack`, open the cancel gate at first contact: trigger the cancel check once `move_hits_done > 0` (drop the `is_recovering(state_frame)`-only restriction) through end of recovery, including active/post-hitstop frames.
 - [ ] 1.3 Keep motion-based (special/super) cancels validating through `MotionParser` over the buffer; ensure normals still prefer stance-correct variants via the existing `_select_move` fallback.
-- [ ] 1.4 Add `_test_combo` in `tools/run_tests.gd`: a buffered `st.LP → st.MP → st.HP` produces three sequential connects, and assert the victim is in `HITSTUN` at each subsequent hit (true-combo guarantee). Run the headless suite and confirm new + existing assertions pass.
+- [ ] 1.4 Add `_test_combo` in `tools/run_tests.gd`: a buffered `st.LP → st.MP → st.HP` produces three sequential connects, and assert the victim is in `HITSTUN` at each subsequent hit (true-combo guarantee). Include a case where the follow-up is **pre-pressed before/through the impact hitstop** to prove the buffer is not consumed by the freeze. Run the headless suite and confirm new + existing assertions pass.
 
 ## 2. Ken-style cancel lattice + frame-data tuning
 
@@ -14,17 +14,17 @@
 ## 3. Drive Gauge (separate resource)
 
 - [ ] 3.1 Add `max_drive` (≈6 bars, fine internal units) and a per-tick regen rate to `CharacterData`; default-initialize Blaze.
-- [ ] 3.2 Add `drive`/`max_drive` runtime fields and a `drive_changed(current, maximum)` signal to `Fighter`; regenerate in `advance()` when below max, clamped to `[0, max]`; reset to full in `reset_for_round()`.
+- [ ] 3.2 Add `drive`/`max_drive` runtime fields and a `drive_changed(current, maximum)` signal to `Fighter`; regenerate in `advance()` when below max, clamped to `[0, max]`; reset to full in `reset_for_round()` (also clear `drive_rush_pending` and any rise bookkeeping there).
 - [ ] 3.3 Add a deterministic spend API (`spend_drive(cost) -> bool`) that deducts only when affordable; keep it fully independent of the Super `meter`.
 - [ ] 3.4 Add `_test_drive_gauge`: full at round start, spend fails when insufficient / succeeds when affordable, regenerates over ticks, and spending Drive leaves the Super meter unchanged.
 
 ## 4. Drive Rush Cancel off →→
 
-- [ ] 4.1 Add `State.DRIVE_RUSH` to `Fighter` (and any needed enum/constant); implement a `_step_drive_rush` that advances forward at a tuned speed for a tuned duration and is cancellable into a grounded normal.
+- [ ] 4.1 Add `State.DRIVE_RUSH` to `Fighter`'s `State` enum; implement a `_step_drive_rush` that advances forward at a tuned speed for a tuned duration and is cancellable into a grounded normal. Wire the state into the `advance()` dispatch and keep it OUT of `_is_locked_out`/`_can_block`/`_is_actionable`; treat it as locked in `update_facing`.
 - [ ] 4.2 Drive Rush Cancel (DRC): in `_step_attack`, detect `_dash_req > 0` within the open cancel window on a connected cancellable normal → spend the DRC cost (gate on affordability) and enter `DRIVE_RUSH`.
 - [ ] 4.3 Raw Drive Rush (RDR): in `_step_neutral`, convert a neutral `_dash_req > 0` into RDR by default when affordable (lower cost); fall back to the existing ordinary forward dash only when Drive is unavailable (no Drive spent).
 - [ ] 4.4 Add a one-time `drive_rush_pending` advantage: the first normal performed out of a Drive Rush applies bonus hitstun on contact (consumed after one hit) so links become true combos.
-- [ ] 4.5 Add `_test_drive_rush`: DRC from a connected normal spends Drive and extends a combo (victim still in `HITSTUN` when the post-rush normal connects); RDR from neutral spends the lower cost and enters `DRIVE_RUSH`; raw `→→` with no Drive falls back to `DASH_F` and spends nothing.
+- [ ] 4.5 Add `_test_drive_rush`: DRC from a connected normal spends Drive and extends a combo (victim still in `HITSTUN` when the post-rush normal connects); DRC also triggers off a **blocked** normal (pressure); RDR from neutral spends the lower cost and enters `DRIVE_RUSH`; raw `→→` with no Drive falls back to `DASH_F` and spends nothing.
 
 ## 5. Animation wiring (model-backed rig)
 
@@ -37,6 +37,7 @@
 - [ ] 6.2 Add `rises: bool` and `rise_height: float` to `MoveData` (safe defaults) and set them on Blaze's uppercut.
 - [ ] 6.3 In `Fighter._step_attack`, drive `position.y` along a tick-based arc for a `rises` move (peak partway, back to 0 by move end) while keeping `on_ground = true`; confirm `_apply_physics` raises no spurious landing and the (position-relative) hit/hurtboxes follow the leap.
 - [ ] 6.4 Verify on the animated rig that the new clips play and the uppercut visibly leaps and lands, with graceful fallback when a clip/model is absent.
+- [ ] 6.5 Add a headless `_test_uppercut_rise`: assert the attacker's `position.y` rises above 0 partway through the move and returns to 0 by move end (no spurious `_on_landed` / lingering airborne state), and that the uppercut still connects on a **grounded** dummy (guards against the elevated-hitbox whiff).
 
 ## 7. HUD
 

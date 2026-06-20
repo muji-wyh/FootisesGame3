@@ -40,6 +40,10 @@ The rising uppercut SHALL make the attacker visibly leap: during the move the at
 - **WHEN** the rising uppercut's active frames occur while the attacker is elevated
 - **THEN** the move's hitbox is positioned relative to the attacker's current elevated position (it rises with him)
 
+#### Scenario: Still connects on a grounded opponent
+- **WHEN** Blaze performs the rising uppercut in range of a grounded opponent
+- **THEN** the uppercut's hitbox overlaps the grounded opponent's hurtbox during its active frames (the rise does not lift the hitbox out of reach of a grounded target)
+
 #### Scenario: Deterministic and grounded on completion
 - **WHEN** the rising uppercut finishes
 - **THEN** the attacker is back on the ground in a normal actionable/recovery state, with no lingering airborne state, identically across repeated runs of the same inputs

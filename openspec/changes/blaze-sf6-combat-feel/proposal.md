@@ -28,8 +28,8 @@ Non-goals (this change): Drive Impact, Drive Parry, Overdrive (EX) specials, Bur
 
 ## Impact
 
-- **Simulation:** `scripts/fighter/Fighter.gd` (cancel logic, buffered selection, new Drive Rush state, Drive Gauge fields/regen, scripted rising-attack arc in `_step_attack`), `scripts/core/InputBuffer.gd` (buffer query helpers), `scripts/combat/MoveData.gd` (drive-rush-cancellable flag, optional cancel-tier metadata, `rises`/`rise_height` fields).
-- **Data / tuning:** `scripts/data/CharacterLibrary.gd` (Blaze's Ken-style lattice, frame-data nudges, Drive Rush move/clip, fireball clip → `KB_Projectile_4`, uppercut clip → `KB_crouch_m_Uppercut_R_2` + `rises`), `scripts/core/Constants.gd` (new state and/or enums if required).
+- **Simulation:** `scripts/fighter/Fighter.gd` (cancel logic, hitstop-aware buffered selection, new `DRIVE_RUSH` state in the `State` enum, Drive Gauge fields/regen, scripted rising-attack arc in `_step_attack`), `scripts/core/InputBuffer.gd` (buffer query helpers), `scripts/combat/MoveData.gd` (optional cancel-tier metadata, `rises`/`rise_height` fields; DRC eligibility reuses `cancel_into`, no new flag).
+- **Data / tuning:** `scripts/data/CharacterLibrary.gd` (Blaze's Ken-style lattice, frame-data nudges, Drive Rush move/clip, fireball clip → `KB_Projectile_4`, uppercut clip → `KB_crouch_m_Uppercut_R_2` + `rises`); `scripts/core/Constants.gd` only if new shared enums are needed (the `DRIVE_RUSH` state lives in Fighter.gd's `State` enum).
 - **Presentation:** `scripts/fighter/AnimatedFighterRig.gd` (`STATE_CLIP` / clip for Drive Rush), HUD (`scripts/ui/`) (Drive Gauge bar).
 - **Tests:** `tools/run_tests.gd` (new buffered-cancel, true-combo, Drive Gauge, and Drive Rush assertions).
 - **Determinism:** all new timing stays on the fixed 60 Hz tick; no `_process` gameplay. The CPU controller is unaffected (it remains "just another controller").

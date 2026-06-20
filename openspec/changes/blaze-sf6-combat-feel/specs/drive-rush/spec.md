@@ -2,7 +2,7 @@
 
 ### Requirement: Drive Rush Cancel (DRC) from a connected normal
 
-A connected (hit or block), cancellable normal SHALL be cancellable into a forward Drive Rush by inputting a forward dash (`→→`) within the cancel window, provided the fighter can afford the Drive Rush Cancel cost. This consumes Drive and transitions the fighter into a forward-advancing Drive Rush.
+A connected (hit or block) normal that is special-cancellable (i.e. has a non-empty `cancel_into`) SHALL be cancellable into a forward Drive Rush by inputting a forward dash (`→→`) within the cancel window, provided the fighter can afford the Drive Rush Cancel (DRC) cost. No separate `drive_rush_cancellable` flag is required. This consumes Drive and transitions the fighter into a forward-advancing Drive Rush.
 
 #### Scenario: Normal into Drive Rush on hit
 - **WHEN** Blaze lands a cancellable normal and the player double-taps forward within the cancel window with sufficient Drive
@@ -11,6 +11,10 @@ A connected (hit or block), cancellable normal SHALL be cancellable into a forwa
 #### Scenario: Insufficient Drive blocks the cancel
 - **WHEN** the player attempts a Drive Rush Cancel but the Drive Gauge cannot afford the cost
 - **THEN** no Drive Rush occurs and the normal completes its recovery normally
+
+#### Scenario: DRC off a blocked normal (pressure)
+- **WHEN** Blaze's special-cancellable normal is blocked and the player double-taps forward within the cancel window with sufficient Drive
+- **THEN** the normal cancels into a Drive Rush, advancing for continued pressure, and the DRC cost is deducted
 
 ### Requirement: Raw Drive Rush (RDR) from neutral
 

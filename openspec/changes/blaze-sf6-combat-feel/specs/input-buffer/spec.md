@@ -12,6 +12,10 @@ A move's cancel into a follow-up SHALL be triggered when the follow-up's button 
 - **WHEN** the player holds or repeatedly taps the follow-up button across the active and recovery frames of a connecting normal
 - **THEN** the fighter cancels into the follow-up move (the held/mashed input is honored via the buffer, not ignored)
 
+#### Scenario: Impact hitstop does not consume the buffer
+- **WHEN** a follow-up button is pressed before or during the impact hitstop freeze of a connecting normal
+- **THEN** the buffered press is still honored when the move resumes after hitstop and the cancel fires (the freeze does not age the input out of the window)
+
 #### Scenario: Stale input does not cancel
 - **WHEN** the follow-up button was last pressed longer ago than the buffer window
 - **THEN** no cancel occurs and the move completes its recovery normally
