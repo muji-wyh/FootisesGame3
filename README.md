@@ -21,13 +21,19 @@ combat loop.
 
 ## Controls
 
+Six-button layout (LP MP HP / LK MK HK), with standing, crouching, and air versions of
+every normal.
+
 | Action | Player 1 | Player 2 |
 |---|---|---|
 | Move / crouch / jump | `W A S D` | Arrow keys |
-| Light / Heavy punch | `F` / `G` | `J` / `K` |
-| Light / Heavy kick | `C` / `V` | `N` / `M` |
+| Light / Medium / Heavy punch | `F` / `G` / `H` | `J` / `K` / `L` |
+| Light / Medium / Heavy kick | `V` / `B` / `N` | `M` / `,` / `.` |
+| Dash | double-tap forward / back | double-tap forward / back |
 
-Gamepads: P1 = device 0, P2 = device 1 (D-pad + face buttons). `Esc` returns to the menu.
+Gamepads: P1 = device 0, P2 = device 1 (D-pad; face buttons + shoulders for the 6 attacks).
+`Esc` returns to the menu. Attacks differ by stance: hold **down** for crouching normals
+(lows), or attack while **jumping** for air normals (overheads).
 
 **Specials** (motion + button, facing the opponent):
 - Fireball — *down, down-forward, forward* + punch
