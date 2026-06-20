@@ -16,16 +16,15 @@ func _ready() -> void:
 	_register_inputs()
 
 func _register_inputs() -> void:
-	# Player 1: left-hand movement (WASD) + 6 attack keys (FGH punches / VBN kicks).
+	# Single-player keyboard: left hand on WASD to move, right hand on U/I/O (punches) and
+	# J/K/L (kicks) for the six attacks. A gamepad on device 0 mirrors it.
 	_bind_player("p1",
 		{"up": KEY_W, "down": KEY_S, "left": KEY_A, "right": KEY_D,
-		 "lp": KEY_F, "mp": KEY_G, "hp": KEY_H,
-		 "lk": KEY_V, "mk": KEY_B, "hk": KEY_N}, 0)
-	# Player 2: arrow keys + 6 attack keys (JKL punches / M , . kicks).
-	_bind_player("p2",
-		{"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT,
-		 "lp": KEY_J, "mp": KEY_K, "hp": KEY_L,
-		 "lk": KEY_M, "mk": KEY_COMMA, "hk": KEY_PERIOD}, 1)
+		 "lp": KEY_U, "mp": KEY_I, "hp": KEY_O,
+		 "lk": KEY_J, "mk": KEY_K, "hk": KEY_L}, 0)
+	# Player 2 has no keyboard keys (single-player focus). Its actions are still registered
+	# for an optional gamepad on device 1, so Local-2P / polling never hits a missing action.
+	_bind_player("p2", {}, 1)
 
 func _bind_player(prefix: String, keys: Dictionary, device: int) -> void:
 	for name in keys.keys():

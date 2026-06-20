@@ -24,14 +24,15 @@ combat loop.
 Six-button layout (LP MP HP / LK MK HK), with standing, crouching, and air versions of
 every normal.
 
-| Action | Player 1 | Player 2 |
-|---|---|---|
-| Move / crouch / jump | `W A S D` | Arrow keys |
-| Light / Medium / Heavy punch | `F` / `G` / `H` | `J` / `K` / `L` |
-| Light / Medium / Heavy kick | `V` / `B` / `N` | `M` / `,` / `.` |
-| Dash | double-tap forward / back | double-tap forward / back |
+| Action | Keys |
+|---|---|
+| Move / crouch / jump | `W A S D` |
+| Light / Medium / Heavy punch | `U` / `I` / `O` |
+| Light / Medium / Heavy kick | `J` / `K` / `L` |
+| Dash | double-tap forward / back |
 
-Gamepads: P1 = device 0, P2 = device 1 (D-pad; face buttons + shoulders for the 6 attacks).
+Gamepad: device 0 (D-pad; face buttons + shoulders for the 6 attacks). A second player
+can use a gamepad on device 1 in Local 2P; there is no keyboard layout for P2.
 `Esc` returns to the menu. Attacks differ by stance: hold **down** for crouching normals
 (lows), or attack while **jumping** for air normals (overheads).
 
