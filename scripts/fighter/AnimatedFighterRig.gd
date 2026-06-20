@@ -82,7 +82,9 @@ func build(character: CharacterData) -> void:
 func pose(f: Fighter) -> void:
 	if not ok:
 		return
-	if not _grounded:
+	# Ground using the real (animated) idle pose - but only once the rig is in the tree and
+	# the AnimationPlayer has actually posed the skeleton (not during the early build call).
+	if not _grounded and is_inside_tree() and f.state == Fighter.State.IDLE:
 		_grounded = true
 		_reground_to_pose()
 	_facing_pivot.rotation.y = 0.0 if f.facing >= 0 else PI
@@ -206,22 +208,8 @@ func _ground_and_tint(character: CharacterData) -> void:
 		m.visible = (m == keep)
 	if keep:
 		_apply_materials(keep, character)
-	# Drop so the feet sit on the ground (y = 0). Skinned-mesh AABBs are unreliable, so use
-	# the skeleton's foot-bone rest positions instead.
-	var skel := _find(_model, "Skeleton3D") as Skeleton3D
-	if skel:
-		var lowest := INF
-		var lowest_origin := Vector3.ZERO
-		for bone in ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]:
-			var bi := skel.find_bone(bone)
-			if bi >= 0:
-				var o: Vector3 = skel.get_bone_global_rest(bi).origin
-				if o.y < lowest:
-					lowest = o.y
-					lowest_origin = o
-		if lowest != INF:
-			var foot_in_rig: Vector3 = _model.transform.basis * lowest_origin
-			_model.position.y -= foot_in_rig.y
+	# Grounding happens once the idle pose is available (see _reground_to_pose). At
+	# position.y = 0 the model is already standing on the floor in its rest pose.
 
 ## Apply the (downscaled, web-friendly) Maskman textures per surface, with a gentle
 ## per-character tint. Falls back to a flat colour if the textures aren't present.
@@ -249,26 +237,36 @@ func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
 			mat.albedo_color = character.color
 		mesh.set_surface_override_material(s, mat)
 
-## Refine grounding using the ACTUAL animated (idle stance) pose, not the rest pose - the
-## boxing stance bends the knees so the feet sit lower than rest. Runs once, on the first
-## visual tick (when the rig is in the tree and the pose can be evaluated).
+## Ground the model so the boot SOLES sit on the floor, using the actual animated idle
+## stance. Key insight: the model's REST pose is authored standing on the ground, so the
+## lowest foot-bone height at rest equals the bone-above-sole distance. We then place the
+## posed lowest foot bone at that same height, putting the sole at y=0. Runs once, on the
+## first in-tree idle tick (when the AnimationPlayer has actually posed the skeleton).
+const FOOT_BONES := ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]
+
 func _reground_to_pose() -> void:
 	if _skel == null:
 		return
 	if _player:
 		_player.advance(0.0)
+	var rest_low := _lowest_foot_height(true)    # sole offset (rest, model grounded)
+	var pose_low := _lowest_foot_height(false)   # current animated stance
+	if rest_low != INF and pose_low != INF:
+		_model.position.y = rest_low - pose_low
+
+## Lowest foot-bone height in rig space (rotation+scale only, ignoring position), using the
+## rest pose when `rest` is true, else the current animated pose.
+func _lowest_foot_height(rest: bool) -> float:
 	var lowest := INF
-	var lowest_origin := Vector3.ZERO
-	for bone in ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]:
+	for bone in FOOT_BONES:
 		var bi := _skel.find_bone(bone)
-		if bi >= 0:
-			var o: Vector3 = _skel.get_bone_global_pose(bi).origin
-			if o.y < lowest:
-				lowest = o.y
-				lowest_origin = o
-	if lowest != INF:
-		var foot_in_rig: Vector3 = _model.transform * (_skel.transform * lowest_origin)
-		_model.position.y -= foot_in_rig.y
+		if bi < 0:
+			continue
+		var origin: Vector3 = (_skel.get_bone_global_rest(bi).origin if rest
+			else _skel.get_bone_global_pose(bi).origin)
+		var y: float = (_model.transform.basis * (_skel.transform.basis * origin)).y
+		lowest = minf(lowest, y)
+	return lowest
 
 func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D:
