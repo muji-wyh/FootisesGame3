@@ -186,6 +186,32 @@ def supercast():
     return out
 
 
+def hit_heavy():
+    # Heavy impact: lower, beefier thump with more body and a longer tail than `hit`.
+    n = int(RATE * 0.22)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        e = math.exp(-t * 20.0)
+        thump = math.sin(2 * math.pi * 90 * t) * e
+        body = math.sin(2 * math.pi * 150 * t) * math.exp(-t * 30.0)
+        noise = random.uniform(-1, 1) * math.exp(-t * 34.0)
+        out.append(0.8 * thump + 0.4 * body + 0.5 * noise)
+    return out
+
+
+def counter():
+    # Counter sting: a bright metallic "ting!" + flash to flag a counter/punish hit.
+    n = int(RATE * 0.28)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        chime = (math.sin(2 * math.pi * 880 * t) + 0.6 * math.sin(2 * math.pi * 1320 * t)) * math.exp(-t * 9.0)
+        flash = random.uniform(-1, 1) * math.exp(-t * 60.0)
+        out.append(0.5 * chime + 0.4 * flash)
+    return out
+
+
 if __name__ == "__main__":
     random.seed(7)
     _write("hit.wav", hit())
@@ -198,4 +224,7 @@ if __name__ == "__main__":
     _write("rising.wav", rising())
     _write("spin.wav", spin())
     _write("super.wav", supercast())
+    # New SFX appended last so the random stream (seed 7) for the clips above is unchanged.
+    _write("hit_heavy.wav", hit_heavy())
+    _write("counter.wav", counter())
     print("done")

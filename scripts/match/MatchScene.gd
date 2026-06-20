@@ -99,10 +99,55 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	f2.meter_changed.connect(func(c, m): hud.set_meter(1, c, m))
 	f1.countered.connect(_on_countered)
 	f2.countered.connect(_on_countered)
+	f1.got_hit.connect(func(blocked): _on_struck(f1, blocked))
+	f2.got_hit.connect(func(blocked): _on_struck(f2, blocked))
 	hud.set_health(0, f1.health, c1.max_health)
 	hud.set_health(1, f2.health, c2.max_health)
 	hud.set_meter(0, 0, c1.max_meter)
 	hud.set_meter(1, 0, c2.max_meter)
+
+## A fighter was hit / blocked: spawn an impact spark at the contact point and shake the
+## camera, scaling intensity, colour and height by strength / counter / where it landed.
+func _on_struck(victim: Fighter, blocked: bool) -> void:
+	var atk: Fighter = victim.opponent
+	var cx: float = victim.position.x
+	if atk != null and is_instance_valid(atk):
+		cx = (victim.position.x + atk.position.x) * 0.5
+	var p := _spark_params(victim, blocked)
+	var col: Color = p["color"]
+	var sc: float = p["scale"]
+	var amp: float = p["shake"]
+	var fr: int = p["frames"]
+	var y: float = p["y"]
+	var spark := HitSpark.new()
+	add_child(spark)
+	spark.position = Vector3(cx, y, 0.0)
+	spark.setup(col, sc)
+	camera.shake(amp, fr)
+
+func _spark_params(victim: Fighter, blocked: bool) -> Dictionary:
+	if blocked:
+		return {"color": Color(0.6, 0.8, 1.0), "scale": 0.6, "shake": 0.03, "frames": 5, "y": 1.0}
+	var y := _hit_y(victim)
+	match victim.last_counter:
+		GameConst.Counter.PUNISH:
+			return {"color": Color(1.0, 0.35, 0.9), "scale": 1.7, "shake": 0.22, "frames": 12, "y": y}
+		GameConst.Counter.COUNTER:
+			return {"color": Color(0.45, 0.9, 1.0), "scale": 1.35, "shake": 0.15, "frames": 10, "y": y}
+	match victim.hit_strength:
+		2:
+			return {"color": Color(1.0, 0.5, 0.2), "scale": 1.3, "shake": 0.12, "frames": 9, "y": y}
+		1:
+			return {"color": Color(1.0, 0.8, 0.35), "scale": 1.0, "shake": 0.07, "frames": 7, "y": y}
+	return {"color": Color(1.0, 0.95, 0.7), "scale": 0.75, "shake": 0.04, "frames": 6, "y": y}
+
+func _hit_y(victim: Fighter) -> float:
+	match victim.hit_height:
+		GameConst.HitHeight.HIGH:
+			return 1.5
+		GameConst.HitHeight.LOW:
+			return 0.55
+	return 1.1
 
 ## A fighter was hit as a Counter / Punish Counter: flash the HUD call-out.
 func _on_countered(kind: int) -> void:

@@ -77,6 +77,8 @@ func _initialize() -> void:
 	_test_knockdown_kinds()
 	_test_wakeup()
 	_test_reaction_clips()
+	_test_hitstop_tiers()
+	_test_impact_fx_smoke()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -554,3 +556,41 @@ func _test_reaction_clips() -> void:
 	# Get-up.
 	_check("wake-up -> a get-up clip", arig._wakeup_clip(f).begins_with("KB_GetUp"))
 	arig.queue_free()
+
+## Land `button` on a neutral opponent and capture the impact-freeze applied to both
+## fighters at the moment of contact.
+func _peak_hitstop(button: int) -> Dictionary:
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var vic := [0]
+	var atk := [0]
+	f2.got_hit.connect(func(_b): vic[0] = f2.hitstop)
+	f1.contact.connect(func(_b, _m): atk[0] = f1.hitstop)
+	_step(ctx, _mk(0, 0, button), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 12)
+	ctx["arena"].queue_free()
+	return {"vic": vic[0], "atk": atk[0]}
+
+func _test_hitstop_tiers() -> void:
+	print("[hitstop tiers]")
+	var light := _peak_hitstop(GameConst.Btn.LP)
+	var heavy := _peak_hitstop(GameConst.Btn.HP)
+	_check("heavy hit freezes longer than light", int(heavy["vic"]) > int(light["vic"]))
+	_check("attacker + victim freeze match (symmetric hitstop)", int(heavy["vic"]) == int(heavy["atk"]))
+
+func _test_impact_fx_smoke() -> void:
+	print("[impact fx smoke]")
+	var cam := FightCamera.new()
+	cam.shake(0.2, 8)
+	_check("camera shake armed", cam._shake_t == 8 and cam._shake_amp > 0.0)
+	var off := cam._shake_offset()
+	_check("shake offset finite + bounded", is_finite(off.x) and absf(off.x) <= 0.2)
+	cam.free()
+	var spark := HitSpark.new()
+	root.add_child(spark)
+	spark.setup(Color(1.0, 0.5, 0.2), 1.3)
+	_check("hit spark built core + ring", spark.get_child_count() == 2)
+	spark.free()

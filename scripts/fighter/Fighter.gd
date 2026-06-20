@@ -322,9 +322,23 @@ func receive_attack(m: MoveData, attacker_facing: int) -> bool:
 		_apply_block(m, attacker_facing)
 	else:
 		_apply_hit(m, attacker_facing)
-	apply_hitstop(m.hitstop)
+	var stop := m.hitstop
+	if not blocked:
+		stop += _hitstop_bonus()
+	apply_hitstop(stop)
 	got_hit.emit(blocked)
 	return blocked
+
+## Extra impact freeze (frames) for heavier and counter hits, layered on a move's base
+## hitstop so big / counter blows land harder. Read from this victim's just-set context.
+func _hitstop_bonus() -> int:
+	var b := hit_strength * 2
+	match last_counter:
+		GameConst.Counter.COUNTER:
+			b += 3
+		GameConst.Counter.PUNISH:
+			b += 6
+	return b
 
 func _is_blocking(m: MoveData, attacker_facing: int) -> bool:
 	if not _can_block():
@@ -552,7 +566,10 @@ func gain_meter(amount: int) -> void:
 func mark_connected(blocked: bool, m: MoveData) -> void:
 	move_hits_done += 1
 	move_hit_cooldown = m.hit_gap
-	hitstop = m.hitstop
+	var stop := m.hitstop
+	if not blocked and opponent != null and is_instance_valid(opponent):
+		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
+	hitstop = stop
 	if not blocked:
 		_add_meter(m.meter_gain)
 	contact.emit(blocked, m)

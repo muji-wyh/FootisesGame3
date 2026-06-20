@@ -13,11 +13,23 @@ const LOOK_HEIGHT := 1.25
 const FOLLOW := 0.18
 
 var _target := Vector3(0, HEIGHT, MIN_Z)
+var _base := Vector3(0, HEIGHT, MIN_Z)
+var _shake_amp: float = 0.0
+var _shake_t: int = 0
+var _shake_frames: int = 1
 
 func _ready() -> void:
 	fov = 48.0
 	position = Vector3(0, HEIGHT, MIN_Z)
 	look_at(Vector3(0, LOOK_HEIGHT, 0), Vector3.UP)
+
+## Request a screen shake (impact feedback). Stronger requests win; decays over `frames`.
+func shake(amp: float, frames: int) -> void:
+	if amp <= _shake_amp and _shake_t > 0:
+		return
+	_shake_amp = amp
+	_shake_t = frames
+	_shake_frames = maxi(1, frames)
 
 func track(a: Vector3, b: Vector3) -> void:
 	var mid_x := (a.x + b.x) * 0.5
@@ -26,5 +38,15 @@ func track(a: Vector3, b: Vector3) -> void:
 	var bound: float = Arena.STAGE_HALF_WIDTH - 2.0
 	mid_x = clampf(mid_x, -bound, bound)
 	_target = Vector3(mid_x, HEIGHT, z)
-	position = position.lerp(_target, FOLLOW)
-	look_at(Vector3(position.x, LOOK_HEIGHT, 0), Vector3.UP)
+	_base = _base.lerp(_target, FOLLOW)
+	position = _base + _shake_offset()
+	look_at(Vector3(_base.x, LOOK_HEIGHT, 0), Vector3.UP)
+
+func _shake_offset() -> Vector3:
+	if _shake_t <= 0:
+		return Vector3.ZERO
+	_shake_t -= 1
+	var decay: float = _shake_amp * float(_shake_t) / float(_shake_frames)
+	if _shake_t <= 0:
+		_shake_amp = 0.0
+	return Vector3(randf_range(-decay, decay), randf_range(-decay, decay), 0.0)

@@ -5,7 +5,7 @@ extends Node
 ## pool of AudioStreamPlayers lets several effects overlap. BGM loops by replaying on the
 ## `finished` signal. Safe in headless mode (the dummy audio driver makes play() a no-op).
 
-const SFX := ["hit", "block", "whoosh", "jump", "ko", "fire", "rising", "spin", "super"]
+const SFX := ["hit", "block", "whoosh", "jump", "ko", "fire", "rising", "spin", "super", "hit_heavy", "counter"]
 const POOL_SIZE := 8
 
 var _streams := {}
@@ -47,8 +47,23 @@ func _free_player() -> AudioStreamPlayer:
 
 func wire_fighter(f: Fighter) -> void:
 	f.move_started.connect(func(m): play(m.sfx if m.sfx != "" else "whoosh", -4.0))
-	f.contact.connect(func(blocked, _m): play("block" if blocked else "hit"))
+	f.contact.connect(func(blocked, _m): _on_contact(f, blocked))
 	f.jumped.connect(func(): play("jump", -7.0))
+
+## Pick the impact SFX by outcome: block click, counter sting, heavy thump, or light hit.
+## Reads the victim (the attacker's opponent), whose hit context was just set on connect.
+func _on_contact(attacker: Fighter, blocked: bool) -> void:
+	if blocked:
+		play("block")
+		return
+	var vic: Fighter = attacker.opponent
+	if vic != null and vic.last_counter != GameConst.Counter.NONE:
+		play("counter", 1.0)
+		play("hit_heavy" if vic.hit_strength >= 2 else "hit")
+	elif vic != null and vic.hit_strength >= 2:
+		play("hit_heavy")
+	else:
+		play("hit")
 
 func wire_arena(arena: Arena) -> void:
 	arena.ko.connect(func(_side): play("ko"))
