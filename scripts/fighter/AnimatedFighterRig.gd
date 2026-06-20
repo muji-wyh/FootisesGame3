@@ -41,8 +41,8 @@ const STATE_CLIP := {
 	"ko": "KB_HighKO_Powerful",
 	"win": "KB_Idle_3",
 }
-## Hit-reaction clips by strength (0=light, 1=medium, 2=heavy).
-const HIT_CLIPS := ["KB_Hit_p_MidFront_Weak", "KB_Hit_m_MidFront_Med", "KB_Hit_m_HighFront_Stagger"]
+## Hit-reaction clips are resolved per-hit by direction/height/strength (see
+## _resolve_hit_clip); knockdown + get-up clips by cause (see _knockdown_clip/_wakeup_clip).
 const LOOPED := ["KB_Idle_1", "KB_Idle_3", "KB_WalkFwd1", "KB_WalkBwd", "KB_crouch_Idle"]
 
 var ok: bool = false
@@ -92,19 +92,41 @@ func pose(f: Fighter) -> void:
 	_facing_pivot.rotation.y = 0.0 if f.facing >= 0 else PI
 
 	if f.state == Fighter.State.ATTACK:
-		if f.current_move != _cur_move:
-			_cur_move = f.current_move
-			var clip := _move_clip(f.current_move)
-			var dur := maxf(0.1, float(f.current_move.total_frames()) / GameConst.TICK_RATE)
-			var len := _length(clip)
-			var spd := clampf(len / dur, 0.4, 3.0)
-			_play(clip, 0.05, spd, false)
+		_pose_attack(f)
+		return
+	_cur_move = null
+
+	# Knockdown and get-up are one-shot clips fitted to their state's tick budget, so the
+	# (much longer) mocap fall / rise reads as a single complete motion in the time the
+	# fighter is actually down / standing up.
+	if f.state == Fighter.State.KNOCKDOWN:
+		var kd := _knockdown_clip(f)
+		if kd != _cur_clip:
+			_play_fitted(kd, Fighter.KNOCKDOWN_TICKS, 0.06)
+		return
+	if f.state == Fighter.State.WAKEUP:
+		var wu := _wakeup_clip(f)
+		if wu != _cur_clip:
+			_play_fitted(wu, Fighter.WAKEUP_TICKS, 0.08)
 		return
 
-	_cur_move = null
 	var target := _state_clip(f)
 	if target != _cur_clip:
 		_play(target, 0.12, 1.0, target in LOOPED)
+
+func _pose_attack(f: Fighter) -> void:
+	if f.current_move != _cur_move:
+		_cur_move = f.current_move
+		var clip := _move_clip(f.current_move)
+		_play_fitted(clip, f.current_move.total_frames(), 0.05)
+
+## Play a one-shot clip time-scaled to span `ticks` simulation frames (so a long mocap
+## clip fits the move/knockdown/wake-up window). Speed is clamped to stay readable.
+func _play_fitted(clip: String, ticks: int, blend: float) -> void:
+	var dur := maxf(0.1, float(ticks) / GameConst.TICK_RATE)
+	var len := _length(clip)
+	var spd := clampf(len / dur, 0.4, 4.0)
+	_play(clip, blend, spd, false)
 
 func _state_clip(f: Fighter) -> String:
 	match f.state:
@@ -125,14 +147,93 @@ func _state_clip(f: Fighter) -> String:
 		Fighter.State.BLOCKSTUN:
 			return STATE_CLIP["block"]
 		Fighter.State.HITSTUN:
-			return HIT_CLIPS[clampi(f.hit_strength, 0, HIT_CLIPS.size() - 1)]
+			return _resolve_hit_clip(f)
 		Fighter.State.KNOCKDOWN:
-			return STATE_CLIP["knockdown"]
+			return _knockdown_clip(f)
+		Fighter.State.WAKEUP:
+			return _wakeup_clip(f)
 		Fighter.State.KO:
 			return STATE_CLIP["ko"]
 		Fighter.State.WIN:
 			return STATE_CLIP["win"]
 	return STATE_CLIP["idle"]
+
+## --- directional hit-reaction resolution ----------------------------------
+
+## Resolve a directional hit-reaction clip from the victim's hit context (height, strength,
+## stance, air, cross-up). Builds a prioritised candidate list and returns the first clip
+## that was actually grafted, degrading gracefully where the Kubold set has gaps (e.g. Low
+## has no Front or Stagger variant).
+func _resolve_hit_clip(f: Fighter) -> String:
+	var tier: int = clampi(f.hit_strength, 0, 2)
+	# Crouching victims use the dedicated (light, mid-height) crouch-hit set.
+	if f.hit_crouch and f.on_ground:
+		var cdirs: Array[String]
+		if f.hit_from_back:
+			cdirs = ["Right", "Left", "Front"]
+		else:
+			cdirs = ["Front", "Left", "Right"]
+		var cc: Array[String] = []
+		for d in cdirs:
+			cc.append("KB_crouch_Hit_p_Mid%s_Weak" % d)
+		return _first_existing(cc, "KB_Hit_p_MidFront_Weak")
+	var height := _height_token(f)
+	var dirs: Array[String]
+	if f.hit_from_back:
+		dirs = ["Back", "Right", "Left", "Front"]
+	else:
+		dirs = ["Front", "Left", "Right"]
+	var cands: Array[String] = []
+	for h in [height, "Mid", "High"]:
+		for d in dirs:
+			cands.append_array(_tier_names(h, d, tier))
+	return _first_existing(cands, "KB_Hit_p_MidFront_Weak")
+
+func _height_token(f: Fighter) -> String:
+	if not f.on_ground or f.hit_air:
+		return "High"
+	match f.hit_height:
+		GameConst.HitHeight.HIGH:
+			return "High"
+		GameConst.HitHeight.LOW:
+			return "Low"
+	return "Mid"
+
+## Strength tiers: requested strength first, then progressively lighter fallbacks. The 'p'
+## (light) set only has Weak; the 'm' set carries Weak / Med / Stagger.
+func _tier_names(h: String, d: String, tier: int) -> Array[String]:
+	match tier:
+		2:
+			return ["KB_Hit_m_%s%s_Stagger" % [h, d], "KB_Hit_m_%s%s_Med" % [h, d], "KB_Hit_m_%s%s_Weak" % [h, d], "KB_Hit_p_%s%s_Weak" % [h, d]]
+		1:
+			return ["KB_Hit_m_%s%s_Med" % [h, d], "KB_Hit_m_%s%s_Weak" % [h, d], "KB_Hit_p_%s%s_Weak" % [h, d]]
+		_:
+			return ["KB_Hit_p_%s%s_Weak" % [h, d], "KB_Hit_m_%s%s_Weak" % [h, d]]
+
+## Pick the knockdown clip from how the victim went down (uppercut / sweep / air / heavy).
+func _knockdown_clip(f: Fighter) -> String:
+	match f.knockdown_kind:
+		GameConst.Knockdown.UPPER:
+			return _first_existing(["KB_UpperKO", "KB_HighKO_Powerful", "KB_MidKO_Powerful"], STATE_CLIP["knockdown"])
+		GameConst.Knockdown.LOW:
+			return _first_existing(["KB_LowKO_R", "KB_LowKO_L", "KB_MidKO"], STATE_CLIP["knockdown"])
+		GameConst.Knockdown.AIR:
+			return _first_existing(["KB_HighKO_Air", "KB_HighKO_Powerful", "KB_MidKO"], STATE_CLIP["knockdown"])
+		GameConst.Knockdown.HEAVY:
+			return _first_existing(["KB_MidKO_Powerful", "KB_MidKO"], STATE_CLIP["knockdown"])
+	return STATE_CLIP["knockdown"]
+
+## Get-up clip: rise face-up by default, or face-down when knocked from behind.
+func _wakeup_clip(f: Fighter) -> String:
+	if f.hit_from_back:
+		return _first_existing(["KB_GetUpFace", "KB_GetUpBack"], STATE_CLIP["idle"])
+	return _first_existing(["KB_GetUpBack", "KB_GetUpFace"], STATE_CLIP["idle"])
+
+func _first_existing(candidates: Array[String], fallback: String) -> String:
+	for c in candidates:
+		if _player.has_animation(LIB + "/" + c):
+			return c
+	return fallback
 
 func _move_clip(m: MoveData) -> String:
 	if m != null and m.anim_clip != "" and _player.has_animation(LIB + "/" + m.anim_clip):

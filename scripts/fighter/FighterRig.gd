@@ -80,6 +80,11 @@ func pose(f: Fighter) -> void:
 		Fighter.State.KNOCKDOWN, Fighter.State.KO:
 			_facing_pivot.rotation.z = PI * 0.5
 			_facing_pivot.position.y = 0.2
+		Fighter.State.WAKEUP:
+			# Rise from lying to standing over the get-up window.
+			var p := clampf(float(f.state_frame) / float(Fighter.WAKEUP_TICKS), 0.0, 1.0)
+			_facing_pivot.rotation.z = (1.0 - p) * (PI * 0.5)
+			_facing_pivot.position.y = (1.0 - p) * 0.2
 		Fighter.State.WIN:
 			_arm_l.rotation.z = 2.2
 			_arm_r.rotation.z = -2.2

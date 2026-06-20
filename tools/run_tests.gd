@@ -74,6 +74,9 @@ func _initialize() -> void:
 	_test_counter()
 	_test_punish_counter()
 	_test_counter_clean_hit()
+	_test_knockdown_kinds()
+	_test_wakeup()
+	_test_reaction_clips()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -458,3 +461,96 @@ func _test_counter_clean_hit() -> void:
 	_check("clean hit is not a counter", kinds[0] == GameConst.Counter.NONE)
 	_check("victim counter kind stays NONE", f2.last_counter == GameConst.Counter.NONE)
 	ctx["arena"].queue_free()
+
+## Launch the opponent with `button` (+ optional crouch) and return how the resulting
+## knockdown was classified.
+func _knockdown_from(button: int, dir_y: int) -> int:
+	var ctx := _build("kael", "rho")
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = 5.3
+	f2.position.x = 6.2
+	_step(ctx, _mk(0, dir_y, button), _neutral(), 1)
+	var kind := GameConst.Knockdown.NONE
+	for i in range(120):
+		_step(ctx, _mk(0, dir_y), _neutral(), 1)
+		if f2.knockdown_kind != GameConst.Knockdown.NONE:
+			kind = f2.knockdown_kind
+			break
+	ctx["arena"].queue_free()
+	return kind
+
+func _test_knockdown_kinds() -> void:
+	print("[knockdown variety]")
+	_check("sweep (crouch HK) -> low knockdown", _knockdown_from(GameConst.Btn.HK, -1) == GameConst.Knockdown.LOW)
+	_check("crouch uppercut (crouch HP) -> upper knockdown", _knockdown_from(GameConst.Btn.HP, -1) == GameConst.Knockdown.UPPER)
+	_check("stand HK launcher -> heavy knockdown", _knockdown_from(GameConst.Btn.HK, 0) == GameConst.Knockdown.HEAVY)
+
+func _test_wakeup() -> void:
+	print("[knockdown / wakeup flow]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	# Corner P2 and launch with Stand HK, then watch the full down -> get-up -> idle cycle.
+	f1.position.x = 5.4
+	f2.position.x = 6.2
+	_step(ctx, _mk(0, 0, GameConst.Btn.HK), _neutral(), 1)
+	var saw_knockdown := false
+	var saw_wakeup := false
+	for i in range(260):
+		_step(ctx, _neutral(), _neutral(), 1)
+		if f2.state == Fighter.State.KNOCKDOWN:
+			saw_knockdown = true
+		if f2.state == Fighter.State.WAKEUP:
+			saw_wakeup = true
+	_check("victim was knocked down", saw_knockdown)
+	_check("victim played a get-up (WAKEUP)", saw_wakeup)
+	_check("victim recovered to neutral", f2.state == Fighter.State.IDLE)
+	_check("knockdown kind cleared after wake-up", f2.knockdown_kind == GameConst.Knockdown.NONE)
+	ctx["arena"].queue_free()
+
+func _test_reaction_clips() -> void:
+	print("[reaction clip resolution]")
+	var kael := CharacterLibrary.create("kael")
+	if kael.model_path == "" or not ResourceLoader.exists(kael.model_path):
+		print("  SKIP: model assets not present (clean clone)")
+		return
+	var arig := AnimatedFighterRig.new()
+	root.add_child(arig)
+	arig.build(kael)
+	var f := Fighter.new()
+	f.setup(kael, Manual.new(), GameConst.Side.P1, 0.0)
+	f.on_ground = true
+	f.hit_air = false
+	f.hit_from_back = false
+	f.hit_crouch = false
+	# Light mid front.
+	f.hit_strength = 0
+	f.hit_height = GameConst.HitHeight.MID
+	_check("light mid front -> p MidFront Weak", arig._resolve_hit_clip(f) == "KB_Hit_p_MidFront_Weak")
+	# Heavy high front -> stagger.
+	f.hit_strength = 2
+	f.hit_height = GameConst.HitHeight.HIGH
+	_check("heavy high front -> m HighFront Stagger", arig._resolve_hit_clip(f) == "KB_Hit_m_HighFront_Stagger")
+	# Low has no Front/Stagger -> degrade to an existing Low clip.
+	f.hit_strength = 2
+	f.hit_height = GameConst.HitHeight.LOW
+	var low_clip: String = arig._resolve_hit_clip(f)
+	_check("low hit resolves to an existing Low clip",
+		("Low" in low_clip) and arig._player.has_animation("kb/" + low_clip))
+	# Crouching victim uses the crouch-hit set.
+	f.hit_crouch = true
+	f.hit_height = GameConst.HitHeight.MID
+	f.hit_strength = 0
+	_check("crouch hit -> crouch-hit clip", arig._resolve_hit_clip(f).begins_with("KB_crouch_Hit"))
+	f.hit_crouch = false
+	# Knockdown by cause.
+	f.knockdown_kind = GameConst.Knockdown.UPPER
+	_check("upper knockdown -> UpperKO", arig._knockdown_clip(f) == "KB_UpperKO")
+	f.knockdown_kind = GameConst.Knockdown.LOW
+	_check("low knockdown -> LowKO", arig._knockdown_clip(f).begins_with("KB_LowKO"))
+	f.knockdown_kind = GameConst.Knockdown.AIR
+	_check("air knockdown -> HighKO_Air", arig._knockdown_clip(f) == "KB_HighKO_Air")
+	# Get-up.
+	_check("wake-up -> a get-up clip", arig._wakeup_clip(f).begins_with("KB_GetUp"))
+	arig.queue_free()

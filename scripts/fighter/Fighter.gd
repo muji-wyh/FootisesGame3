@@ -21,7 +21,7 @@ signal got_hit(blocked: bool)                    # this fighter was hit
 signal countered(kind: int)                      # this fighter was hit as a Counter/Punish
 signal jumped()
 
-enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN }
+enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP }
 
 const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.42
@@ -32,6 +32,8 @@ const DASH_SPEED := 7.5
 const BACKDASH_SPEED := 7.0
 const COUNTER_BONUS_HITSTUN := 6    # extra hitstun on a Counter Hit
 const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo window)
+const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knockdown
+const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
 
 # Configuration
 var character: CharacterData
@@ -62,6 +64,7 @@ var hit_crouch: bool = false       # victim was crouching when struck
 var hit_air: bool = false          # victim was airborne when struck
 var hit_from_back: bool = false    # victim was struck from behind (cross-up)
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
+var knockdown_kind: int = GameConst.Knockdown.NONE  # how the current knockdown was caused
 var input_buffer := InputBuffer.new()
 
 # Dash double-tap tracking
@@ -123,6 +126,8 @@ func advance(delta: float) -> void:
 			_step_stun()
 		State.KNOCKDOWN:
 			_step_knockdown()
+		State.WAKEUP:
+			_step_wakeup()
 		State.KO:
 			velocity.x = 0
 		State.INTRO, State.WIN:
@@ -347,7 +352,7 @@ func _is_actionable() -> bool:
 	return state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH]
 
 func _is_locked_out() -> bool:
-	return state in [State.HITSTUN, State.BLOCKSTUN, State.KNOCKDOWN, State.KO, State.INTRO, State.WIN]
+	return state in [State.HITSTUN, State.BLOCKSTUN, State.KNOCKDOWN, State.WAKEUP, State.KO, State.INTRO, State.WIN]
 
 func _apply_block(m: MoveData, attacker_facing: int) -> void:
 	current_move = null
@@ -383,6 +388,7 @@ func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 		return   # KO handled by RoundManager observing health
 	if m.launch:
 		launched = true
+		knockdown_kind = _classify_knockdown(m)
 		velocity.y = m.launch_velocity
 		velocity.x = attacker_facing * m.knockback
 		on_ground = false
@@ -393,6 +399,18 @@ func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 		stun_timer = m.hitstun + bonus_stun
 		velocity.x = attacker_facing * m.knockback
 		_goto(State.HITSTUN)
+
+## Classify how a launching hit knocks the victim down, selecting the knockdown/get-up
+## animation: a juggle out of the air, a sweep off the legs, an uppercut launch, or a
+## generic heavy slam.
+func _classify_knockdown(m: MoveData) -> int:
+	if not on_ground:
+		return GameConst.Knockdown.AIR
+	if m.effective_hit_height() == GameConst.HitHeight.LOW:
+		return GameConst.Knockdown.LOW
+	if m.launch_velocity >= 9.0:
+		return GameConst.Knockdown.UPPER
+	return GameConst.Knockdown.HEAVY
 
 ## Counter classification from this fighter's state at the instant of being hit: being
 ## struck during the start-up/active frames of one's own attack is a Counter; during its
@@ -438,6 +456,19 @@ func _step_knockdown() -> void:
 	velocity.x *= 0.7
 	stun_timer -= 1
 	if stun_timer <= 0:
+		_start_wakeup()
+
+## Begin the get-up. Brief, invulnerable, then back to neutral - the SF6 wake-up beat.
+func _start_wakeup() -> void:
+	velocity.x = 0
+	stun_timer = WAKEUP_TICKS
+	_goto(State.WAKEUP)
+
+func _step_wakeup() -> void:
+	velocity.x = 0
+	stun_timer -= 1
+	if stun_timer <= 0:
+		knockdown_kind = GameConst.Knockdown.NONE
 		_goto(State.IDLE)
 
 # --- physics ---------------------------------------------------------------
@@ -466,7 +497,7 @@ func _on_landed() -> void:
 		State.HITSTUN:
 			if launched:
 				launched = false
-				stun_timer = 24
+				stun_timer = KNOCKDOWN_TICKS
 				velocity.x = 0
 				_goto(State.KNOCKDOWN)
 
@@ -475,7 +506,7 @@ func _on_landed() -> void:
 ## World-space hurtboxes. Empty while knocked down or KO'd (invulnerable).
 func hurtboxes() -> Array[AABB]:
 	var boxes: Array[AABB] = []
-	if state in [State.KNOCKDOWN, State.KO]:
+	if state in [State.KNOCKDOWN, State.KO, State.WAKEUP]:
 		return boxes
 	var crouching := state == State.CROUCH or (current_move != null and current_move.stance == GameConst.Stance.CROUCH and state == State.ATTACK)
 	var height := 1.15 if crouching else 1.75
@@ -555,6 +586,7 @@ func reset_for_round() -> void:
 	hit_air = false
 	hit_from_back = false
 	last_counter = GameConst.Counter.NONE
+	knockdown_kind = GameConst.Knockdown.NONE
 	on_ground = true
 	position.y = 0
 	input_buffer.clear()

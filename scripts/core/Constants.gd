@@ -63,6 +63,15 @@ enum Counter {
 	PUNISH,
 }
 
+## How a fighter was knocked down, selecting the knockdown + get-up animations.
+enum Knockdown {
+	NONE,
+	HEAVY,   # generic hard slam (mid, powerful)
+	UPPER,   # launched by an uppercut / rising anti-air
+	LOW,     # swept off their feet
+	AIR,     # smacked out of the air (juggle finish)
+}
+
 ## Move categories, used for cancel rules and meter.
 enum MoveKind {
 	NORMAL,
