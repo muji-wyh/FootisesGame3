@@ -108,41 +108,46 @@ static func _rho() -> CharacterData:
 	c.walk_speed = 2.9
 	c.back_speed = 2.3
 	c.jump_velocity = 9.2
+	c.model_path = "res://assets/models/maskman.fbx"
+	c.model_face_deg = 90.0
+	c.model_scale = 1.12   # a bit bigger - Rho is the heavy bruiser
 
 	c.add_move(_move({"id": "st_lp", "display_name": "Hook Jab", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.LP, "startup": 5, "active": 3, "recovery": 9,
 		"damage": 34, "hitstun": 14, "blockstun": 9, "hitstop": 7, "guard": GameConst.Guard.MID,
-		"knockback": 1.3, "anim_limb": "arm_l", "anim_extend": 0.5,
+		"knockback": 1.3, "anim_limb": "arm_l", "anim_extend": 0.5, "anim_clip": "KB_p_Jab_R_1",
 		"cancel_into": ["st_hp", "shoulder", "super_rush"]}))
 
 	c.add_move(_move({"id": "st_hp", "display_name": "Heavy Hook", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.HP, "startup": 9, "active": 4, "recovery": 18,
 		"damage": 95, "hitstun": 22, "blockstun": 13, "hitstop": 10, "guard": GameConst.Guard.MID,
-		"knockback": 2.6, "anim_limb": "arm_r", "anim_extend": 0.85,
+		"knockback": 2.6, "anim_limb": "arm_r", "anim_extend": 0.85, "anim_clip": "KB_p_Hook_R",
 		"cancel_into": ["shoulder", "super_rush"]}))
 
 	c.add_move(_move({"id": "cr_lk", "display_name": "Shin Kick", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.LK, "crouching": true, "startup": 6, "active": 3, "recovery": 10,
 		"damage": 30, "hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.LOW,
-		"knockback": 1.0, "anim_limb": "leg_r", "anim_extend": 0.7,
+		"knockback": 1.0, "anim_limb": "leg_r", "anim_extend": 0.7, "anim_clip": "KB_crouch_p_LowKick_L",
 		"cancel_into": ["shoulder"]}))
 
 	c.add_move(_move({"id": "st_hk", "display_name": "Spin Kick", "kind": GameConst.MoveKind.NORMAL,
 		"button": GameConst.Btn.HK, "startup": 12, "active": 4, "recovery": 22,
 		"damage": 95, "hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID,
-		"knockback": 3.2, "launch": true, "launch_velocity": 6.8,
+		"knockback": 3.2, "launch": true, "launch_velocity": 6.8, "anim_clip": "KB_m_RoundhouseKickRight",
 		"anim_limb": "leg_r", "anim_extend": 0.95}))
 
 	c.add_move(_move({"id": "shoulder", "display_name": "Bull Rush", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.LK, "motion": MotionParser.QCF, "startup": 10, "active": 6, "recovery": 24,
 		"damage": 80, "hitstun": 22, "blockstun": 14, "hitstop": 10, "guard": GameConst.Guard.MID,
 		"knockback": 2.5, "advance": 6.5, "meter_gain": 12, "anim_limb": "arm_l", "anim_extend": 0.8,
+		"sfx": "spin", "anim_clip": "KB_p_Elbow_R",
 		"hit_offset": Vector3(1.0, 1.0, 0.0), "hit_size": Vector3(1.0, 0.9, 0.7)}))
 
 	c.add_move(_move({"id": "headbutt", "display_name": "Sky Headbutt", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.DP, "startup": 6, "active": 8, "recovery": 32,
 		"damage": 95, "hitstun": 24, "blockstun": 14, "hitstop": 10, "guard": GameConst.Guard.MID,
 		"knockback": 1.5, "launch": true, "launch_velocity": 9.0, "meter_gain": 14,
+		"sfx": "rising", "anim_clip": "KB_p_Uppercut_R",
 		"anim_limb": "arm_r", "anim_extend": 0.6, "hit_offset": Vector3(0.6, 1.7, 0.0),
 		"hit_size": Vector3(0.8, 1.1, 0.7)}))
 
@@ -151,6 +156,7 @@ static func _rho() -> CharacterData:
 		"startup": 8, "active": 6, "recovery": 46, "damage": 280, "hitstun": 36, "blockstun": 20,
 		"chip": 34, "hitstop": 14, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 9.0,
 		"launch": true, "launch_velocity": 8.0, "anim_limb": "arm_l", "anim_extend": 0.9,
+		"sfx": "super", "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.1, 1.0, 0.0), "hit_size": Vector3(1.2, 1.2, 0.8)}))
 	return c
 
