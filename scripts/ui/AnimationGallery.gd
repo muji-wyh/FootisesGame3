@@ -12,6 +12,7 @@ const SPACING_Z := 3.2
 
 var _cam: Camera3D
 var _pan_speed := 14.0
+var _dragging := false
 
 func _ready() -> void:
 	_add_environment()
@@ -64,11 +65,11 @@ func _spawn(ps: PackedScene, lib: AnimationLibrary, clip: String, pos: Vector3) 
 
 	var label := Label3D.new()
 	label.text = clip
-	label.position = pos + Vector3(0, 2.15, 0)
+	label.position = pos + Vector3(0, 2.05, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.font_size = 64
-	label.pixel_size = 0.0045
-	label.outline_size = 16
+	label.font_size = 40
+	label.pixel_size = 0.0016
+	label.outline_size = 6
 	label.modulate = Color(1, 0.95, 0.7)
 	add_child(label)
 
@@ -104,6 +105,33 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		Game.goto_scene("res://scenes/ui/MainMenu.tscn")
+		return
+	if _cam == null:
+		return
+	# Mouse: left-drag to pan, wheel to zoom (dolly).
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_dragging = mb.pressed
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
+			_dolly(1.0)
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
+			_dolly(-1.0)
+	elif event is InputEventMouseMotion and _dragging:
+		var rel := (event as InputEventMouseMotion).relative
+		var scale := 0.012 * clampf(_cam.position.y / 5.0, 0.5, 4.0)
+		var right := _cam.transform.basis.x
+		var fwd := -_cam.transform.basis.z
+		fwd.y = 0.0
+		fwd = fwd.normalized()
+		# Grab-and-drag: the grid follows the cursor.
+		_cam.position += right * (-rel.x * scale) + fwd * (rel.y * scale)
+
+## Dolly the camera along its view direction (mouse wheel zoom).
+func _dolly(dir: float) -> void:
+	var fwd := -_cam.transform.basis.z
+	_cam.position += fwd * dir * 2.0 * clampf(_cam.position.y / 5.0, 0.5, 4.0)
+	_cam.position.y = clampf(_cam.position.y, 1.5, 40.0)
 
 # --- scene setup -----------------------------------------------------------
 
@@ -143,7 +171,7 @@ func _build_ui(count: int) -> void:
 	var hint := Label.new()
 	hint.position = Vector2(24, 56)
 	hint.add_theme_font_size_override("font_size", 18)
-	hint.text = "WASD / arrows: pan    Q / E: down / up    ESC: back to menu"
+	hint.text = "Mouse: drag to pan, wheel to zoom    WASD / arrows: pan    Q / E: down / up    ESC: back"
 	layer.add_child(hint)
 
 func _show_notice(text: String) -> void:
