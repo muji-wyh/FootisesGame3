@@ -4,7 +4,7 @@ extends Control
 ## mode the right side is labelled (CPU) but still selectable.
 
 var _ids: Array[String] = CharacterLibrary.ids()
-var _sel := [0, 1]
+var _sel := [0, mini(1, _ids.size() - 1)]   # clamp P2's pick to the roster (1 char -> mirror)
 var _name_labels := [null, null]
 var _blurb_labels := [null, null]
 
@@ -81,9 +81,11 @@ func _make_column(side: int) -> Control:
 	vb.add_child(blurb)
 	_blurb_labels[side] = blurb
 
-	var change := _button("CHANGE", 20)
-	change.pressed.connect(func(): _cycle(side))
-	vb.add_child(change)
+	# Only offer a CHANGE button when there is more than one fighter to pick.
+	if _ids.size() > 1:
+		var change := _button("CHANGE", 20)
+		change.pressed.connect(func(): _cycle(side))
+		vb.add_child(change)
 
 	_refresh(side)
 	return vb

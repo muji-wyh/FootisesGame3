@@ -5,8 +5,8 @@ extends Node
 ## to hand-edit the project's InputMap text and risk syntax errors).
 
 var mode: int = GameConst.Mode.LOCAL_2P
-var p1_char_id: String = "kael"
-var p2_char_id: String = "rho"
+var p1_char_id: String = "blaze"
+var p2_char_id: String = "blaze"
 
 ## Set by the match when it ends, read by the results screen.
 var last_winner_side: int = 0

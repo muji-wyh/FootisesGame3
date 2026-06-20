@@ -28,7 +28,7 @@ func _mk(dx: int, dy: int, press: int = 0, held: int = -1) -> InputFrame:
 		held = press
 	return InputFrame.new(dx, dy, held, press)
 
-func _build(id1: String = "kael", id2: String = "rho") -> Dictionary:
+func _build(id1: String = "blaze", id2: String = "blaze") -> Dictionary:
 	var arena := Arena.new()
 	root.add_child(arena)
 	var c1 := Manual.new()
@@ -155,8 +155,10 @@ func _test_super() -> void:
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	var arena: Arena = ctx["arena"]
 	f1.meter = f1.character.max_meter   # grant full meter
+	# Corner P2 so Blaze's advancing multi-hit super connects in full.
+	f1.position.x = 5.4
+	f2.position.x = 6.3
 	var hp_before: int = f2.health
 	# QCF QCF + HP as P1.
 	_step(ctx, _mk(0, -1), _neutral(), 2)
@@ -166,7 +168,7 @@ func _test_super() -> void:
 	_step(ctx, _mk(1, -1), _neutral(), 2)
 	_step(ctx, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
 	_check("super consumed meter", f1.meter < f1.character.max_meter)
-	_step(ctx, _neutral(), _mk(0, 0), 90)
+	_step(ctx, _neutral(), _neutral(), 90)
 	_check("super dealt heavy damage", hp_before - f2.health >= 200)
 	ctx["arena"].queue_free()
 
@@ -236,8 +238,8 @@ func _test_cpu_ai() -> void:
 	var cpu := CpuController.new(2)            # P2 is the AI (difficulty 2)
 	var f1 := Fighter.new()
 	var f2 := Fighter.new()
-	f1.setup(CharacterLibrary.create("rho"), human, GameConst.Side.P1, -2.4)
-	f2.setup(CharacterLibrary.create("kael"), cpu, GameConst.Side.P2, 2.4)
+	f1.setup(CharacterLibrary.create("blaze"), human, GameConst.Side.P1, -2.4)
+	f2.setup(CharacterLibrary.create("blaze"), cpu, GameConst.Side.P2, 2.4)
 	arena.setup_fighters(f1, f2)
 	arena.set_active(true)
 	var start_x2: float = f2.position.x
@@ -251,7 +253,7 @@ func _test_cpu_ai() -> void:
 
 func _test_blaze_roster() -> void:
 	print("[blaze roster]")
-	_check("roster includes blaze", CharacterLibrary.ids().has("blaze"))
+	_check("roster is exactly [blaze]", CharacterLibrary.ids() == ["blaze"])
 	var b := CharacterLibrary.create("blaze")
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze has 3 specials", b.specials.size() == 3)
@@ -260,7 +262,7 @@ func _test_blaze_roster() -> void:
 
 func _test_multihit() -> void:
 	print("[multi-hit]")
-	var ctx := _build("blaze", "rho")
+	var ctx := _build("blaze", "blaze")
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
 	# Corner P2 so Blaze's advancing hurricane keeps connecting.
@@ -290,13 +292,13 @@ func _test_move_sfx() -> void:
 
 func _test_animated_rig() -> void:
 	print("[animated rig]")
-	var kael := CharacterLibrary.create("kael")
-	if kael.model_path == "" or not ResourceLoader.exists(kael.model_path):
+	var blaze := CharacterLibrary.create("blaze")
+	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
 		print("  SKIP: model assets not present (clean clone)")
 		return
 	var arig := AnimatedFighterRig.new()
 	root.add_child(arig)
-	arig.build(kael)
+	arig.build(blaze)
 	_check("animated rig built ok", arig.ok)
 	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
@@ -312,7 +314,7 @@ func _test_animated_rig() -> void:
 
 func _test_six_buttons() -> void:
 	print("[six buttons]")
-	var k := CharacterLibrary.create("kael")
+	var k := CharacterLibrary.create("blaze")
 	_check("18 normals (6 buttons x 3 stances)", k.normals.size() == 18)
 	var st_mp := k.get_move("st_mp")
 	_check("standing MP exists", st_mp != null and st_mp.button == GameConst.Btn.MP and st_mp.stance == GameConst.Stance.STAND)
@@ -375,7 +377,7 @@ func _test_jump_in() -> void:
 
 func _test_air_clips_distinct() -> void:
 	print("[air clip variety]")
-	var k := CharacterLibrary.create("kael")
+	var k := CharacterLibrary.create("blaze")
 	var clips := {}
 	for id in ["air_lp", "air_mp", "air_hp", "air_lk", "air_mk", "air_hk"]:
 		var m := k.get_move(id)
@@ -468,7 +470,7 @@ func _test_counter_clean_hit() -> void:
 ## Launch the opponent with `button` (+ optional crouch) and return how the resulting
 ## knockdown was classified.
 func _knockdown_from(button: int, dir_y: int) -> int:
-	var ctx := _build("kael", "rho")
+	var ctx := _build("blaze", "blaze")
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
 	f1.position.x = 5.3
@@ -514,15 +516,15 @@ func _test_wakeup() -> void:
 
 func _test_reaction_clips() -> void:
 	print("[reaction clip resolution]")
-	var kael := CharacterLibrary.create("kael")
-	if kael.model_path == "" or not ResourceLoader.exists(kael.model_path):
+	var blaze := CharacterLibrary.create("blaze")
+	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
 		print("  SKIP: model assets not present (clean clone)")
 		return
 	var arig := AnimatedFighterRig.new()
 	root.add_child(arig)
-	arig.build(kael)
+	arig.build(blaze)
 	var f := Fighter.new()
-	f.setup(kael, Manual.new(), GameConst.Side.P1, 0.0)
+	f.setup(blaze, Manual.new(), GameConst.Side.P1, 0.0)
 	f.on_ground = true
 	f.hit_air = false
 	f.hit_from_back = false

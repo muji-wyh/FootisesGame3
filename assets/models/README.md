@@ -43,7 +43,7 @@ skeleton, strips horizontal root motion (in-place), tints it with the character 
 plays clips from `Fighter` state. A character opts in via `CharacterData.model_path`; if the
 (gitignored) model is missing, `MatchScene` falls back to the procedural blockout.
 
-Currently **Kael** (blue) and **Blaze** (orange) use `maskman.fbx` + the Kubold mocap clips
+Currently **Blaze** (orange) uses `maskman.fbx` + the Kubold mocap clips
 (`anims/KB_*.fbx`). These share one skeleton family (Mixamo/Biped naming), so the clips graft
 directly with **no retargeting**. Per-move clips are set via `MoveData.anim_clip`
 (e.g. `KB_p_Jab_R_1`, `KB_p_Uppercut_R`, `KB_Projectile_1`, `KB_Superpunch`).

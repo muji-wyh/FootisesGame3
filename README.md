@@ -42,9 +42,9 @@ can use a gamepad on device 1 in Local 2P; there is no keyboard layout for P2.
 - Hurricane kick — *down, down-back, back* + kick (Blaze; advancing multi-hit)
 - Super — *qcf, qcf* + button (requires a full meter; multi-hit on Blaze)
 
-**Roster:** **Kael** (balanced zoner), **Rho** (heavy bruiser), **Blaze** (fiery rushdown
-with a fireball, anti-air uppercut, multi-hit hurricane kick, and a multi-hit super).
-Each special has its own synthesized sound effect.
+**Roster:** **Blaze** — a fiery rushdown shoto with a fireball, an anti-air uppercut, a
+multi-hit hurricane kick, and a multi-hit super. Each special has its own synthesized
+sound effect.
 
 **Animation Gallery** (main-menu item): a big scene showing one character per Kubold mocap
 clip (~235), each looping its animation with a name label. Pan with WASD, raise/lower with
@@ -115,7 +115,7 @@ the model is missing, `MatchScene` falls back to the procedural blockout, so a c
 still runs.
 
 Dropping the licensed **Fighters Pack** + **Kubold Fighting Animset Pro** FBX into
-`assets/models/` (gitignored) reskins Kael & Blaze with the animated Maskman model + mocap
+`assets/models/` (gitignored) reskins Blaze with the animated Maskman model + mocap
 clips. See `assets/models/README.md` for the import details, the per-pack skeleton notes,
 and the editor **retargeting** workflow needed to animate the Unreal-rigged Fighters Pack
 characters with the Kubold (Mixamo/Biped) clips.
