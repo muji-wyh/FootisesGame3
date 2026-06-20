@@ -193,9 +193,6 @@ func _strip_root_motion(anim: Animation) -> void:
 			anim.track_set_key_value(i, k, Vector3(first.x, v.y, first.z))
 
 func _ground_and_tint(character: CharacterData) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = character.color
-	mat.roughness = 0.6
 	var meshes: Array[MeshInstance3D] = []
 	_collect_meshes(_model, meshes)
 	# Keep a single LOD visible.
@@ -207,7 +204,8 @@ func _ground_and_tint(character: CharacterData) -> void:
 		keep = meshes[0]
 	for m in meshes:
 		m.visible = (m == keep)
-		m.material_override = mat
+	if keep:
+		_apply_materials(keep, character)
 	# Drop so the feet sit on the ground (y = 0). Skinned-mesh AABBs are unreliable, so use
 	# the skeleton's foot-bone rest positions instead.
 	var skel := _find(_model, "Skeleton3D") as Skeleton3D
@@ -224,6 +222,32 @@ func _ground_and_tint(character: CharacterData) -> void:
 		if lowest != INF:
 			var foot_in_rig: Vector3 = _model.transform.basis * lowest_origin
 			_model.position.y -= foot_in_rig.y
+
+## Apply the (downscaled, web-friendly) Maskman textures per surface, with a gentle
+## per-character tint. Falls back to a flat colour if the textures aren't present.
+func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
+	var tint: Color = character.color.lerp(Color.WHITE, 0.55)
+	var surface_tex := {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
+	for s in range(mesh.mesh.get_surface_count()):
+		var smat := mesh.mesh.surface_get_material(s)
+		var mname: String = ""
+		if smat:
+			mname = smat.resource_name
+		var tex: Texture2D = null
+		for key in surface_tex.keys():
+			if key in mname:
+				var path: String = "res://assets/models/tex/" + surface_tex[key] + ".png"
+				if ResourceLoader.exists(path):
+					tex = load(path) as Texture2D
+				break
+		var mat := StandardMaterial3D.new()
+		mat.roughness = 0.7
+		if tex:
+			mat.albedo_texture = tex
+			mat.albedo_color = tint
+		else:
+			mat.albedo_color = character.color
+		mesh.set_surface_override_material(s, mat)
 
 ## Refine grounding using the ACTUAL animated (idle stance) pose, not the rest pose - the
 ## boxing stance bends the knees so the feet sit lower than rest. Runs once, on the first

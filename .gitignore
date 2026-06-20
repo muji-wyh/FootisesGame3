@@ -33,6 +33,7 @@ assets/models/**/*.tga
 assets/models/**/*.fbx.import
 assets/models/**/*.FBX.import
 assets/models/**/*.tga.import
+assets/models/tex/
 _probe/
 
 
