@@ -41,6 +41,8 @@ const STATE_CLIP := {
 	"ko": "KB_HighKO_Powerful",
 	"win": "KB_Idle_3",
 }
+## Hit-reaction clips by strength (0=light, 1=medium, 2=heavy).
+const HIT_CLIPS := ["KB_Hit_p_MidFront_Weak", "KB_Hit_m_MidFront_Med", "KB_Hit_m_HighFront_Stagger"]
 const LOOPED := ["KB_Idle_1", "KB_Idle_3", "KB_WalkFwd1", "KB_WalkBwd", "KB_crouch_Idle"]
 
 var ok: bool = false
@@ -75,7 +77,7 @@ func build(character: CharacterData) -> void:
 	_ground_and_tint(character)
 	ok = _player.has_animation(LIB + "/" + STATE_CLIP["idle"])
 	if ok:
-		_play(STATE_CLIP["idle"], 0.0)
+		_play(STATE_CLIP["idle"], 0.0, 1.0, true)   # idle must loop
 
 ## --- per-visual-tick posing -----------------------------------------------
 
@@ -123,7 +125,7 @@ func _state_clip(f: Fighter) -> String:
 		Fighter.State.BLOCKSTUN:
 			return STATE_CLIP["block"]
 		Fighter.State.HITSTUN:
-			return STATE_CLIP["hit"]
+			return HIT_CLIPS[clampi(f.hit_strength, 0, HIT_CLIPS.size() - 1)]
 		Fighter.State.KNOCKDOWN:
 			return STATE_CLIP["knockdown"]
 		Fighter.State.KO:
@@ -168,6 +170,8 @@ func _graft_animations() -> void:
 					continue
 				var anim: Animation = ap.get_animation(clip_name).duplicate(true)
 				_strip_root_motion(anim)
+				if clip_name in LOOPED:
+					anim.loop_mode = Animation.LOOP_LINEAR
 				lib.add_animation(clip_name, anim)
 		inst.free()
 	if _player.has_animation_library(LIB):

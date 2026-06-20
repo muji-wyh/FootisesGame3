@@ -104,6 +104,10 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 
 func _physics_process(delta: float) -> void:
 	round_manager.tick(delta)
+	# Keep the rigs posed every frame (incl. intro / round-over), so a fighter never holds
+	# the previous round's pose into the next round.
+	f1.update_visual()
+	f2.update_visual()
 	camera.track(f1.position, f2.position)
 	if _match_over:
 		_post_match_timer -= 1

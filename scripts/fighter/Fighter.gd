@@ -53,6 +53,7 @@ var move_hit_cooldown: int = 0
 var stun_timer: int = 0
 var launched: bool = false
 var hitstop: int = 0
+var hit_strength: int = 0    # 0=light, 1=medium, 2=heavy (for hit-reaction animation)
 var input_buffer := InputBuffer.new()
 
 # Dash double-tap tracking
@@ -355,6 +356,7 @@ func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
+	hit_strength = _strength_of(m)
 	_damage(m.damage)
 	if health <= 0:
 		return   # KO handled by RoundManager observing health
@@ -378,6 +380,16 @@ func _step_stun() -> void:
 	stun_timer -= 1
 	if stun_timer <= 0:
 		_goto(State.IDLE)
+
+## Classify an attack's strength for the hit-reaction animation.
+func _strength_of(m: MoveData) -> int:
+	if m.kind != GameConst.MoveKind.NORMAL:
+		return 2   # specials / supers hit hard
+	if m.button & (GameConst.Btn.LP | GameConst.Btn.LK):
+		return 0
+	if m.button & (GameConst.Btn.MP | GameConst.Btn.MK):
+		return 1
+	return 2       # HP / HK
 
 func _step_knockdown() -> void:
 	velocity.x *= 0.7
@@ -494,6 +506,7 @@ func reset_for_round() -> void:
 	stun_timer = 0
 	launched = false
 	hitstop = 0
+	hit_strength = 0
 	on_ground = true
 	position.y = 0
 	input_buffer.clear()

@@ -69,6 +69,7 @@ func _initialize() -> void:
 	_test_air_attack()
 	_test_jump_in()
 	_test_air_clips_distinct()
+	_test_hit_strength()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -293,6 +294,10 @@ func _test_animated_rig() -> void:
 	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
 	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_m_HighKickRound_R_1", "KB_AxeKick"]:
 		_check("grafted air clip " + clip, arig._player.has_animation("kb/" + clip))
+	for clip in ["KB_Hit_p_MidFront_Weak", "KB_Hit_m_MidFront_Med", "KB_Hit_m_HighFront_Stagger"]:
+		_check("grafted hit clip " + clip, arig._player.has_animation("kb/" + clip))
+	# Idle must be set to loop (otherwise it stops after one play ~3s).
+	_check("idle clip loops", arig._player.get_animation("kb/KB_Idle_1").loop_mode == Animation.LOOP_LINEAR)
 	arig.queue_free()
 
 func _test_six_buttons() -> void:
@@ -366,5 +371,23 @@ func _test_air_clips_distinct() -> void:
 		var m := k.get_move(id)
 		clips[m.anim_clip] = true
 	_check("air normals use 6 distinct clips", clips.size() == 6)
+
+func _hit_with(button: int) -> int:
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	_step(ctx, _mk(0, 0, button), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 10)
+	var s: int = f2.hit_strength
+	ctx["arena"].queue_free()
+	return s
+
+func _test_hit_strength() -> void:
+	print("[hit reactions]")
+	_check("light hit -> strength 0", _hit_with(GameConst.Btn.LP) == 0)
+	_check("medium hit -> strength 1", _hit_with(GameConst.Btn.MP) == 1)
+	_check("heavy hit -> strength 2", _hit_with(GameConst.Btn.HP) == 2)
 
 
