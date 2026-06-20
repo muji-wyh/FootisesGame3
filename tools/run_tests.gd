@@ -67,6 +67,8 @@ func _initialize() -> void:
 	_test_six_buttons()
 	_test_dash()
 	_test_air_attack()
+	_test_jump_in()
+	_test_air_clips_distinct()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -288,6 +290,9 @@ func _test_animated_rig() -> void:
 	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
+	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
+	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_m_HighKickRound_R_1", "KB_AxeKick"]:
+		_check("grafted air clip " + clip, arig._player.has_animation("kb/" + clip))
 	arig.queue_free()
 
 func _test_six_buttons() -> void:
@@ -336,5 +341,30 @@ func _test_air_attack() -> void:
 	_check("air normal started", f1.current_move != null and f1.current_move.stance == GameConst.Stance.AIR)
 	_check("still airborne during air attack", not f1.on_ground)
 	ctx["arena"].queue_free()
+
+func _test_jump_in() -> void:
+	print("[jump-in]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = 1.5
+	f2.position.x = 2.4
+	var hp_before: int = f2.health
+	_step(ctx, _mk(1, 1), _neutral(), 1)    # jump forward (up + toward opponent)
+	_step(ctx, _mk(0, 0), _neutral(), 3)    # rise
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)   # air punch
+	_check("air attack keeps forward momentum (arc, not straight drop)", absf(f1.velocity.x) > 0.5)
+	_step(ctx, _neutral(), _neutral(), 35)  # descend onto the opponent
+	_check("jump-in connected with the opponent", f2.health < hp_before)
+	ctx["arena"].queue_free()
+
+func _test_air_clips_distinct() -> void:
+	print("[air clip variety]")
+	var k := CharacterLibrary.create("kael")
+	var clips := {}
+	for id in ["air_lp", "air_mp", "air_hp", "air_lk", "air_mk", "air_hk"]:
+		var m := k.get_move(id)
+		clips[m.anim_clip] = true
+	_check("air normals use 6 distinct clips", clips.size() == 6)
 
 

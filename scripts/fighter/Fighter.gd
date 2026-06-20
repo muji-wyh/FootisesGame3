@@ -254,7 +254,9 @@ func _start_move(m: MoveData) -> void:
 		_add_meter(-m.meter_cost)
 	_goto(State.ATTACK)
 	state_frame = 0   # ensure a fresh attack even when cancelling ATTACK -> ATTACK
-	velocity.x = 0
+	# Air attacks keep their jump momentum (arc); grounded attacks stop in place.
+	if m.stance != GameConst.Stance.AIR:
+		velocity.x = 0
 	move_started.emit(m)
 
 func _step_attack(inp: InputFrame) -> void:
