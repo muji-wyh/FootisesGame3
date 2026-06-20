@@ -196,11 +196,22 @@ func _ground_and_tint(character: CharacterData) -> void:
 	for m in meshes:
 		m.visible = (m == keep)
 		m.material_override = mat
-	# Drop so the feet sit on the ground (y = 0).
-	if keep:
-		var aabb := keep.get_aabb()
-		var world_min_y := (_model.transform * aabb).position.y
-		_model.position.y -= world_min_y
+	# Drop so the feet sit on the ground (y = 0). Skinned-mesh AABBs are unreliable, so use
+	# the skeleton's foot-bone rest positions instead.
+	var skel := _find(_model, "Skeleton3D") as Skeleton3D
+	if skel:
+		var lowest := INF
+		var lowest_origin := Vector3.ZERO
+		for bone in ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]:
+			var bi := skel.find_bone(bone)
+			if bi >= 0:
+				var o: Vector3 = skel.get_bone_global_rest(bi).origin
+				if o.y < lowest:
+					lowest = o.y
+					lowest_origin = o
+		if lowest != INF:
+			var foot_in_rig: Vector3 = _model.transform.basis * lowest_origin
+			_model.position.y -= foot_in_rig.y
 
 func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D:
