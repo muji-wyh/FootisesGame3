@@ -54,6 +54,7 @@ func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	_test_walk()
 	_test_pushbox_spacing()
+	_test_visible_spacing_limit()
 	_test_stage_width_split()
 	_test_normal_hit()
 	_test_lp_whiff_range()
@@ -118,6 +119,17 @@ func _test_pushbox_spacing() -> void:
 	f2.position.x = 0.0
 	_step(ctx, _neutral(), _neutral(), 1)
 	_check("fighters can stand closer than the old wide pushbox", f2.position.x - f1.position.x <= 0.72)
+	ctx["arena"].queue_free()
+
+func _test_visible_spacing_limit() -> void:
+	print("[visible spacing clamp]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -Arena.FIGHT_BOUNDS_HALF_WIDTH
+	f2.position.x = Arena.FIGHT_BOUNDS_HALF_WIDTH
+	_step(ctx, _neutral(), _neutral(), 1)
+	_check("arena clamps fighter separation to the camera-safe max", f2.position.x - f1.position.x <= Arena.MAX_VISIBLE_SEPARATION + 0.01)
 	ctx["arena"].queue_free()
 
 func _test_stage_width_split() -> void:
@@ -970,13 +982,14 @@ func _test_camera() -> void:
 	for i in range(40):
 		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
 	_check("camera pulls in when fighters are close", cam.position.z <= FightCamera.MIN_Z + 0.3)
-	# Far (fighters near opposite walls): camera zooms out, capped at MAX_Z.
+	# Far (fighters near the widest legal separation): camera zooms out, capped at MAX_Z.
+	var far_x := Arena.MAX_VISIBLE_SEPARATION * 0.5
 	for i in range(80):
-		cam.track(Vector3(-6.2, 0, 0), Vector3(6.2, 0, 0))
-	_check("camera zooms out when fighters separate", cam.position.z > FightCamera.MIN_Z + 1.0)
+		cam.track(Vector3(-far_x, 0, 0), Vector3(far_x, 0, 0))
+	_check("camera zooms out when fighters separate", cam.position.z > FightCamera.MIN_Z + 0.7)
 	_check("camera zoom stays within MAX_Z", cam.position.z <= FightCamera.MAX_Z + 0.01)
 	var halfw: float = cam.position.z * cam._half_width_tan()
-	_check("both fighters stay on screen when far", 6.2 - absf(cam.position.x) <= halfw + 0.05)
+	_check("both fighters stay on screen when far", far_x - absf(cam.position.x) <= halfw + 0.05)
 	# Feet anchored near the bottom across zoom: derive the feet's screen fraction from the
 	# camera pitch (rotation.x), which look_at_from_position sets reliably (unlike the global
 	# basis out of tree). Verify it stays put at both near and far zoom.
@@ -988,8 +1001,8 @@ func _test_camera() -> void:
 	for i in range(60):
 		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
 	var near_frac: float = feet_frac.call(cam)
-	_check("feet anchored near bottom when far", far_frac > 0.82 and far_frac < 0.92)
-	_check("feet anchored near bottom when close", near_frac > 0.82 and near_frac < 0.92)
+	_check("feet anchored near bottom when far", absf(far_frac - FightCamera.FEET_FRAC) < 0.03)
+	_check("feet anchored near bottom when close", absf(near_frac - FightCamera.FEET_FRAC) < 0.03)
 	for i in range(40):
 		cam.track(Vector3(-0.4, 2.8, 0), Vector3(0.4, 0, 0))
 	_check("camera lifts a bit for a high jump", cam.position.y > FightCamera.HEIGHT + 0.35)

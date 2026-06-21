@@ -8,6 +8,7 @@ extends Node3D
 const FIGHT_BOUNDS_HALF_WIDTH := 7.0
 const VISUAL_STAGE_HALF_WIDTH := 9.0
 const START_DISTANCE := 1.5
+const MAX_VISIBLE_SEPARATION := 4.75   # keeps both fighters inside the current camera framing
 
 signal ko(loser_side: int)
 
@@ -124,6 +125,21 @@ func _resolve_bounds() -> void:
 			b.position.x += dir * overlap * 0.5
 		a.position.x = clampf(a.position.x, -lim, lim)
 		b.position.x = clampf(b.position.x, -lim, lim)
+	_resolve_visible_spacing()
+
+func _resolve_visible_spacing() -> void:
+	if fighters.size() < 2:
+		return
+	var a := fighters[0]
+	var b := fighters[1]
+	var dx := b.position.x - a.position.x
+	var max_sep := minf(MAX_VISIBLE_SEPARATION, (FIGHT_BOUNDS_HALF_WIDTH - Fighter.PUSHBOX_HALF) * 2.0)
+	if absf(dx) <= max_sep:
+		return
+	var excess := absf(dx) - max_sep
+	var dir := 1.0 if dx >= 0.0 else -1.0
+	a.position.x += dir * excess * 0.5
+	b.position.x -= dir * excess * 0.5
 
 func _check_ko() -> void:
 	if _ko_emitted:
