@@ -158,8 +158,10 @@ func advance(delta: float) -> void:
 			_step_wakeup()
 		State.KO:
 			velocity.x = 0
-		State.INTRO, State.WIN:
+		State.INTRO:
 			velocity = Vector3.ZERO
+		State.WIN:
+			velocity.x = 0
 	_apply_physics(delta)
 
 ## Track facing-relative forward/back taps to detect dash double-taps.
@@ -573,6 +575,8 @@ func _step_wakeup() -> void:
 # --- physics ---------------------------------------------------------------
 
 func _apply_physics(delta: float) -> void:
+	if on_ground and position.y > GROUND_Y + 0.001 and not _scripted_rise_active():
+		on_ground = false
 	if not on_ground:
 		velocity.y -= character.gravity * delta
 	position.x += velocity.x * delta
@@ -584,6 +588,9 @@ func _apply_physics(delta: float) -> void:
 		velocity.y = 0
 		if was_air:
 			_on_landed()
+
+func _scripted_rise_active() -> bool:
+	return state == State.ATTACK and current_move != null and current_move.rises
 
 func _on_landed() -> void:
 	match state:

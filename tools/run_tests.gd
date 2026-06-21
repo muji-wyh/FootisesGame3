@@ -50,6 +50,18 @@ func _step(ctx: Dictionary, p1: InputFrame, p2: InputFrame, n: int) -> void:
 func _neutral() -> InputFrame:
 	return _mk(0, 0)
 
+func _find_move(ch: CharacterData, id: String) -> MoveData:
+	for m in ch.normals:
+		if m.id == id:
+			return m
+	for m in ch.specials:
+		if m.id == id:
+			return m
+	for m in ch.supers:
+		if m.id == id:
+			return m
+	return null
+
 func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	_test_walk()
@@ -66,6 +78,8 @@ func _initialize() -> void:
 	_test_super()
 	_test_ko()
 	_test_round_flow()
+	_test_airborne_winner_lands()
+	_test_airborne_match_winner_lands()
 	_test_timeout_draw()
 	_test_cpu_ai()
 	_test_blaze_roster()
@@ -92,6 +106,7 @@ func _initialize() -> void:
 	_test_drive_gauge()
 	_test_drive_rush()
 	_test_uppercut_rise()
+	_test_rise_interruption_lands()
 	_test_camera()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
@@ -323,6 +338,52 @@ func _test_round_flow() -> void:
 	_check("match ended", rm.phase == RoundManager.Phase.MATCH_OVER)
 	_check("P1 won enough rounds", rm.p1_wins == GameConst.ROUNDS_TO_WIN)
 	_check("match_over fired for P1", winner[0] == GameConst.Side.P1)
+	rm.queue_free()
+	arena.queue_free()
+
+func _test_airborne_winner_lands() -> void:
+	print("[round-over landing]")
+	var ctx := _build()
+	var arena: Arena = ctx["arena"]
+	var rm := RoundManager.new()
+	root.add_child(rm)
+	rm.arena = arena
+	var winner: Fighter = ctx["f1"]
+	winner.position.y = 1.2
+	winner.on_ground = false
+	winner.velocity = Vector3.ZERO
+	rm._round_winner = GameConst.Side.P1
+	rm._end_round()
+	var landed := false
+	for i in range(RoundManager.ROUND_OVER_TICKS):
+		rm.tick(DELTA)
+		if winner.on_ground and absf(winner.position.y) < 0.01:
+			landed = true
+			break
+	_check("airborne winner lands during round over", landed)
+	rm.queue_free()
+	arena.queue_free()
+
+func _test_airborne_match_winner_lands() -> void:
+	print("[match-over landing]")
+	var ctx := _build()
+	var arena: Arena = ctx["arena"]
+	var rm := RoundManager.new()
+	root.add_child(rm)
+	rm.arena = arena
+	var winner: Fighter = ctx["f1"]
+	winner.set_win()
+	winner.position.y = 2.8
+	winner.on_ground = false
+	winner.velocity = Vector3.ZERO
+	rm.phase = RoundManager.Phase.MATCH_OVER
+	var landed := false
+	for i in range(240):
+		rm.tick(DELTA)
+		if winner.on_ground and absf(winner.position.y) < 0.01:
+			landed = true
+			break
+	_check("airborne winner lands during match over", landed)
 	rm.queue_free()
 	arena.queue_free()
 
@@ -974,6 +1035,37 @@ func _test_uppercut_rise() -> void:
 	_check("rising uppercut connected on a grounded opponent", connected)
 	ctx["arena"].queue_free()
 
+func _test_rise_interruption_lands() -> void:
+	print("[rise interruption]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var uppercut := _find_move(f1.character, "uppercut")
+	var jab := _find_move(f2.character, "st_lp")
+	f1.current_move = uppercut
+	f1._goto(Fighter.State.ATTACK)
+	f1.state_frame = uppercut.startup + 2
+	f1.position.y = uppercut.rise_height
+	f1.on_ground = true
+	f1.velocity = Vector3.ZERO
+	f1.receive_attack(jab, f2.facing)
+	var suspended_y := f1.position.y
+	var started_falling := false
+	for i in range(jab.hitstop + 20):
+		_step(ctx, _neutral(), _neutral(), 1)
+		if not f1.on_ground and f1.position.y < suspended_y:
+			started_falling = true
+			break
+	_check("interrupted rise leaves the grounded state and starts falling", started_falling)
+	var landed := false
+	for i in range(120):
+		_step(ctx, _neutral(), _neutral(), 1)
+		if f1.on_ground and absf(f1.position.y) < 0.01:
+			landed = true
+			break
+	_check("interrupted rise lands back on the floor", landed)
+	ctx["arena"].queue_free()
+
 func _test_camera() -> void:
 	print("[camera]")
 	var cam := FightCamera.new()
@@ -997,6 +1089,10 @@ func _test_camera() -> void:
 		var center := rad_to_deg(c.rotation.x)
 		var feet_world := -rad_to_deg(atan(c.position.y / c.position.z))
 		return (1.0 - (feet_world - center) / (FightCamera.FOV * 0.5)) * 0.5
+	var world_frac := func(c: FightCamera, world_y: float) -> float:
+		var center := rad_to_deg(c.rotation.x)
+		var world_deg := -rad_to_deg(atan((c.position.y - world_y) / c.position.z))
+		return (1.0 - (world_deg - center) / (FightCamera.FOV * 0.5)) * 0.5
 	var far_frac: float = feet_frac.call(cam)
 	for i in range(60):
 		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
@@ -1006,6 +1102,7 @@ func _test_camera() -> void:
 	for i in range(40):
 		cam.track(Vector3(-0.4, 2.8, 0), Vector3(0.4, 0, 0))
 	_check("camera lifts a bit for a high jump", cam.position.y > FightCamera.HEIGHT + 0.35)
+	_check("camera pans upward for a high jump", world_frac.call(cam, 0.0) > FightCamera.FEET_FRAC + 0.05)
 	for i in range(60):
 		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
 	_check("camera settles back after landing", absf(cam.position.y - FightCamera.HEIGHT) < 0.2)

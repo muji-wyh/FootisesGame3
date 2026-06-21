@@ -2,9 +2,9 @@ class_name FightCamera
 extends Camera3D
 
 ## Side-view camera that keeps both fighters framed SF6-style. Each visual tick it centres
-## on the midpoint and sizes the pull-back to *fit both fighters with a horizontal margin*,
-## while anchoring the floor line near the bottom of the screen (so the fighters' feet stay
-## put and their heads rise into frame as the camera pulls back).
+## on the midpoint and sizes the pull-back to fit both fighters with a horizontal margin.
+## When someone jumps, the camera also translates upward a bit so the framing visibly pans
+## up with the action, instead of only tilting while pinning the floor line in place.
 
 const FOV := 45.0
 const FEET_FRAC := 0.95        # screen fraction (from top) at which the fighters' feet sit
@@ -23,7 +23,7 @@ var _shake_frames: int = 1
 func _ready() -> void:
 	fov = FOV
 	position = Vector3(0, HEIGHT, MIN_Z)
-	_aim(0.0, MIN_Z, HEIGHT)
+	_aim(0.0, MIN_Z, HEIGHT, 0.0)
 
 ## Request a screen shake (impact feedback). Stronger requests win; decays over `frames`.
 func shake(amp: float, frames: int) -> void:
@@ -43,7 +43,7 @@ func track(a: Vector3, b: Vector3) -> void:
 	mid_x = clampf(mid_x, -bound, bound)
 	_base = _base.lerp(Vector3(mid_x, HEIGHT + lift, z), FOLLOW)
 	position = _base + _shake_offset()
-	_aim(_base.x, _base.z, _base.y)
+	_aim(_base.x, _base.z, _base.y, lift)
 
 ## Half of the screen's horizontal extent (in tan units) at the subject plane, accounting for
 ## the live viewport aspect (vertical FOV is fixed, so width follows the aspect).
@@ -56,12 +56,12 @@ func _half_width_tan() -> float:
 			aspect = s.x / s.y
 	return tan(deg_to_rad(FOV) * 0.5) * aspect
 
-## Aim so the fighters' feet (world y = 0) sit at FEET_FRAC of the screen height. Solving the
-## pitch from that constraint keeps the floor line anchored as z changes: when the camera
-## pulls back the heads simply rise into frame, instead of the fighters floating upward.
-func _aim(x: float, z: float, cam_y: float) -> void:
+## Aim so the tracked floor line sits at FEET_FRAC of the screen height. On the ground that
+## floor line is world y = 0; during jumps it lifts with the follow offset so the framing
+## genuinely pans upward instead of just rotating harder toward the stage.
+func _aim(x: float, z: float, cam_y: float, floor_y: float) -> void:
 	var half := FOV * 0.5
-	var feet_deg := -rad_to_deg(atan(cam_y / maxf(0.1, z)))
+	var feet_deg := -rad_to_deg(atan((cam_y - floor_y) / maxf(0.1, z)))
 	var center_deg := half * (2.0 * FEET_FRAC - 1.0) + feet_deg
 	var look_y := cam_y + z * tan(deg_to_rad(center_deg))
 	look_at_from_position(position, Vector3(x, look_y, 0.0), Vector3.UP)

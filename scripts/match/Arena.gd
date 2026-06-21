@@ -51,6 +51,16 @@ func step(delta: float) -> void:
 		f.update_visual()
 	_check_ko()
 
+## Advance fighters without combat resolution. Used during round-over so airborne WIN/KO
+## states still settle back to the floor, but no new attacks/projectile hits can happen.
+func step_inactive(delta: float) -> void:
+	for f in fighters:
+		f.poll_input()
+	for f in fighters:
+		f.advance(delta)
+	for f in fighters:
+		f.update_visual()
+
 func set_active(value: bool) -> void:
 	for f in fighters:
 		f.active = value

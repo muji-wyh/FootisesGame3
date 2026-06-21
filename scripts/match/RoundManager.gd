@@ -52,7 +52,7 @@ func tick(delta: float) -> void:
 		Phase.ROUND_OVER:
 			_tick_round_over(delta)
 		Phase.MATCH_OVER:
-			pass
+			arena.step_inactive(delta)
 
 func _tick_intro(_delta: float) -> void:
 	phase_timer -= 1
@@ -73,7 +73,8 @@ func _tick_fight(delta: float) -> void:
 	if time_left_ticks <= 0 and _round_winner < 0:
 		_decide_by_time()
 
-func _tick_round_over(_delta: float) -> void:
+func _tick_round_over(delta: float) -> void:
+	arena.step_inactive(delta)
 	phase_timer -= 1
 	if phase_timer <= 0:
 		_advance_after_round()
