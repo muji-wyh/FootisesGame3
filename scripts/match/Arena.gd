@@ -6,7 +6,7 @@ extends Node3D
 ## can be driven by the visual Match scene OR by a headless test harness.
 
 const STAGE_HALF_WIDTH := 7.0
-const START_DISTANCE := 2.4
+const START_DISTANCE := 1.5
 
 signal ko(loser_side: int)
 

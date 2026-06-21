@@ -8,8 +8,8 @@ extends Camera3D
 
 const FOV := 45.0
 const FEET_FRAC := 0.87        # screen fraction (from top) at which the fighters' feet sit
-const MARGIN := 0.9            # world metres kept beyond each fighter, horizontally
-const MIN_Z := 4.0             # closest pull-in (fighters touching -> ref-1 framing)
+const MARGIN := 1.0            # world metres kept beyond each fighter, horizontally
+const MIN_Z := 3.4             # closest pull-in ≈ the round-start framing (most zoomed-in)
 const MAX_Z := 12.0            # farthest pull-out (keeps both framed corner-to-corner)
 const HEIGHT := 1.35           # camera height (constant; pitch is what tracks the floor)
 const FOLLOW := 0.2
