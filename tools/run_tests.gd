@@ -413,7 +413,7 @@ func _test_kb_library() -> void:
 	if not ResourceLoader.exists("res://assets/models/maskman.fbx"):
 		print("  SKIP: model assets not present (clean clone)")
 		return
-	var lib := AnimatedFighterRig.build_kb_library()
+	var lib := AnimatedFighterRig.build_library(CharacterLibrary.create("blaze").rig)
 	_check("kb library exposes 200+ clips for the gallery", lib.get_animation_list().size() > 200)
 
 func _test_counter() -> void:

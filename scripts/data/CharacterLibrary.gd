@@ -140,6 +140,7 @@ static func _blaze() -> CharacterData:
 	c.jump_velocity = 9.8
 	c.model_path = "res://assets/models/maskman.fbx"
 	c.model_face_deg = 90.0
+	c.rig = _blaze_rig()
 
 	_add_standard_normals(c, 0.95, ["fireball", "uppercut", "hurricane", "super_inferno"])
 
@@ -175,3 +176,51 @@ static func _blaze() -> CharacterData:
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
 	return c
+
+## Blaze's rig configuration: the Kubold "Maskman" model's animation sources, clip maps,
+## materials and directional hit-reaction templates. Mirrors what AnimatedFighterRig used to
+## hardcode, so the rig can be driven from data instead.
+static func _blaze_rig() -> RigConfig:
+	var r := RigConfig.new()
+	r.anim_files = [
+		"res://assets/models/anims/KB_Movement.fbx",
+		"res://assets/models/anims/KB_Crouched.fbx",
+		"res://assets/models/anims/KB_Jumping.fbx",
+		"res://assets/models/anims/KB_Punches.fbx",
+		"res://assets/models/anims/KB_Kicks.fbx",
+		"res://assets/models/anims/KB_Blocks.fbx",
+		"res://assets/models/anims/KB_Hits.fbx",
+		"res://assets/models/anims/KB_KOs.fbx",
+		"res://assets/models/anims/KB_Specials.fbx",
+	]
+	r.lib_name = "kb"
+	r.skip_clips = ["BindPose", "tpose", "Take 001"]
+	r.root_bones = ["Hips", "Root"]
+	r.foot_bones = ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]
+	r.state_clips = {
+		"idle": "KB_Idle_1", "walk_f": "KB_WalkFwd1", "walk_b": "KB_WalkBwd",
+		"crouch": "KB_crouch_Idle", "jump": "KB_Jump", "dash_f": "KB_SkipFwd_1",
+		"dash_b": "KB_SkipBwd_1", "drive_rush": "KB_SkipFwd_2", "block": "KB_Block_Single",
+		"hit": "KB_Hit_p_MidFront_Weak", "knockdown": "KB_MidKO", "ko": "KB_HighKO_Powerful",
+		"win": "KB_Idle_3",
+	}
+	r.looped_clips = ["KB_Idle_1", "KB_Idle_3", "KB_WalkFwd1", "KB_WalkBwd", "KB_crouch_Idle"]
+	r.default_move_clip = "KB_p_Jab_R_1"
+	r.drive_rush_clips = ["KB_SkipFwd_2", "KB_SkipFwd_1", "KB_WalkFwd1"]
+	r.surface_textures = {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
+	r.tex_dir = "res://assets/models/tex/"
+	r.material_roughness = 0.7
+	r.lod_keep = "LOD1"
+	r.hit_fallback = "KB_Hit_p_MidFront_Weak"
+	r.crouch_hit_template = "KB_crouch_Hit_p_Mid%s_Weak"
+	r.hit_templates_heavy = ["KB_Hit_m_%s%s_Stagger", "KB_Hit_m_%s%s_Med", "KB_Hit_m_%s%s_Weak", "KB_Hit_p_%s%s_Weak"]
+	r.hit_templates_medium = ["KB_Hit_m_%s%s_Med", "KB_Hit_m_%s%s_Weak", "KB_Hit_p_%s%s_Weak"]
+	r.hit_templates_light = ["KB_Hit_p_%s%s_Weak", "KB_Hit_m_%s%s_Weak"]
+	r.ko_upper = ["KB_UpperKO", "KB_HighKO_Powerful", "KB_MidKO_Powerful"]
+	r.ko_low = ["KB_LowKO_R", "KB_LowKO_L", "KB_MidKO"]
+	r.ko_air = ["KB_HighKO_Air", "KB_HighKO_Powerful", "KB_MidKO"]
+	r.ko_heavy = ["KB_MidKO_Powerful", "KB_MidKO"]
+	r.ko_default = "KB_MidKO"
+	r.getup_front = ["KB_GetUpBack", "KB_GetUpFace"]
+	r.getup_back = ["KB_GetUpFace", "KB_GetUpBack"]
+	return r

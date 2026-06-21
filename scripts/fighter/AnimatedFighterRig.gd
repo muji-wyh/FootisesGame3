@@ -8,43 +8,10 @@ extends Node3D
 ## The combat sim is unaffected — the rig only READS Fighter state. If the (licensed,
 ## gitignored) model is missing, MatchScene uses the procedural FighterRig instead.
 
-## Kubold animation FBX whose clips are grafted onto the model. Same skeleton family,
-## so the clips play directly. Stored under assets/models/anims (gitignored).
-const ANIM_FILES := [
-	"res://assets/models/anims/KB_Movement.fbx",
-	"res://assets/models/anims/KB_Crouched.fbx",
-	"res://assets/models/anims/KB_Jumping.fbx",
-	"res://assets/models/anims/KB_Punches.fbx",
-	"res://assets/models/anims/KB_Kicks.fbx",
-	"res://assets/models/anims/KB_Blocks.fbx",
-	"res://assets/models/anims/KB_Hits.fbx",
-	"res://assets/models/anims/KB_KOs.fbx",
-	"res://assets/models/anims/KB_Specials.fbx",
-]
-
-const LIB := "kb"
-const SKIP := ["BindPose", "tpose", "Take 001"]
-const ROOT_BONES := ["Hips", "Root"]
-
-## Default state -> clip. Per-move clips come from MoveData.anim_clip.
-const STATE_CLIP := {
-	"idle": "KB_Idle_1",
-	"walk_f": "KB_WalkFwd1",
-	"walk_b": "KB_WalkBwd",
-	"crouch": "KB_crouch_Idle",
-	"jump": "KB_Jump",
-	"dash_f": "KB_SkipFwd_1",
-	"dash_b": "KB_SkipBwd_1",
-	"drive_rush": "KB_SkipFwd_2",
-	"block": "KB_Block_Single",
-	"hit": "KB_Hit_p_MidFront_Weak",
-	"knockdown": "KB_MidKO",
-	"ko": "KB_HighKO_Powerful",
-	"win": "KB_Idle_3",
-}
-## Hit-reaction clips are resolved per-hit by direction/height/strength (see
-## _resolve_hit_clip); knockdown + get-up clips by cause (see _knockdown_clip/_wakeup_clip).
-const LOOPED := ["KB_Idle_1", "KB_Idle_3", "KB_WalkFwd1", "KB_WalkBwd", "KB_crouch_Idle"]
+## All character-specific values (anim source files, clip maps, materials, hit-reaction
+## templates, foot/root bones) live in the character's RigConfig (CharacterData.rig); this rig
+## is otherwise generic. Hit-reaction clips are resolved per-hit by direction/height/strength
+## (see _resolve_hit_clip); knockdown / get-up clips by cause (see _knockdown_clip/_wakeup_clip).
 
 var ok: bool = false
 var _facing_pivot: Node3D
@@ -54,8 +21,12 @@ var _cur_clip: String = ""
 var _cur_move: MoveData = null
 var _grounded: bool = false
 var _skel: Skeleton3D
+var _cfg: RigConfig   # per-character visual/rig configuration (CharacterData.rig)
 
 func build(character: CharacterData) -> void:
+	_cfg = character.rig
+	if _cfg == null:
+		return   # no rig config -> MatchScene falls back to the procedural FighterRig
 	_facing_pivot = Node3D.new()
 	add_child(_facing_pivot)
 
@@ -76,9 +47,13 @@ func build(character: CharacterData) -> void:
 
 	_graft_animations()
 	_ground_and_tint(character)
-	ok = _player.has_animation(LIB + "/" + STATE_CLIP["idle"])
+	ok = _player.has_animation(_cfg.lib_name + "/" + _state("idle"))
 	if ok:
-		_play(STATE_CLIP["idle"], 0.0, 1.0, true)   # idle must loop
+		_play(_state("idle"), 0.0, 1.0, true)   # idle must loop
+
+## Look up a state's default clip from the config (empty string if unset).
+func _state(key: String) -> String:
+	return String(_cfg.state_clips.get(key, ""))
 
 ## --- per-visual-tick posing -----------------------------------------------
 
@@ -113,7 +88,7 @@ func pose(f: Fighter) -> void:
 
 	var target := _state_clip(f)
 	if target != _cur_clip:
-		_play(target, 0.12, 1.0, target in LOOPED)
+		_play(target, 0.12, 1.0, target in _cfg.looped_clips)
 
 func _pose_attack(f: Fighter) -> void:
 	if f.current_move != _cur_move:
@@ -132,23 +107,23 @@ func _play_fitted(clip: String, ticks: int, blend: float) -> void:
 func _state_clip(f: Fighter) -> String:
 	match f.state:
 		Fighter.State.IDLE, Fighter.State.INTRO:
-			return STATE_CLIP["idle"]
+			return _state("idle")
 		Fighter.State.WALK_F:
-			return STATE_CLIP["walk_f"]
+			return _state("walk_f")
 		Fighter.State.WALK_B:
-			return STATE_CLIP["walk_b"]
+			return _state("walk_b")
 		Fighter.State.CROUCH:
-			return STATE_CLIP["crouch"]
+			return _state("crouch")
 		Fighter.State.JUMP:
-			return STATE_CLIP["jump"]
+			return _state("jump")
 		Fighter.State.DASH_F:
-			return STATE_CLIP["dash_f"]
+			return _state("dash_f")
 		Fighter.State.DASH_B:
-			return STATE_CLIP["dash_b"]
+			return _state("dash_b")
 		Fighter.State.DRIVE_RUSH:
-			return _first_existing(["KB_SkipFwd_2", "KB_SkipFwd_1", "KB_WalkFwd1"], STATE_CLIP["dash_f"])
+			return _first_existing(_cfg.drive_rush_clips, _state("dash_f"))
 		Fighter.State.BLOCKSTUN:
-			return STATE_CLIP["block"]
+			return _state("block")
 		Fighter.State.HITSTUN:
 			return _resolve_hit_clip(f)
 		Fighter.State.KNOCKDOWN:
@@ -156,10 +131,10 @@ func _state_clip(f: Fighter) -> String:
 		Fighter.State.WAKEUP:
 			return _wakeup_clip(f)
 		Fighter.State.KO:
-			return STATE_CLIP["ko"]
+			return _state("ko")
 		Fighter.State.WIN:
-			return STATE_CLIP["win"]
-	return STATE_CLIP["idle"]
+			return _state("win")
+	return _state("idle")
 
 ## --- directional hit-reaction resolution ----------------------------------
 
@@ -178,8 +153,8 @@ func _resolve_hit_clip(f: Fighter) -> String:
 			cdirs = ["Front", "Left", "Right"]
 		var cc: Array[String] = []
 		for d in cdirs:
-			cc.append("KB_crouch_Hit_p_Mid%s_Weak" % d)
-		return _first_existing(cc, "KB_Hit_p_MidFront_Weak")
+			cc.append(_cfg.crouch_hit_template % d)
+		return _first_existing(cc, _cfg.hit_fallback)
 	var height := _height_token(f)
 	var dirs: Array[String]
 	if f.hit_from_back:
@@ -190,7 +165,7 @@ func _resolve_hit_clip(f: Fighter) -> String:
 	for h in [height, "Mid", "High"]:
 		for d in dirs:
 			cands.append_array(_tier_names(h, d, tier))
-	return _first_existing(cands, "KB_Hit_p_MidFront_Weak")
+	return _first_existing(cands, _cfg.hit_fallback)
 
 func _height_token(f: Fighter) -> String:
 	if not f.on_ground or f.hit_air:
@@ -202,49 +177,54 @@ func _height_token(f: Fighter) -> String:
 			return "Low"
 	return "Mid"
 
-## Strength tiers: requested strength first, then progressively lighter fallbacks. The 'p'
-## (light) set only has Weak; the 'm' set carries Weak / Med / Stagger.
+## Strength tiers: requested strength first, then progressively lighter fallbacks. Templates
+## come from the RigConfig (printf-style with height + direction tokens).
 func _tier_names(h: String, d: String, tier: int) -> Array[String]:
+	var templates: Array
 	match tier:
 		2:
-			return ["KB_Hit_m_%s%s_Stagger" % [h, d], "KB_Hit_m_%s%s_Med" % [h, d], "KB_Hit_m_%s%s_Weak" % [h, d], "KB_Hit_p_%s%s_Weak" % [h, d]]
+			templates = _cfg.hit_templates_heavy
 		1:
-			return ["KB_Hit_m_%s%s_Med" % [h, d], "KB_Hit_m_%s%s_Weak" % [h, d], "KB_Hit_p_%s%s_Weak" % [h, d]]
+			templates = _cfg.hit_templates_medium
 		_:
-			return ["KB_Hit_p_%s%s_Weak" % [h, d], "KB_Hit_m_%s%s_Weak" % [h, d]]
+			templates = _cfg.hit_templates_light
+	var out: Array[String] = []
+	for t in templates:
+		out.append(t % [h, d])
+	return out
 
 ## Pick the knockdown clip from how the victim went down (uppercut / sweep / air / heavy).
 func _knockdown_clip(f: Fighter) -> String:
 	match f.knockdown_kind:
 		GameConst.Knockdown.UPPER:
-			return _first_existing(["KB_UpperKO", "KB_HighKO_Powerful", "KB_MidKO_Powerful"], STATE_CLIP["knockdown"])
+			return _first_existing(_cfg.ko_upper, _state("knockdown"))
 		GameConst.Knockdown.LOW:
-			return _first_existing(["KB_LowKO_R", "KB_LowKO_L", "KB_MidKO"], STATE_CLIP["knockdown"])
+			return _first_existing(_cfg.ko_low, _state("knockdown"))
 		GameConst.Knockdown.AIR:
-			return _first_existing(["KB_HighKO_Air", "KB_HighKO_Powerful", "KB_MidKO"], STATE_CLIP["knockdown"])
+			return _first_existing(_cfg.ko_air, _state("knockdown"))
 		GameConst.Knockdown.HEAVY:
-			return _first_existing(["KB_MidKO_Powerful", "KB_MidKO"], STATE_CLIP["knockdown"])
-	return STATE_CLIP["knockdown"]
+			return _first_existing(_cfg.ko_heavy, _state("knockdown"))
+	return _state("knockdown")
 
 ## Get-up clip: rise face-up by default, or face-down when knocked from behind.
 func _wakeup_clip(f: Fighter) -> String:
 	if f.hit_from_back:
-		return _first_existing(["KB_GetUpFace", "KB_GetUpBack"], STATE_CLIP["idle"])
-	return _first_existing(["KB_GetUpBack", "KB_GetUpFace"], STATE_CLIP["idle"])
+		return _first_existing(_cfg.getup_back, _state("idle"))
+	return _first_existing(_cfg.getup_front, _state("idle"))
 
-func _first_existing(candidates: Array[String], fallback: String) -> String:
+func _first_existing(candidates, fallback: String) -> String:
 	for c in candidates:
-		if _player.has_animation(LIB + "/" + c):
+		if _player.has_animation(_cfg.lib_name + "/" + c):
 			return c
 	return fallback
 
 func _move_clip(m: MoveData) -> String:
-	if m != null and m.anim_clip != "" and _player.has_animation(LIB + "/" + m.anim_clip):
+	if m != null and m.anim_clip != "" and _player.has_animation(_cfg.lib_name + "/" + m.anim_clip):
 		return m.anim_clip
-	return "KB_p_Jab_R_1"
+	return _cfg.default_move_clip
 
 func _play(clip: String, blend: float, speed: float = 1.0, loop: bool = false) -> void:
-	var full := LIB + "/" + clip
+	var full := _cfg.lib_name + "/" + clip
 	if not _player.has_animation(full):
 		return
 	var anim := _player.get_animation(full)
@@ -253,7 +233,7 @@ func _play(clip: String, blend: float, speed: float = 1.0, loop: bool = false) -
 	_cur_clip = clip
 
 func _length(clip: String) -> float:
-	var full := LIB + "/" + clip
+	var full := _cfg.lib_name + "/" + clip
 	if _player.has_animation(full):
 		return _player.get_animation(full).length
 	return 0.5
@@ -261,17 +241,17 @@ func _length(clip: String) -> float:
 ## --- setup helpers ---------------------------------------------------------
 
 func _graft_animations() -> void:
-	var lib := build_kb_library()
-	if _player.has_animation_library(LIB):
-		_player.remove_animation_library(LIB)
-	_player.add_animation_library(LIB, lib)
+	var lib := build_library(_cfg)
+	if _player.has_animation_library(_cfg.lib_name):
+		_player.remove_animation_library(_cfg.lib_name)
+	_player.add_animation_library(_cfg.lib_name, lib)
 
-## Build the shared Kubold animation library (clips grafted, root motion cancelled, looping
-## clips flagged). Static so the Animation Gallery can build it once and share it across
-## many characters.
-static func build_kb_library() -> AnimationLibrary:
+## Build a character's animation library from its RigConfig (clips grafted, root motion
+## cancelled, looping clips flagged). Static so the Animation Gallery can build it once and
+## share it across many instances.
+static func build_library(cfg: RigConfig) -> AnimationLibrary:
 	var lib := AnimationLibrary.new()
-	for path in ANIM_FILES:
+	for path in cfg.anim_files:
 		var ps := load(path) as PackedScene
 		if ps == null:
 			continue
@@ -279,11 +259,11 @@ static func build_kb_library() -> AnimationLibrary:
 		var ap := _find(inst, "AnimationPlayer") as AnimationPlayer
 		if ap:
 			for clip_name in ap.get_animation_list():
-				if clip_name in SKIP or lib.has_animation(clip_name):
+				if clip_name in cfg.skip_clips or lib.has_animation(clip_name):
 					continue
 				var anim: Animation = ap.get_animation(clip_name).duplicate(true)
-				_strip_root_motion(anim)
-				if clip_name in LOOPED:
+				_strip_root_motion(anim, cfg.root_bones)
+				if clip_name in cfg.looped_clips:
 					anim.loop_mode = Animation.LOOP_LINEAR
 				lib.add_animation(clip_name, anim)
 		inst.free()
@@ -291,7 +271,7 @@ static func build_kb_library() -> AnimationLibrary:
 
 ## Cancel the root bone's HORIZONTAL travel (so clips play in place) while keeping its
 ## vertical height/bob - removing the track entirely would collapse the character.
-static func _strip_root_motion(anim: Animation) -> void:
+static func _strip_root_motion(anim: Animation, root_bones: Array) -> void:
 	for i in range(anim.get_track_count()):
 		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
 			continue
@@ -299,7 +279,7 @@ static func _strip_root_motion(anim: Animation) -> void:
 		var sub: String = ""
 		if p.get_subname_count() > 0:
 			sub = String(p.get_subname(p.get_subname_count() - 1))
-		if not (sub in ROOT_BONES):
+		if not (sub in root_bones):
 			continue
 		var kc := anim.track_get_key_count(i)
 		if kc == 0:
@@ -315,7 +295,7 @@ func _ground_and_tint(character: CharacterData) -> void:
 	# Keep a single LOD visible.
 	var keep: MeshInstance3D = null
 	for m in meshes:
-		if "LOD1" in m.name:
+		if _cfg.lod_keep in m.name:
 			keep = m
 	if keep == null and not meshes.is_empty():
 		keep = meshes[0]
@@ -326,29 +306,28 @@ func _ground_and_tint(character: CharacterData) -> void:
 	# Grounding happens once the idle pose is available (see _reground_to_pose). At
 	# position.y = 0 the model is already standing on the floor in its rest pose.
 
-## Apply the (downscaled, web-friendly) Maskman textures per surface, with a gentle
-## per-character tint. Falls back to a flat colour if the textures aren't present.
+## Apply the per-surface textures from the rig config, with a gentle per-character tint.
+## Falls back to a flat colour if the textures aren't present.
 func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
-	apply_maskman_materials(mesh, character.color.lerp(Color.WHITE, 0.55), character.color)
+	apply_materials(mesh, _cfg, character.color.lerp(Color.WHITE, 0.55), character.color)
 
-## Static, reusable: texture a Maskman mesh per surface (body/head/mask/eye) with `tint`,
-## falling back to `flat` if a texture is missing. Used by the rig and the Animation Gallery.
-static func apply_maskman_materials(mesh: MeshInstance3D, tint: Color, flat: Color) -> void:
-	var surface_tex := {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
+## Static, reusable: texture a mesh per surface using the config's surface->texture map with
+## `tint`, falling back to `flat` if a texture is missing. Used by the rig and the gallery.
+static func apply_materials(mesh: MeshInstance3D, cfg: RigConfig, tint: Color, flat: Color) -> void:
 	for s in range(mesh.mesh.get_surface_count()):
 		var smat := mesh.mesh.surface_get_material(s)
 		var mname: String = ""
 		if smat:
 			mname = smat.resource_name
 		var tex: Texture2D = null
-		for key in surface_tex.keys():
+		for key in cfg.surface_textures.keys():
 			if key in mname:
-				var path: String = "res://assets/models/tex/" + surface_tex[key] + ".png"
+				var path: String = cfg.tex_dir + String(cfg.surface_textures[key]) + ".png"
 				if ResourceLoader.exists(path):
 					tex = load(path) as Texture2D
 				break
 		var mat := StandardMaterial3D.new()
-		mat.roughness = 0.7
+		mat.roughness = cfg.material_roughness
 		if tex:
 			mat.albedo_texture = tex
 			mat.albedo_color = tint
@@ -361,7 +340,6 @@ static func apply_maskman_materials(mesh: MeshInstance3D, tint: Color, flat: Col
 ## lowest foot-bone height at rest equals the bone-above-sole distance. We then place the
 ## posed lowest foot bone at that same height, putting the sole at y=0. Runs once, on the
 ## first in-tree idle tick (when the AnimationPlayer has actually posed the skeleton).
-const FOOT_BONES := ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]
 
 func _reground_to_pose() -> void:
 	if _skel == null:
@@ -377,7 +355,7 @@ func _reground_to_pose() -> void:
 ## rest pose when `rest` is true, else the current animated pose.
 func _lowest_foot_height(rest: bool) -> float:
 	var lowest := INF
-	for bone in FOOT_BONES:
+	for bone in _cfg.foot_bones:
 		var bi := _skel.find_bone(bone)
 		if bi < 0:
 			continue

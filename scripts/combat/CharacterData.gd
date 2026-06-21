@@ -31,6 +31,10 @@ extends Resource
 @export var model_scale: float = 1.0
 @export var model_face_deg: float = 0.0   # extra yaw so the model faces its opponent
 
+## Visual/rig configuration for the model-backed AnimatedFighterRig (anim source files, state->clip
+## maps, materials, directional hit reactions). Null for characters that only use the procedural rig.
+@export var rig: RigConfig = null
+
 ## Move tables, filled via add_move().
 var moves: Dictionary = {}            # id -> MoveData
 var normals: Array[MoveData] = []     # button-triggered

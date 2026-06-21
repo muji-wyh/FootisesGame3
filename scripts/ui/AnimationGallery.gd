@@ -5,25 +5,27 @@ extends Node3D
 ## Reached from the main menu. Requires the (gitignored) Maskman model + KB anim FBX; if
 ## they're absent it shows a notice instead.
 
-const MASKMAN := "res://assets/models/maskman.fbx"
 const COLS := 14
 const SPACING_X := 2.4
 const SPACING_Z := 3.2
 
+var _cfg: RigConfig
 var _cam: Camera3D
 var _pan_speed := 14.0
 var _dragging := false
 
 func _ready() -> void:
 	_add_environment()
-	if not ResourceLoader.exists(MASKMAN):
-		_show_notice("Animation assets not installed.\n(Drop the licensed FBX into assets/models/.)")
+	var blaze := CharacterLibrary.create("blaze")
+	_cfg = blaze.rig
+	if _cfg == null or not ResourceLoader.exists(blaze.model_path):
+		_show_notice("Animation assets not installed.\n(Drop the licensed FBX into the character's assets/ folder.)")
 		return
 
-	var lib := AnimatedFighterRig.build_kb_library()
+	var lib := AnimatedFighterRig.build_library(_cfg)
 	var names := lib.get_animation_list()
 	names.sort()
-	var ps := load(MASKMAN) as PackedScene
+	var ps := load(blaze.model_path) as PackedScene
 	var rows := int(ceil(float(names.size()) / COLS))
 	for i in range(names.size()):
 		var col := i % COLS
@@ -51,16 +53,16 @@ func _spawn(ps: PackedScene, lib: AnimationLibrary, clip: String, pos: Vector3) 
 		keep = meshes[0]
 	for m in meshes:
 		if m == keep:
-			AnimatedFighterRig.apply_maskman_materials(m, Color(0.85, 0.85, 0.9), Color(0.7, 0.7, 0.72))
+			AnimatedFighterRig.apply_materials(m, _cfg, Color(0.85, 0.85, 0.9), Color(0.7, 0.7, 0.72))
 		else:
 			m.queue_free()
 
 	var ap := _find(model, "AnimationPlayer") as AnimationPlayer
 	if ap:
-		ap.add_animation_library("kb", lib)
+		ap.add_animation_library(_cfg.lib_name, lib)
 		var anim := lib.get_animation(clip)
 		anim.loop_mode = Animation.LOOP_LINEAR     # loop every clip in the gallery
-		ap.play("kb/" + clip)
+		ap.play(_cfg.lib_name + "/" + clip)
 		ap.seek(randf() * anim.length, true)        # desync so the grid isn't in lockstep
 
 	var label := Label3D.new()
