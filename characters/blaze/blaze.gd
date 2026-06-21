@@ -34,7 +34,7 @@ static func build() -> CharacterData:
 	c.back_speed = 2.9
 	c.jump_velocity = 12.6
 	c.model_path = ASSETS + "maskman.fbx"
-	c.model_scale = 0.70
+	c.model_scale = 1.0
 	c.model_face_deg = 90.0
 	c.rig = _rig()
 

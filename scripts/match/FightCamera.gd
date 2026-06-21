@@ -7,11 +7,11 @@ extends Camera3D
 ## put and their heads rise into frame as the camera pulls back).
 
 const FOV := 45.0
-const FEET_FRAC := 0.87        # screen fraction (from top) at which the fighters' feet sit
-const MARGIN := 0.68           # world metres kept beyond each fighter, horizontally
-const MIN_Z := 2.15            # closest pull-in ≈ the round-start framing (most zoomed-in)
+const FEET_FRAC := 0.88        # screen fraction (from top) at which the fighters' feet sit
+const MARGIN := 0.90           # world metres kept beyond each fighter, horizontally
+const MIN_Z := 3.95            # closest pull-in ≈ the round-start framing (most zoomed-in)
 const MAX_Z := 9.8             # farthest pull-out (keeps both framed corner-to-corner)
-const HEIGHT := 1.35           # camera height (constant; pitch is what tracks the floor)
+const HEIGHT := 1.15           # camera height (constant; pitch is what tracks the floor)
 const AIR_LIFT := 0.45         # how much the camera lifts to follow airborne fighters
 const FOLLOW := 0.2
 
