@@ -80,6 +80,10 @@ func _initialize() -> void:
 	_test_hitstop_tiers()
 	_test_impact_fx_smoke()
 	_test_slowmo_director()
+	_test_combo()
+	_test_drive_gauge()
+	_test_drive_rush()
+	_test_uppercut_rise()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -327,6 +331,7 @@ func _test_dash() -> void:
 	print("[dash]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
+	f1.drive = 0   # with no Drive, forward double-tap is an ordinary dash (not a Raw Drive Rush)
 	var start_x: float = f1.position.x
 	var saw_dash := false
 	# Double-tap forward: tap, release, tap (within the dash window).
@@ -613,3 +618,218 @@ func _test_slowmo_director() -> void:
 	_check("KO (force) overrides cooldown", d.active() and d.scale < 1.0)
 	d.reset()
 	_check("reset clears the dip", d.scale == 1.0 and not d.active())
+
+# --- blaze-sf6-combat-feel: combos, drive gauge, drive rush, rising uppercut ---
+
+func _test_combo() -> void:
+	print("[combo]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var hp0: int = f2.health
+	var moves := {}
+	var hit_count := 0
+	var prev_h := f2.health
+	var f2_acted_before_3rd := false
+	# Feed LP, then mash MP, then mash HP. The victim is passive until first hit, then mashes
+	# LP to try to escape — a true combo keeps it locked in hitstun until the chain ends.
+	var script: Array = []
+	script.append(_mk(0, 0, GameConst.Btn.LP))
+	for i in range(5): script.append(_mk(0, 0))
+	for i in range(8): script.append(_mk(0, 0, GameConst.Btn.MP))
+	for i in range(12): script.append(_mk(0, 0, GameConst.Btn.HP))
+	for i in range(16): script.append(_mk(0, 0))
+	for fr in script:
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _mk(0, 0, GameConst.Btn.LP) if hit_count >= 1 else _neutral()
+		ctx["arena"].step(DELTA)
+		if f1.state == Fighter.State.ATTACK and f1.current_move != null:
+			moves[f1.current_move.id] = true
+		if hit_count < 3 and f2.state == Fighter.State.ATTACK:
+			f2_acted_before_3rd = true
+		if f2.health < prev_h:
+			hit_count += 1
+			prev_h = f2.health
+	_check("combo chained st_lp", moves.has("st_lp"))
+	_check("combo chained st_mp", moves.has("st_mp"))
+	_check("combo chained st_hp", moves.has("st_hp"))
+	_check("combo dealt cumulative damage", f2.health < hp0)
+	_check("victim stayed in hitstun through the true combo (>=3 hits, no escape)",
+		hit_count >= 3 and not f2_acted_before_3rd)
+	ctx["arena"].queue_free()
+	# Buffer survives the impact hitstop: press MP only during the hit's freeze.
+	var ctx2 := _build()
+	var a: Fighter = ctx2["f1"]
+	var b: Fighter = ctx2["f2"]
+	a.position.x = -0.6
+	b.position.x = 0.6
+	ctx2["c1"].frame = _mk(0, 0, GameConst.Btn.LP)
+	ctx2["c2"].frame = _neutral()
+	ctx2["arena"].step(DELTA)
+	var bh := b.health
+	for i in range(8):
+		if b.health < bh: break
+		ctx2["c1"].frame = _neutral()
+		ctx2["c2"].frame = _neutral()
+		ctx2["arena"].step(DELTA)
+	# The hit just landed -> attacker is in hitstop; press MP for two frozen ticks then release.
+	for i in range(2):
+		ctx2["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+		ctx2["c2"].frame = _neutral()
+		ctx2["arena"].step(DELTA)
+	var saw_mp := false
+	for i in range(14):
+		ctx2["c1"].frame = _neutral()
+		ctx2["c2"].frame = _neutral()
+		ctx2["arena"].step(DELTA)
+		if a.current_move != null and a.current_move.id == "st_mp":
+			saw_mp = true
+	_check("buffered press during hitstop still cancels (st_mp)", saw_mp)
+	ctx2["arena"].queue_free()
+
+func _test_drive_gauge() -> void:
+	print("[drive gauge]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	_check("Drive full at round start", f1.drive == f1.character.max_drive)
+	f1.drive = 500
+	var big := f1.spend_drive(1000)
+	_check("spend fails when insufficient", big == false and f1.drive == 500)
+	var ok := f1.spend_drive(300)
+	_check("spend succeeds when affordable", ok and f1.drive == 200)
+	var before: int = f1.drive
+	_step(ctx, _neutral(), _neutral(), 30)
+	_check("Drive regenerates over ticks", f1.drive > before)
+	f1.meter = 50
+	f1.drive = 4000
+	f1.spend_drive(3000)
+	_check("spending Drive leaves the Super meter unchanged", f1.meter == 50)
+	ctx["arena"].queue_free()
+
+func _drive_rush_dbltap(ctx: Dictionary) -> void:
+	for fr in [_mk(1, 0), _mk(0, 0), _mk(1, 0)]:
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+
+func _test_drive_rush() -> void:
+	print("[drive rush]")
+	# Raw Drive Rush from neutral spends 1 bar and enters DRIVE_RUSH.
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var d0: int = f1.drive
+	_drive_rush_dbltap(ctx)
+	_check("RDR entered DRIVE_RUSH", f1.state == Fighter.State.DRIVE_RUSH)
+	_check("RDR spent one bar", f1.drive == d0 - Fighter.RDR_COST)
+	ctx["arena"].queue_free()
+	# With no Drive, forward double-tap is an ordinary dash and spends nothing.
+	var ctxd := _build()
+	var fd: Fighter = ctxd["f1"]
+	fd.drive = 0
+	_drive_rush_dbltap(ctxd)
+	_check("no-Drive forward double-tap is an ordinary dash", fd.state == Fighter.State.DASH_F)
+	_check("ordinary dash spent no Drive", fd.drive < Fighter.RDR_COST)
+	ctxd["arena"].queue_free()
+	# Drive Rush Cancel off a connected normal: spends 3 bars, enters DRIVE_RUSH, extends.
+	var ctxa := _build()
+	var a: Fighter = ctxa["f1"]
+	var b: Fighter = ctxa["f2"]
+	a.position.x = -0.7
+	b.position.x = 0.6
+	var da: int = a.drive
+	ctxa["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctxa["c2"].frame = _neutral()
+	ctxa["arena"].step(DELTA)
+	var bh0: int = b.health
+	for i in range(8):
+		if b.health < bh0: break
+		ctxa["c1"].frame = _neutral()
+		ctxa["c2"].frame = _neutral()
+		ctxa["arena"].step(DELTA)
+	var drc_entered := false
+	var fwd_phase := 0
+	for i in range(20):
+		var fr := _neutral()
+		if a.hitstop == 0:
+			fr = _mk(1, 0) if (fwd_phase % 2 == 0) else _mk(0, 0)
+			fwd_phase += 1
+		ctxa["c1"].frame = fr
+		ctxa["c2"].frame = _neutral()
+		ctxa["arena"].step(DELTA)
+		if a.state == Fighter.State.DRIVE_RUSH:
+			drc_entered = true
+			break
+	var drive_after_drc: int = a.drive
+	_check("DRC entered Drive Rush off a connected normal", drc_entered)
+	_check("DRC spent ~3 bars", drive_after_drc <= da - Fighter.DRC_COST + 60)
+	var bh1: int = b.health
+	var follow_hit := false
+	for i in range(20):
+		ctxa["c1"].frame = _mk(0, 0, GameConst.Btn.HP)
+		ctxa["c2"].frame = _neutral()
+		ctxa["arena"].step(DELTA)
+		if b.health < bh1:
+			follow_hit = true
+	_check("Drive Rush follow-up normal connected", follow_hit)
+	ctxa["arena"].queue_free()
+	# DRC also works off a blocked normal (pressure).
+	var ctxb := _build()
+	var p: Fighter = ctxb["f1"]
+	var q: Fighter = ctxb["f2"]
+	p.position.x = -0.7
+	q.position.x = 0.6
+	ctxb["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctxb["c2"].frame = _mk(1, 0)
+	ctxb["arena"].step(DELTA)
+	var did_block := false
+	for i in range(8):
+		ctxb["c1"].frame = _neutral()
+		ctxb["c2"].frame = _mk(1, 0)
+		ctxb["arena"].step(DELTA)
+		if q.state == Fighter.State.BLOCKSTUN:
+			did_block = true
+	var drc_block := false
+	var bphase := 0
+	for i in range(20):
+		var fr := _neutral()
+		if p.hitstop == 0:
+			fr = _mk(1, 0) if (bphase % 2 == 0) else _mk(0, 0)
+			bphase += 1
+		ctxb["c1"].frame = fr
+		ctxb["c2"].frame = _mk(1, 0)
+		ctxb["arena"].step(DELTA)
+		if p.state == Fighter.State.DRIVE_RUSH:
+			drc_block = true
+			break
+	_check("normal was blocked", did_block)
+	_check("DRC off a blocked normal (pressure)", drc_block)
+	ctxb["arena"].queue_free()
+
+func _test_uppercut_rise() -> void:
+	print("[uppercut rise]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.7
+	f2.position.x = 0.5
+	var bh: int = f2.health
+	var max_y := 0.0
+	var connected := false
+	# Shoryuken motion: forward, down, down-forward + HP (no meter, so the special, not super).
+	for fr in [_mk(1, 0), _mk(0, -1), _mk(1, -1), _mk(1, -1, GameConst.Btn.HP)]:
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+	for i in range(80):
+		ctx["c1"].frame = _neutral()
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		max_y = maxf(max_y, f1.position.y)
+		if f2.health < bh:
+			connected = true
+	_check("attacker leapt off the ground during the uppercut", max_y > 0.4)
+	_check("attacker returned to the ground after the uppercut", absf(f1.position.y) < 0.05)
+	_check("rising uppercut connected on a grounded opponent", connected)
+	ctx["arena"].queue_free()

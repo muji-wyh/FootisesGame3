@@ -97,8 +97,10 @@ func _attach_rig(f: Fighter, ch: CharacterData) -> void:
 func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	f1.health_changed.connect(func(c, m): hud.set_health(0, c, m))
 	f1.meter_changed.connect(func(c, m): hud.set_meter(0, c, m))
+	f1.drive_changed.connect(func(c, m): hud.set_drive(0, c, m))
 	f2.health_changed.connect(func(c, m): hud.set_health(1, c, m))
 	f2.meter_changed.connect(func(c, m): hud.set_meter(1, c, m))
+	f2.drive_changed.connect(func(c, m): hud.set_drive(1, c, m))
 	f1.countered.connect(_on_countered)
 	f2.countered.connect(_on_countered)
 	f1.got_hit.connect(func(blocked): _on_struck(f1, blocked))
@@ -107,6 +109,8 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	hud.set_health(1, f2.health, c2.max_health)
 	hud.set_meter(0, 0, c1.max_meter)
 	hud.set_meter(1, 0, c2.max_meter)
+	hud.set_drive(0, f1.drive, c1.max_drive)
+	hud.set_drive(1, f2.drive, c2.max_drive)
 
 ## A fighter was hit / blocked: spawn an impact spark at the contact point and shake the
 ## camera, scaling intensity, colour and height by strength / counter / where it landed.

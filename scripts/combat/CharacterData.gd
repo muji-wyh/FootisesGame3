@@ -13,6 +13,10 @@ extends Resource
 ## Movement / vitals (units are metres and metres-per-second; gravity m/s^2).
 @export var max_health: int = 1000
 @export var max_meter: int = 100
+## Drive gauge (SF6-style), separate from the Super meter. Stored in fine internal units
+## (1000 per bar) for smooth per-tick regeneration; six bars by default.
+@export var max_drive: int = 6000
+@export var drive_regen: int = 14         # units regained per tick when below max
 @export var walk_speed: float = 3.2
 @export var back_speed: float = 2.6
 @export var jump_velocity: float = 9.5

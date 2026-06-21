@@ -15,13 +15,14 @@ extends Node3D
 
 signal health_changed(current: int, maximum: int)
 signal meter_changed(current: int, maximum: int)
+signal drive_changed(current: int, maximum: int)
 signal move_started(move: MoveData)
 signal contact(blocked: bool, move: MoveData)   # this fighter connected an attack
 signal got_hit(blocked: bool)                    # this fighter was hit
 signal countered(kind: int)                      # this fighter was hit as a Counter/Punish
 signal jumped()
 
-enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP }
+enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP, DRIVE_RUSH }
 
 const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.42
@@ -34,6 +35,12 @@ const COUNTER_BONUS_HITSTUN := 6    # extra hitstun on a Counter Hit
 const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo window)
 const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knockdown
 const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
+const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
+const DRIVE_RUSH_SPEED := 9.0       # forward speed while in a Drive Rush
+const DRIVE_RUSH_DURATION := 18     # ticks a Drive Rush advances before returning to neutral
+const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
+const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
+const RDR_COST := 1000              # Drive spent by a raw Drive Rush (1 bar)
 
 # Configuration
 var character: CharacterData
@@ -67,6 +74,13 @@ var last_counter: int = GameConst.Counter.NONE   # counter kind of the most rece
 var knockdown_kind: int = GameConst.Knockdown.NONE  # how the current knockdown was caused
 var input_buffer := InputBuffer.new()
 
+# Drive (SF6-style gauge, separate from the Super meter).
+var drive: int = 0
+var drive_rush_pending: bool = false   # first normal out of a Drive Rush gets a one-time advantage
+# Cancel buffer: most-recent attack press, ageing only on advancing ticks (survives hitstop).
+var _cancel_btn: int = 0
+var _cancel_age: int = 999
+
 # Dash double-tap tracking
 var _tick: int = 0
 var _prev_fwd: bool = false
@@ -87,6 +101,7 @@ func setup(p_character: CharacterData, p_controller: InputController, p_side: in
 	side = p_side
 	health = character.max_health
 	meter = 0
+	drive = character.max_drive
 	facing = 1 if side == GameConst.Side.P1 else -1
 	position = Vector3(start_x, 0, 0)
 	state = State.IDLE
@@ -104,9 +119,19 @@ func poll_input() -> void:
 
 func advance(delta: float) -> void:
 	pending_projectiles.clear()
+	# Cancel buffer: capture the latest attack press every tick (even during hitstop) so a
+	# pre-pressed/mashed follow-up survives the freeze; it only AGES on advancing ticks.
+	var lf := input_buffer.latest()
+	var pressed_now := lf.pressed != 0
+	if pressed_now:
+		_cancel_btn = lf.pressed
+		_cancel_age = 0
 	if hitstop > 0:
 		hitstop -= 1
 		return
+	if not pressed_now:
+		_cancel_age += 1
+	_regen_drive()
 	_tick += 1
 	_update_dash_taps(input_buffer.latest())
 	state_frame += 1
@@ -122,6 +147,8 @@ func advance(delta: float) -> void:
 			_step_dash(inp, true)
 		State.DASH_B:
 			_step_dash(inp, false)
+		State.DRIVE_RUSH:
+			_step_drive_rush(inp)
 		State.HITSTUN, State.BLOCKSTUN:
 			_step_stun()
 		State.KNOCKDOWN:
@@ -137,8 +164,8 @@ func advance(delta: float) -> void:
 ## Track facing-relative forward/back taps to detect dash double-taps.
 func _update_dash_taps(inp: InputFrame) -> void:
 	_dash_req = 0
-	var fwd := inp.dir_x * facing > 0
-	var back := inp.dir_x * facing < 0
+	var fwd := inp.dir_x * facing > 0 and inp.dir_y == 0
+	var back := inp.dir_x * facing < 0 and inp.dir_y == 0
 	if fwd and not _prev_fwd:
 		if _tick - _fwd_tap <= DASH_WINDOW:
 			_dash_req = 1
@@ -164,15 +191,22 @@ func update_visual() -> void:
 # --- neutral / movement ----------------------------------------------------
 
 func _step_neutral(inp: InputFrame) -> void:
-	if _dash_req > 0:
-		_start_dash(true)
-		return
-	if _dash_req < 0:
-		_start_dash(false)
-		return
+	# A pressed move (special/super/normal) takes priority over a dash/RDR on the same tick,
+	# so motion inputs whose path crosses forward (e.g. shoryuken, double-QCF super) are not
+	# eaten by an accidental double-tap.
 	var move := _select_move(inp)
 	if move:
 		_start_move(move)
+		return
+	if _dash_req > 0:
+		# Forward double-tap is a Raw Drive Rush when Drive is available, else an ordinary dash.
+		if spend_drive(RDR_COST):
+			_start_drive_rush()
+		else:
+			_start_dash(true)
+		return
+	if _dash_req < 0:
+		_start_dash(false)
 		return
 	if inp.dir_y > 0 and on_ground:
 		_start_jump(inp)
@@ -224,6 +258,28 @@ func _step_dash(inp: InputFrame, forward: bool) -> void:
 		velocity.x = 0
 		_goto(State.IDLE)
 
+## Drive Rush: a forward-advancing rush (Raw from neutral, or a Cancel out of a connected
+## normal) that can itself be cancelled into a grounded normal. The first normal performed
+## out of it gets a one-time advantage bonus (see drive_rush_hit_bonus), enabling links.
+func _start_drive_rush() -> void:
+	_goto(State.DRIVE_RUSH)
+	state_frame = 0
+	current_move = null
+	move_hits_done = 0
+	move_hit_cooldown = 0
+	velocity.x = facing * DRIVE_RUSH_SPEED
+
+func _step_drive_rush(inp: InputFrame) -> void:
+	var move := _select_move(inp)
+	if move != null and move.stance != GameConst.Stance.AIR:
+		_start_move(move)   # _start_move arms the Drive Rush bonus for normals out of DRIVE_RUSH
+		return
+	velocity.x = facing * DRIVE_RUSH_SPEED
+	if state_frame >= DRIVE_RUSH_DURATION:
+		velocity.x = 0
+		drive_rush_pending = false
+		_goto(State.IDLE)
+
 # --- attacks ---------------------------------------------------------------
 
 func _current_stance(inp: InputFrame) -> int:
@@ -261,9 +317,12 @@ func _motion_ok(m: MoveData) -> bool:
 	return MotionParser.completed(input_buffer, facing, m.motion)
 
 func _start_move(m: MoveData) -> void:
+	# Arm the one-time Drive Rush advantage when a normal is performed out of a Drive Rush.
+	drive_rush_pending = (state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL)
 	current_move = m
 	move_hits_done = 0
 	move_hit_cooldown = 0
+	_cancel_age = 999   # a fresh press is required to cancel this new move
 	if m.kind == GameConst.MoveKind.SUPER:
 		_add_meter(-m.meter_cost)
 	_goto(State.ATTACK)
@@ -273,7 +332,7 @@ func _start_move(m: MoveData) -> void:
 		velocity.x = 0
 	move_started.emit(m)
 
-func _step_attack(inp: InputFrame) -> void:
+func _step_attack(_inp: InputFrame) -> void:
 	var m := current_move
 	if m == null:
 		_goto(State.IDLE)
@@ -291,12 +350,21 @@ func _step_attack(inp: InputFrame) -> void:
 		velocity.x = facing * m.advance   # ground lunge/advance
 	else:
 		velocity.x = 0
+	# Rising attacks (DP-style): leap along a scripted vertical arc within the move's frames.
+	# on_ground stays true, so _apply_physics does not fight the curve (see design D9).
+	if m.rises:
+		var t := float(state_frame) / float(maxi(1, m.total_frames()))
+		position.y = m.rise_height * 4.0 * t * (1.0 - t)
 	# Spawn a projectile on the first active frame.
 	if m.projectile and state_frame == m.startup:
 		pending_projectiles.append(m)
-	# Cancel into a follow-up on hit (combos) once this move has connected.
-	if move_hits_done > 0 and not m.cancel_into.is_empty() and m.is_recovering(state_frame):
-		var nxt := _select_cancel(inp, m)
+	# Once connected (hit or block), the move can be cancelled: a Drive Rush Cancel (forward
+	# double-tap, spends Drive) or a buffered follow-up move listed in cancel_into.
+	if move_hits_done > 0 and not m.cancel_into.is_empty():
+		if _dash_req > 0 and m.kind == GameConst.MoveKind.NORMAL and spend_drive(DRC_COST):
+			_start_drive_rush()
+			return
+		var nxt := _select_cancel(m)
 		if nxt:
 			_start_move(nxt)
 			return
@@ -304,24 +372,40 @@ func _step_attack(inp: InputFrame) -> void:
 		current_move = null
 		_goto(State.IDLE if on_ground else State.JUMP)
 
-func _select_cancel(inp: InputFrame, from_move: MoveData) -> MoveData:
-	if inp.pressed == 0:
+## Choose a buffered cancel target. Uses the hitstop-aware cancel buffer (a press within the
+## last CANCEL_BUFFER advancing ticks) rather than a frame-fresh press, and only allows moves
+## listed in the source move's cancel_into. Specials/supers validate their motion over the buffer.
+func _select_cancel(from_move: MoveData) -> MoveData:
+	if _cancel_btn == 0 or _cancel_age > CANCEL_BUFFER:
 		return null
-	var candidate := _select_move(inp)
-	if candidate and from_move.cancel_into.has(candidate.id):
-		return candidate
-	return null
+	var btn := _cancel_btn
+	if on_ground:
+		for m in character.supers:
+			if (btn & m.button) and from_move.cancel_into.has(m.id) and meter >= m.meter_cost and _motion_ok(m):
+				return m
+		for m in character.specials:
+			if (btn & m.button) and from_move.cancel_into.has(m.id) and _motion_ok(m):
+				return m
+	var stance := _current_stance(input_buffer.latest())
+	var fallback: MoveData = null
+	for m in character.normals:
+		if (btn & m.button) and from_move.cancel_into.has(m.id):
+			if m.stance == stance:
+				return m
+			if fallback == null:
+				fallback = m
+	return fallback
 
 # --- damage / blocking (called by HitResolver) -----------------------------
 
 ## Decide whether this fighter would block `m` given current input, then apply.
 ## Returns true if the attack was blocked.
-func receive_attack(m: MoveData, attacker_facing: int) -> bool:
+func receive_attack(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> bool:
 	var blocked := _is_blocking(m, attacker_facing)
 	if blocked:
-		_apply_block(m, attacker_facing)
+		_apply_block(m, attacker_facing, bonus_hitstun)
 	else:
-		_apply_hit(m, attacker_facing)
+		_apply_hit(m, attacker_facing, bonus_hitstun)
 	var stop := m.hitstop
 	if not blocked:
 		stop += _hitstop_bonus()
@@ -368,18 +452,18 @@ func _is_actionable() -> bool:
 func _is_locked_out() -> bool:
 	return state in [State.HITSTUN, State.BLOCKSTUN, State.KNOCKDOWN, State.WAKEUP, State.KO, State.INTRO, State.WIN]
 
-func _apply_block(m: MoveData, attacker_facing: int) -> void:
+func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
-	stun_timer = m.blockstun
+	stun_timer = m.blockstun + bonus_hitstun
 	_goto(State.BLOCKSTUN)
 	if m.chip > 0:
 		_damage(m.chip)
 	velocity.x = attacker_facing * (m.knockback * 0.5)
 	launched = false
 
-func _apply_hit(m: MoveData, attacker_facing: int) -> void:
+func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
 	var counter := _counter_kind()   # read before current_move is cleared
 	current_move = null
 	move_hits_done = 0
@@ -406,11 +490,11 @@ func _apply_hit(m: MoveData, attacker_facing: int) -> void:
 		velocity.y = m.launch_velocity
 		velocity.x = attacker_facing * m.knockback
 		on_ground = false
-		stun_timer = m.hitstun + bonus_stun
+		stun_timer = m.hitstun + bonus_stun + bonus_hitstun
 		_goto(State.HITSTUN)
 	else:
 		launched = false
-		stun_timer = m.hitstun + bonus_stun
+		stun_timer = m.hitstun + bonus_stun + bonus_hitstun
 		velocity.x = attacker_facing * m.knockback
 		_goto(State.HITSTUN)
 
@@ -563,6 +647,31 @@ func _add_meter(amount: int) -> void:
 func gain_meter(amount: int) -> void:
 	_add_meter(amount)
 
+# --- drive gauge -----------------------------------------------------------
+
+func _add_drive(amount: int) -> void:
+	drive = clampi(drive + amount, 0, character.max_drive)
+	drive_changed.emit(drive, character.max_drive)
+
+func _regen_drive() -> void:
+	if active and drive < character.max_drive:
+		_add_drive(character.drive_regen)
+
+## Spend `cost` Drive if affordable; returns whether the spend succeeded.
+func spend_drive(cost: int) -> bool:
+	if drive < cost:
+		return false
+	_add_drive(-cost)
+	return true
+
+## One-time hitstun/blockstun bonus for the first normal performed out of a Drive Rush,
+## consumed on contact (read by HitResolver and passed to the victim).
+func drive_rush_hit_bonus() -> int:
+	if drive_rush_pending:
+		drive_rush_pending = false
+		return DRIVE_RUSH_HITSTUN_BONUS
+	return 0
+
 func mark_connected(blocked: bool, m: MoveData) -> void:
 	move_hits_done += 1
 	move_hit_cooldown = m.hit_gap
@@ -604,12 +713,17 @@ func reset_for_round() -> void:
 	hit_from_back = false
 	last_counter = GameConst.Counter.NONE
 	knockdown_kind = GameConst.Knockdown.NONE
+	drive = character.max_drive
+	drive_rush_pending = false
+	_cancel_btn = 0
+	_cancel_age = 999
 	on_ground = true
 	position.y = 0
 	input_buffer.clear()
 	_goto(State.IDLE)
 	health_changed.emit(health, character.max_health)
 	meter_changed.emit(meter, character.max_meter)
+	drive_changed.emit(drive, character.max_drive)
 
 func is_dead() -> bool:
 	return health <= 0

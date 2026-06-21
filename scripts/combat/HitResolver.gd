@@ -37,7 +37,10 @@ static func resolve(fighters: Array, projectiles: Array) -> void:
 		if hit_victims.has(h["vic"]):
 			continue
 		hit_victims[h["vic"]] = true
-		var blocked: bool = h["vic"].receive_attack(h["move"], h["facing"])
+		var bonus: int = 0
+		if h["proj"] == null and h["atk"] != null and is_instance_valid(h["atk"]):
+			bonus = h["atk"].drive_rush_hit_bonus()
+		var blocked: bool = h["vic"].receive_attack(h["move"], h["facing"], bonus)
 		if h["proj"] != null:
 			h["proj"].connected = true
 			if h["atk"] != null and not blocked:

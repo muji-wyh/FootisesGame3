@@ -22,7 +22,14 @@ static func create(_id: String) -> CharacterData:
 static func _move(props: Dictionary) -> MoveData:
 	var m := MoveData.new()
 	for key in props.keys():
-		m.set(key, props[key])
+		# Typed-array properties (Array[String]/Array[int]) must be filled with assign():
+		# Object.set() silently drops an untyped Array source, leaving the property empty.
+		if key == "cancel_into":
+			m.cancel_into.assign(props[key])
+		elif key == "motion":
+			m.motion.assign(props[key])
+		else:
+			m.set(key, props[key])
 	return m
 
 ## Adds a full set of 6-button normals in three stances (standing / crouching / air) to a
@@ -36,32 +43,32 @@ static func _add_standard_normals(c: CharacterData, dmg_scale: float, cancels: A
 		{"id": "st_lp", "display_name": "Stand LP", "button": GameConst.Btn.LP, "stance": GameConst.Stance.STAND,
 			"anim_clip": "KB_p_Jab_R_1", "startup": 4, "active": 3, "recovery": 8, "damage": 28,
 			"hitstun": 14, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 1.1,
-			"cancel_into": ["st_mp", "st_hp"] + cancels},
+			"cancel_into": ["st_lp", "st_mp", "st_hp"] + cancels},
 		{"id": "st_mp", "display_name": "Stand MP", "button": GameConst.Btn.MP, "stance": GameConst.Stance.STAND,
-			"anim_clip": "KB_p_MidJab_R", "startup": 6, "active": 3, "recovery": 12, "damage": 50,
+			"anim_clip": "KB_m_Uppercut_L", "startup": 6, "active": 3, "recovery": 12, "damage": 50,
 			"hitstun": 17, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 1.6,
 			"cancel_into": ["st_hp"] + cancels},
 		{"id": "st_hp", "display_name": "Stand HP", "button": GameConst.Btn.HP, "stance": GameConst.Stance.STAND,
-			"anim_clip": "KB_p_Hook_R", "startup": 9, "active": 4, "recovery": 18, "damage": 82,
+			"anim_clip": "KB_m_Overhand_R", "startup": 9, "active": 4, "recovery": 18, "damage": 82,
 			"hitstun": 21, "blockstun": 13, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 2.4,
 			"cancel_into": heavy_cancels},
 		{"id": "st_lk", "display_name": "Stand LK", "button": GameConst.Btn.LK, "stance": GameConst.Stance.STAND,
-			"anim_clip": "KB_p_MidKick_L_1", "startup": 5, "active": 3, "recovery": 9, "damage": 30,
+			"anim_clip": "KB_p_LowKick_R_1", "startup": 5, "active": 3, "recovery": 9, "damage": 30,
 			"hitstun": 14, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 1.2,
 			"cancel_into": ["st_mk"] + cancels},
 		{"id": "st_mk", "display_name": "Stand MK", "button": GameConst.Btn.MK, "stance": GameConst.Stance.STAND,
-			"anim_clip": "KB_p_MidKick_R_1", "startup": 7, "active": 4, "recovery": 14, "damage": 54,
+			"anim_clip": "KB_m_MidKick_R", "startup": 7, "active": 4, "recovery": 14, "damage": 54,
 			"hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 1.8,
 			"cancel_into": cancels},
 		{"id": "st_hk", "display_name": "Stand HK", "button": GameConst.Btn.HK, "stance": GameConst.Stance.STAND,
-			"anim_clip": "KB_p_HighKick_R_1", "startup": 11, "active": 4, "recovery": 20, "damage": 88,
+			"anim_clip": "KB_m_HighKickRound_R_1", "startup": 11, "active": 4, "recovery": 20, "damage": 88,
 			"hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.0,
 			"launch": true, "launch_velocity": 7.0},
 		# Crouching
 		{"id": "cr_lp", "display_name": "Crouch LP", "button": GameConst.Btn.LP, "stance": GameConst.Stance.CROUCH,
 			"anim_clip": "KB_crouch_p_Jab_L", "startup": 4, "active": 3, "recovery": 8, "damage": 26,
 			"hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 1.0,
-			"cancel_into": ["cr_mp"] + cancels},
+			"cancel_into": ["cr_lp", "cr_mp", "cr_mk"] + cancels},
 		{"id": "cr_mp", "display_name": "Crouch MP", "button": GameConst.Btn.MP, "stance": GameConst.Stance.CROUCH,
 			"anim_clip": "KB_crouch_p_Jab_R", "startup": 6, "active": 3, "recovery": 12, "damage": 48,
 			"hitstun": 16, "blockstun": 10, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 1.4,
@@ -73,10 +80,11 @@ static func _add_standard_normals(c: CharacterData, dmg_scale: float, cancels: A
 		{"id": "cr_lk", "display_name": "Crouch LK", "button": GameConst.Btn.LK, "stance": GameConst.Stance.CROUCH,
 			"anim_clip": "KB_crouch_p_LowKick_L", "startup": 5, "active": 3, "recovery": 9, "damage": 28,
 			"hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.LOW, "knockback": 1.0,
-			"cancel_into": cancels},
+			"cancel_into": ["cr_mk"] + cancels},
 		{"id": "cr_mk", "display_name": "Crouch MK", "button": GameConst.Btn.MK, "stance": GameConst.Stance.CROUCH,
 			"anim_clip": "KB_crouch_p_LowKickRound_R", "startup": 7, "active": 4, "recovery": 14, "damage": 52,
-			"hitstun": 17, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.LOW, "knockback": 1.6},
+			"hitstun": 17, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.LOW, "knockback": 1.6,
+			"cancel_into": cancels},
 		{"id": "cr_hk", "display_name": "Sweep", "button": GameConst.Btn.HK, "stance": GameConst.Stance.CROUCH,
 			"anim_clip": "KB_crouch_p_LowKickRound_R", "startup": 9, "active": 4, "recovery": 22, "damage": 80,
 			"hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 2.0,
@@ -140,15 +148,15 @@ static func _blaze() -> CharacterData:
 		"damage": 55, "hitstun": 18, "blockstun": 12, "hitstop": 4, "guard": GameConst.Guard.MID,
 		"knockback": 1.5, "meter_gain": 12, "projectile": true, "projectile_speed": 8.0,
 		"projectile_life": 100, "sfx": "fire", "anim_limb": "arm_r", "anim_extend": 0.7,
-		"anim_clip": "KB_Projectile_1", "hit_size": Vector3(0.6, 0.6, 0.6)}))
+		"anim_clip": "KB_Projectile_4", "hit_size": Vector3(0.6, 0.6, 0.6)}))
 
 	# Rising uppercut: 2-hit anti-air launcher.
 	c.add_move(_move({"id": "uppercut", "display_name": "Blaze Rise", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.DP, "startup": 5, "active": 10, "recovery": 30,
 		"damage": 60, "hits": 2, "hit_gap": 5, "hitstun": 22, "blockstun": 14, "hitstop": 9,
 		"guard": GameConst.Guard.MID, "knockback": 1.2, "launch": true, "launch_velocity": 10.0,
-		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_p_Uppercut_R",
-		"hit_offset": Vector3(0.7, 1.6, 0.0), "hit_size": Vector3(0.8, 1.4, 0.7)}))
+		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_crouch_m_Uppercut_R_2",
+		"rises": true, "rise_height": 1.3, "hit_offset": Vector3(0.7, 1.0, 0.0), "hit_size": Vector3(0.8, 1.7, 0.7)}))
 
 	# Hurricane kick: advancing 3-hit. Low knockback per hit so the victim stays in range.
 	c.add_move(_move({"id": "hurricane", "display_name": "Cyclone Kick", "kind": GameConst.MoveKind.SPECIAL,

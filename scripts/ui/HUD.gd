@@ -11,9 +11,12 @@ const HP_W := 540.0
 const HP_H := 30.0
 const MP_W := 360.0
 const MP_H := 12.0
+const DR_W := 270.0
+const DR_H := 6.0
 
 var _hp_fill := [null, null]
 var _mp_fill := [null, null]
+var _dr_fill := [null, null]
 var _pips := [[], []]
 var _banner: Label
 var _timer_label: Label
@@ -58,6 +61,14 @@ func _build_side(root: Control, side: int, ch: CharacterData, x: float) -> void:
 	_mp_fill[side] = {"rect": mp, "x": mx}
 	mp.size.x = 0
 
+	# Drive gauge (separate from the Super meter), six bars, between the HP and meter bars.
+	var dx := x if side == 0 else x + HP_W - DR_W
+	_panel(root, Vector2(dx, 60), Vector2(DR_W, DR_H), Color(0.06, 0.12, 0.08))
+	var dr := _panel(root, Vector2(dx, 60), Vector2(DR_W, DR_H), Color(0.3, 0.9, 0.5))
+	_dr_fill[side] = {"rect": dr, "x": dx}
+	for i in range(1, 6):
+		_panel(root, Vector2(dx + DR_W * i / 6.0 - 1, 60), Vector2(2, DR_H), Color(0, 0, 0, 0.7))
+
 	# Name.
 	var name_pos := Vector2(x, 84) if side == 0 else Vector2(x + HP_W - 220, 84)
 	var nm := _label(root, name_pos, Vector2(220, 28), 20)
@@ -88,6 +99,14 @@ func set_meter(side: int, current: int, maximum: int) -> void:
 	rect.size.x = MP_W * frac
 	if side == 1:
 		rect.position.x = info["x"] + MP_W * (1.0 - frac)
+
+func set_drive(side: int, current: int, maximum: int) -> void:
+	var frac := clampf(float(current) / float(max(1, maximum)), 0.0, 1.0)
+	var info = _dr_fill[side]
+	var rect: ColorRect = info["rect"]
+	rect.size.x = DR_W * frac
+	if side == 1:
+		rect.position.x = info["x"] + DR_W * (1.0 - frac)
 
 func set_timer(seconds: int) -> void:
 	_timer_label.text = str(max(0, seconds))

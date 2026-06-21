@@ -35,6 +35,7 @@ const STATE_CLIP := {
 	"jump": "KB_Jump",
 	"dash_f": "KB_SkipFwd_1",
 	"dash_b": "KB_SkipBwd_1",
+	"drive_rush": "KB_SkipFwd_2",
 	"block": "KB_Block_Single",
 	"hit": "KB_Hit_p_MidFront_Weak",
 	"knockdown": "KB_MidKO",
@@ -144,6 +145,8 @@ func _state_clip(f: Fighter) -> String:
 			return STATE_CLIP["dash_f"]
 		Fighter.State.DASH_B:
 			return STATE_CLIP["dash_b"]
+		Fighter.State.DRIVE_RUSH:
+			return _first_existing(["KB_SkipFwd_2", "KB_SkipFwd_1", "KB_WalkFwd1"], STATE_CLIP["dash_f"])
 		Fighter.State.BLOCKSTUN:
 			return STATE_CLIP["block"]
 		Fighter.State.HITSTUN:

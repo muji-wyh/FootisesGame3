@@ -56,6 +56,12 @@ extends Resource
 ## Moves this can be cancelled into on hit/block (enables combos).
 @export var cancel_into: Array[String] = []
 
+## Rising attack (DP-style): the attacker leaps along a scripted vertical arc during the
+## move, peaking at `rise_height` metres and back on the ground by the end. on_ground stays
+## true (it is a positional arc within the move's frames, not a full jump state).
+@export var rises: bool = false
+@export var rise_height: float = 0.0
+
 ## Projectile: if true, instead of a melee hitbox the move spawns a travelling shot.
 @export var projectile: bool = false
 @export var projectile_speed: float = 7.0
