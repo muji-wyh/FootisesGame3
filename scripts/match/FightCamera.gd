@@ -8,10 +8,11 @@ extends Camera3D
 
 const FOV := 45.0
 const FEET_FRAC := 0.87        # screen fraction (from top) at which the fighters' feet sit
-const MARGIN := 1.0            # world metres kept beyond each fighter, horizontally
-const MIN_Z := 3.4             # closest pull-in ≈ the round-start framing (most zoomed-in)
-const MAX_Z := 12.0            # farthest pull-out (keeps both framed corner-to-corner)
+const MARGIN := 0.9            # world metres kept beyond each fighter, horizontally
+const MIN_Z := 3.0             # closest pull-in ≈ the round-start framing (most zoomed-in)
+const MAX_Z := 11.0            # farthest pull-out (keeps both framed corner-to-corner)
 const HEIGHT := 1.35           # camera height (constant; pitch is what tracks the floor)
+const AIR_LIFT := 0.45         # how much the camera lifts to follow airborne fighters
 const FOLLOW := 0.2
 
 var _base := Vector3(0, HEIGHT, MIN_Z)
@@ -22,7 +23,7 @@ var _shake_frames: int = 1
 func _ready() -> void:
 	fov = FOV
 	position = Vector3(0, HEIGHT, MIN_Z)
-	_aim(0.0, MIN_Z)
+	_aim(0.0, MIN_Z, HEIGHT)
 
 ## Request a screen shake (impact feedback). Stronger requests win; decays over `frames`.
 func shake(amp: float, frames: int) -> void:
@@ -35,13 +36,14 @@ func shake(amp: float, frames: int) -> void:
 func track(a: Vector3, b: Vector3) -> void:
 	var mid_x := (a.x + b.x) * 0.5
 	var sep: float = absf(a.x - b.x)
+	var lift := clampf(maxf(a.y, b.y) * AIR_LIFT, 0.0, 2.4)
 	# Zoom to fit both fighters (plus a margin) across the screen's horizontal half-extent.
 	var z := clampf((sep * 0.5 + MARGIN) / _half_width_tan(), MIN_Z, MAX_Z)
 	var bound: float = Arena.STAGE_HALF_WIDTH - 1.0
 	mid_x = clampf(mid_x, -bound, bound)
-	_base = _base.lerp(Vector3(mid_x, HEIGHT, z), FOLLOW)
+	_base = _base.lerp(Vector3(mid_x, HEIGHT + lift, z), FOLLOW)
 	position = _base + _shake_offset()
-	_aim(_base.x, _base.z)
+	_aim(_base.x, _base.z, _base.y)
 
 ## Half of the screen's horizontal extent (in tan units) at the subject plane, accounting for
 ## the live viewport aspect (vertical FOV is fixed, so width follows the aspect).
@@ -57,11 +59,11 @@ func _half_width_tan() -> float:
 ## Aim so the fighters' feet (world y = 0) sit at FEET_FRAC of the screen height. Solving the
 ## pitch from that constraint keeps the floor line anchored as z changes: when the camera
 ## pulls back the heads simply rise into frame, instead of the fighters floating upward.
-func _aim(x: float, z: float) -> void:
+func _aim(x: float, z: float, cam_y: float) -> void:
 	var half := FOV * 0.5
-	var feet_deg := -rad_to_deg(atan(HEIGHT / maxf(0.1, z)))
+	var feet_deg := -rad_to_deg(atan(cam_y / maxf(0.1, z)))
 	var center_deg := half * (2.0 * FEET_FRAC - 1.0) + feet_deg
-	var look_y := HEIGHT + z * tan(deg_to_rad(center_deg))
+	var look_y := cam_y + z * tan(deg_to_rad(center_deg))
 	look_at_from_position(position, Vector3(x, look_y, 0.0), Vector3.UP)
 
 func _shake_offset() -> Vector3:

@@ -32,7 +32,7 @@ static func build() -> CharacterData:
 	c.max_health = 950
 	c.walk_speed = 3.6
 	c.back_speed = 2.9
-	c.jump_velocity = 9.8
+	c.jump_velocity = 12.6
 	c.model_path = ASSETS + "maskman.fbx"
 	c.model_face_deg = 90.0
 	c.rig = _rig()

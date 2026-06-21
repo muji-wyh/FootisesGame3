@@ -13,6 +13,11 @@ var _cfg: RigConfig
 var _cam: Camera3D
 var _pan_speed := 14.0
 var _dragging := false
+var _rotating := false
+var _orbit_target := Vector3.ZERO
+var _orbit_yaw := 0.0
+var _orbit_pitch := deg_to_rad(-28.0)
+var _orbit_distance := 11.0
 
 func _ready() -> void:
 	_add_environment()
@@ -80,10 +85,10 @@ func _spawn(ps: PackedScene, lib: AnimationLibrary, clip: String, pos: Vector3) 
 func _setup_camera(rows: int) -> void:
 	_cam = Camera3D.new()
 	_cam.fov = 55.0
-	_cam.rotation_degrees = Vector3(-28, 0, 0)
-	_cam.position = Vector3((COLS - 1) * SPACING_X * 0.5, 5.0, 6.0)
 	_cam.current = true
 	add_child(_cam)
+	_orbit_target = Vector3((COLS - 1) * SPACING_X * 0.5, 1.5, -maxf(0.0, float(rows - 1) * SPACING_Z * 0.35))
+	_apply_camera_transform()
 
 func _process(delta: float) -> void:
 	if _cam == null:
@@ -101,8 +106,16 @@ func _process(delta: float) -> void:
 		mv.y -= 1
 	if Input.is_key_pressed(KEY_E):
 		mv.y += 1
-	_cam.position += mv * _pan_speed * delta * clampf(_cam.position.y / 5.0, 0.5, 4.0)
-	_cam.position.y = clampf(_cam.position.y, 1.5, 40.0)
+	if mv == Vector3.ZERO:
+		return
+	var scale := clampf(_orbit_distance / 11.0, 0.5, 4.0)
+	var right := _cam.transform.basis.x
+	var fwd := -_cam.transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	_orbit_target += (right * mv.x + fwd * mv.z + Vector3.UP * mv.y) * _pan_speed * delta * scale
+	_orbit_target.y = clampf(_orbit_target.y, 0.5, 12.0)
+	_apply_camera_transform()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
@@ -115,25 +128,42 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			_dragging = mb.pressed
+		elif mb.button_index == MOUSE_BUTTON_RIGHT:
+			_rotating = mb.pressed
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
 			_dolly(1.0)
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
 			_dolly(-1.0)
 	elif event is InputEventMouseMotion and _dragging:
 		var rel := (event as InputEventMouseMotion).relative
-		var scale := 0.012 * clampf(_cam.position.y / 5.0, 0.5, 4.0)
+		var scale := 0.012 * clampf(_orbit_distance / 11.0, 0.5, 4.0)
 		var right := _cam.transform.basis.x
 		var fwd := -_cam.transform.basis.z
 		fwd.y = 0.0
 		fwd = fwd.normalized()
 		# Grab-and-drag: the grid follows the cursor.
-		_cam.position += right * (-rel.x * scale) + fwd * (rel.y * scale)
+		_orbit_target += right * (-rel.x * scale) + fwd * (rel.y * scale)
+		_orbit_target.y = clampf(_orbit_target.y, 0.5, 12.0)
+		_apply_camera_transform()
+	elif event is InputEventMouseMotion and _rotating:
+		var rel := (event as InputEventMouseMotion).relative
+		_orbit_yaw -= rel.x * 0.008
+		_orbit_pitch = clampf(_orbit_pitch - rel.y * 0.006, deg_to_rad(-75.0), deg_to_rad(-8.0))
+		_apply_camera_transform()
 
 ## Dolly the camera along its view direction (mouse wheel zoom).
 func _dolly(dir: float) -> void:
-	var fwd := -_cam.transform.basis.z
-	_cam.position += fwd * dir * 2.0 * clampf(_cam.position.y / 5.0, 0.5, 4.0)
-	_cam.position.y = clampf(_cam.position.y, 1.5, 40.0)
+	_orbit_distance = clampf(_orbit_distance - dir * 1.2 * clampf(_orbit_distance / 11.0, 0.5, 4.0), 3.5, 40.0)
+	_apply_camera_transform()
+
+func _apply_camera_transform() -> void:
+	if _cam == null:
+		return
+	var offset := Vector3(0, 0, _orbit_distance)
+	offset = offset.rotated(Vector3.RIGHT, _orbit_pitch)
+	offset = offset.rotated(Vector3.UP, _orbit_yaw)
+	_cam.position = _orbit_target + offset
+	_cam.look_at(_orbit_target, Vector3.UP)
 
 # --- scene setup -----------------------------------------------------------
 
@@ -173,7 +203,7 @@ func _build_ui(count: int) -> void:
 	var hint := Label.new()
 	hint.position = Vector2(24, 56)
 	hint.add_theme_font_size_override("font_size", 18)
-	hint.text = "Mouse: drag to pan, wheel to zoom    WASD / arrows: pan    Q / E: down / up    ESC: back"
+	hint.text = "Mouse: left-drag pan, right-drag rotate, wheel zoom    WASD / arrows: pan    Q / E: down / up    ESC: back"
 	layer.add_child(hint)
 
 func _show_notice(text: String) -> void:

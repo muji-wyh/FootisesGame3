@@ -368,6 +368,7 @@ func _test_blaze_roster() -> void:
 	_check("roster is exactly [blaze]", CharacterLibrary.ids() == ["blaze"])
 	var b := CharacterLibrary.create("blaze")
 	_check("blaze display name", b.display_name == "Blaze")
+	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze has 3 specials", b.specials.size() == 3)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
@@ -975,7 +976,7 @@ func _test_camera() -> void:
 	# basis out of tree). Verify it stays put at both near and far zoom.
 	var feet_frac := func(c: FightCamera) -> float:
 		var center := rad_to_deg(c.rotation.x)
-		var feet_world := -rad_to_deg(atan(FightCamera.HEIGHT / c.position.z))
+		var feet_world := -rad_to_deg(atan(c.position.y / c.position.z))
 		return (1.0 - (feet_world - center) / (FightCamera.FOV * 0.5)) * 0.5
 	var far_frac: float = feet_frac.call(cam)
 	for i in range(60):
@@ -983,4 +984,10 @@ func _test_camera() -> void:
 	var near_frac: float = feet_frac.call(cam)
 	_check("feet anchored near bottom when far", far_frac > 0.82 and far_frac < 0.92)
 	_check("feet anchored near bottom when close", near_frac > 0.82 and near_frac < 0.92)
+	for i in range(40):
+		cam.track(Vector3(-0.4, 2.8, 0), Vector3(0.4, 0, 0))
+	_check("camera lifts a bit for a high jump", cam.position.y > FightCamera.HEIGHT + 0.35)
+	for i in range(60):
+		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
+	_check("camera settles back after landing", absf(cam.position.y - FightCamera.HEIGHT) < 0.2)
 	cam.free()
