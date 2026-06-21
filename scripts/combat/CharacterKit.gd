@@ -27,7 +27,7 @@ static func add_standard_normals(c: CharacterData, dmg_scale: float, cancels: Ar
 	var defs := [
 		# Standing
 		{"id": "st_lp", "display_name": "Stand LP", "button": GameConst.Btn.LP, "stance": GameConst.Stance.STAND,
-			"startup": 4, "active": 3, "recovery": 8, "damage": 28,
+			"startup": 4, "active": 3, "recovery": 9, "damage": 28,
 			"hitstun": 16, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.2,
 			"hit_offset": Vector3(0.62, 1.0, 0.0), "hit_size": Vector3(0.42, 0.36, 0.55),
 			"cancel_into": ["st_lp", "st_mp", "st_hp"] + cancels},
@@ -55,7 +55,7 @@ static func add_standard_normals(c: CharacterData, dmg_scale: float, cancels: Ar
 			"launch": true, "launch_velocity": 7.0},
 		# Crouching
 		{"id": "cr_lp", "display_name": "Crouch LP", "button": GameConst.Btn.LP, "stance": GameConst.Stance.CROUCH,
-			"startup": 4, "active": 3, "recovery": 8, "damage": 26,
+			"startup": 4, "active": 3, "recovery": 9, "damage": 26,
 			"hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.1,
 			"hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.40, 0.34, 0.55),
 			"cancel_into": ["cr_lp", "cr_mp", "cr_mk"] + cancels},

@@ -173,6 +173,7 @@ func _test_pushback_scaling() -> void:
 	print("[pushback tuning]")
 	var b := CharacterLibrary.create("blaze")
 	_check("stand jab knockback increased", b.get_move("st_lp").knockback >= 3.2)
+	_check("stand jab recovery slowed slightly", b.get_move("st_lp").recovery >= 9)
 	_check("stand medium pushes farther than jab", b.get_move("st_mp").knockback > b.get_move("st_lp").knockback)
 	_check("stand heavy pushes farther than medium", b.get_move("st_hp").knockback > b.get_move("st_mp").knockback)
 	_check("crouch medium pushes farther than crouch jab", b.get_move("cr_mk").knockback > b.get_move("cr_lp").knockback)
