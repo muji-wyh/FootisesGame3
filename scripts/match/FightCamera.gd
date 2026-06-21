@@ -10,7 +10,7 @@ const FOV := 45.0
 const FEET_FRAC := 0.95        # screen fraction (from top) at which the fighters' feet sit
 const MARGIN := 0.90           # world metres kept beyond each fighter, horizontally
 const MIN_Z := 3.45            # closest pull-in ≈ the round-start framing (most zoomed-in)
-const MAX_Z := 9.8             # farthest pull-out (keeps both framed corner-to-corner)
+const MAX_Z := 4.5             # farthest pull-out (keeps both framed corner-to-corner)
 const HEIGHT := 1.0           # camera height (constant; pitch is what tracks the floor)
 const AIR_LIFT := 0.45         # how much the camera lifts to follow airborne fighters
 const FOLLOW := 0.2
@@ -39,7 +39,7 @@ func track(a: Vector3, b: Vector3) -> void:
 	var lift := clampf(maxf(a.y, b.y) * AIR_LIFT, 0.0, 2.4)
 	# Zoom to fit both fighters (plus a margin) across the screen's horizontal half-extent.
 	var z := clampf((sep * 0.5 + MARGIN) / _half_width_tan(), MIN_Z, MAX_Z)
-	var bound: float = Arena.STAGE_HALF_WIDTH - 1.0
+	var bound: float = Arena.FIGHT_BOUNDS_HALF_WIDTH - 1.0
 	mid_x = clampf(mid_x, -bound, bound)
 	_base = _base.lerp(Vector3(mid_x, HEIGHT + lift, z), FOLLOW)
 	position = _base + _shake_offset()

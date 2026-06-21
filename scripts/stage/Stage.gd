@@ -5,7 +5,7 @@ extends Node3D
 ## a simple environment. Purely visual - gameplay bounds live in Arena.
 
 func build() -> void:
-	var half := Arena.STAGE_HALF_WIDTH
+	var half := Arena.VISUAL_STAGE_HALF_WIDTH
 
 	_add_floor(half)
 	_add_wall(half)

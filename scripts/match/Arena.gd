@@ -5,7 +5,8 @@ extends Node3D
 ## exactly one fixed tick in a deterministic order. Has no camera/HUD dependencies, so it
 ## can be driven by the visual Match scene OR by a headless test harness.
 
-const STAGE_HALF_WIDTH := 7.0
+const FIGHT_BOUNDS_HALF_WIDTH := 7.0
+const VISUAL_STAGE_HALF_WIDTH := 9.0
 const START_DISTANCE := 1.5
 
 signal ko(loser_side: int)
@@ -76,7 +77,7 @@ func _update_projectiles(delta: float) -> void:
 	var survivors: Array[Projectile] = []
 	for p in projectiles:
 		var alive := p.advance(delta)
-		if alive and absf(p.position.x) <= STAGE_HALF_WIDTH + 1.0:
+		if alive and absf(p.position.x) <= VISUAL_STAGE_HALF_WIDTH + 1.0:
 			survivors.append(p)
 		else:
 			p.queue_free()
@@ -103,7 +104,7 @@ func _resolve_pushboxes() -> void:
 		b.position.x += dir * overlap * 0.5
 
 func _resolve_bounds() -> void:
-	var lim := STAGE_HALF_WIDTH - Fighter.PUSHBOX_HALF
+	var lim := FIGHT_BOUNDS_HALF_WIDTH - Fighter.PUSHBOX_HALF
 	for f in fighters:
 		f.position.x = clampf(f.position.x, -lim, lim)
 	# Corner correction: if clamping forced an overlap, shove the non-cornered fighter.

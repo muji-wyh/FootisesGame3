@@ -54,6 +54,7 @@ func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	_test_walk()
 	_test_pushbox_spacing()
+	_test_stage_width_split()
 	_test_normal_hit()
 	_test_lp_whiff_range()
 	_test_block()
@@ -118,6 +119,10 @@ func _test_pushbox_spacing() -> void:
 	_step(ctx, _neutral(), _neutral(), 1)
 	_check("fighters can stand closer than the old wide pushbox", f2.position.x - f1.position.x <= 0.72)
 	ctx["arena"].queue_free()
+
+func _test_stage_width_split() -> void:
+	print("[stage width split]")
+	_check("visual stage wider than playable fighter bounds", Arena.VISUAL_STAGE_HALF_WIDTH > Arena.FIGHT_BOUNDS_HALF_WIDTH)
 
 func _test_normal_hit() -> void:
 	print("[normal hit]")
