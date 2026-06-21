@@ -1102,7 +1102,7 @@ func _test_camera() -> void:
 	for i in range(40):
 		cam.track(Vector3(-0.4, 2.8, 0), Vector3(0.4, 0, 0))
 	_check("camera lifts a bit for a high jump", cam.position.y > FightCamera.HEIGHT + 0.35)
-	_check("camera pans upward for a high jump", world_frac.call(cam, 0.0) > FightCamera.FEET_FRAC + 0.05)
+	_check("camera pans upward for a high jump", world_frac.call(cam, 0.0) > FightCamera.FEET_FRAC + 0.02)
 	for i in range(60):
 		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
 	_check("camera settles back after landing", absf(cam.position.y - FightCamera.HEIGHT) < 0.2)

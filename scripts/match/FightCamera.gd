@@ -13,6 +13,7 @@ const MIN_Z := 3.45            # closest pull-in ≈ the round-start framing (mo
 const MAX_Z := 4.5             # farthest pull-out (keeps both framed corner-to-corner)
 const HEIGHT := 1.0           # camera height (constant; pitch is what tracks the floor)
 const AIR_LIFT := 0.45         # how much the camera lifts to follow airborne fighters
+const AIR_PAN := 0.6           # how much of that lift becomes an actual upward pan of framing
 const FOLLOW := 0.2
 
 var _base := Vector3(0, HEIGHT, MIN_Z)
@@ -43,7 +44,7 @@ func track(a: Vector3, b: Vector3) -> void:
 	mid_x = clampf(mid_x, -bound, bound)
 	_base = _base.lerp(Vector3(mid_x, HEIGHT + lift, z), FOLLOW)
 	position = _base + _shake_offset()
-	_aim(_base.x, _base.z, _base.y, lift)
+	_aim(_base.x, _base.z, _base.y, lift * AIR_PAN)
 
 ## Half of the screen's horizontal extent (in tan units) at the subject plane, accounting for
 ## the live viewport aspect (vertical FOV is fixed, so width follows the aspect).
