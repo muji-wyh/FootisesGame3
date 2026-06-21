@@ -70,6 +70,7 @@ func _initialize() -> void:
 	_test_stage_width_split()
 	_test_normal_hit()
 	_test_lp_whiff_range()
+	_test_blaze_mp_hp_range()
 	_test_block()
 	_test_lp_pushout()
 	_test_corner_hit_pushback()
@@ -179,6 +180,15 @@ func _test_lp_whiff_range() -> void:
 	_step(ctx, _neutral(), _neutral(), 20)
 	_check("stand LP whiffs outside fist range", f2.health == hp_before)
 	ctx["arena"].queue_free()
+
+func _test_blaze_mp_hp_range() -> void:
+	print("[blaze mp/hp range]")
+	var blaze := CharacterLibrary.create("blaze")
+	var st_mp := blaze.get_move("st_mp")
+	var st_hp := blaze.get_move("st_hp")
+	_check("stand MP hitbox is tighter than the stock default", st_mp.hit_offset.x < 0.9 and st_mp.hit_size.x < 0.9)
+	_check("stand HP hitbox is tighter than the stock default", st_hp.hit_size.x < 0.9)
+	_check("stand HP still reaches farther than stand MP", st_hp.hit_offset.x + st_hp.hit_size.x * 0.5 > st_mp.hit_offset.x + st_mp.hit_size.x * 0.5)
 
 func _test_block() -> void:
 	print("[block]")
@@ -997,7 +1007,7 @@ func _test_drive_rush() -> void:
 	var ctxb := _build()
 	var p: Fighter = ctxb["f1"]
 	var q: Fighter = ctxb["f2"]
-	p.position.x = -0.7
+	p.position.x = -0.65
 	q.position.x = 0.6
 	ctxb["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
 	ctxb["c2"].frame = _mk(1, 0)
