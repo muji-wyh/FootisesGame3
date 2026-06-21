@@ -369,6 +369,7 @@ func _test_blaze_roster() -> void:
 	var b := CharacterLibrary.create("blaze")
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
+	_check("blaze model is scaled down a bit", b.model_scale <= 0.8)
 	_check("blaze has 3 specials", b.specials.size() == 3)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
