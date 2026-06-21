@@ -25,7 +25,7 @@ signal jumped()
 enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP, DRIVE_RUSH }
 
 const GROUND_Y := 0.0
-const PUSHBOX_HALF := 0.42
+const PUSHBOX_HALF := 0.35
 const STUN_FRICTION := 0.90
 const DASH_WINDOW := 12      # ticks within which a second tap triggers a dash
 const DASH_DURATION := 16
@@ -41,6 +41,7 @@ const DRIVE_RUSH_DURATION := 18     # ticks a Drive Rush advances before returni
 const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const RDR_COST := 1000              # Drive spent by a raw Drive Rush (1 bar)
+const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 
 # Configuration
 var character: CharacterData
@@ -679,8 +680,14 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 	if not blocked and opponent != null and is_instance_valid(opponent):
 		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
 	hitstop = stop
+	var self_push := 0.0
 	if blocked:
-		position.x -= facing * m.pushback_self
+		self_push = m.pushback_self
+	elif opponent != null and is_instance_valid(opponent):
+		self_push = m.pushback_self * 0.15
+		if absf(opponent.position.x) >= CORNER_PUSHBACK_X:
+			self_push = maxf(self_push, m.pushback_self * 0.65)
+	position.x -= facing * self_push
 	if not blocked:
 		_add_meter(m.meter_gain)
 	contact.emit(blocked, m)

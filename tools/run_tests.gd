@@ -53,8 +53,12 @@ func _neutral() -> InputFrame:
 func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	_test_walk()
+	_test_pushbox_spacing()
 	_test_normal_hit()
+	_test_lp_whiff_range()
 	_test_block()
+	_test_lp_pushout()
+	_test_corner_hit_pushback()
 	_test_pushback_scaling()
 	_test_fireball()
 	_test_super()
@@ -104,6 +108,17 @@ func _test_walk() -> void:
 	_check("P1 walks forward", f1.position.x > start_x + 0.5)
 	ctx["arena"].queue_free()
 
+func _test_pushbox_spacing() -> void:
+	print("[pushbox spacing]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = 0.0
+	f2.position.x = 0.0
+	_step(ctx, _neutral(), _neutral(), 1)
+	_check("fighters can stand closer than the old wide pushbox", f2.position.x - f1.position.x <= 0.72)
+	ctx["arena"].queue_free()
+
 func _test_normal_hit() -> void:
 	print("[normal hit]")
 	var ctx := _build()
@@ -119,13 +134,26 @@ func _test_normal_hit() -> void:
 	_check("P1 gained meter on hit", f1.meter > 0)
 	ctx["arena"].queue_free()
 
+func _test_lp_whiff_range() -> void:
+	print("[lp whiff range]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.8
+	f2.position.x = 0.8
+	var hp_before: int = f2.health
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 20)
+	_check("stand LP whiffs outside fist range", f2.health == hp_before)
+	ctx["arena"].queue_free()
+
 func _test_block() -> void:
 	print("[block]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	f1.position.x = -0.6
-	f2.position.x = 0.6
+	f1.position.x = -0.45
+	f2.position.x = 0.45
 	var hp_before: int = f2.health
 	var start_sep: float = f2.position.x - f1.position.x
 	var saw_blockstun := false
@@ -144,12 +172,44 @@ func _test_block() -> void:
 func _test_pushback_scaling() -> void:
 	print("[pushback tuning]")
 	var b := CharacterLibrary.create("blaze")
-	_check("stand jab knockback increased", b.get_move("st_lp").knockback >= 2.5)
+	_check("stand jab knockback increased", b.get_move("st_lp").knockback >= 3.2)
 	_check("stand medium pushes farther than jab", b.get_move("st_mp").knockback > b.get_move("st_lp").knockback)
 	_check("stand heavy pushes farther than medium", b.get_move("st_hp").knockback > b.get_move("st_mp").knockback)
 	_check("crouch medium pushes farther than crouch jab", b.get_move("cr_mk").knockback > b.get_move("cr_lp").knockback)
 	_check("fireball pushback increased", b.get_move("fireball").knockback >= 4.4)
 	_check("hurricane stays controlled for multihit", b.get_move("hurricane").knockback <= 1.6)
+
+func _test_lp_pushout() -> void:
+	print("[lp pushout]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.6
+	f2.position.x = 0.6
+	var hits := 0
+	var prev_hp := f2.health
+	for i in range(84):
+		ctx["c1"].frame = _mk(0, 0, GameConst.Btn.LP) if i % 12 == 0 else _neutral()
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		if f2.health < prev_hp:
+			hits += 1
+			prev_hp = f2.health
+	_check("repeated stand LP pushes out within 3 hits", hits <= 3)
+	ctx["arena"].queue_free()
+
+func _test_corner_hit_pushback() -> void:
+	print("[corner hit pushback]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = 5.55
+	f2.position.x = 6.45
+	var start_x: float = f1.position.x
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 20)
+	_check("attacker recoils on a cornered hit", f1.position.x < start_x - 0.08)
+	ctx["arena"].queue_free()
 
 func _test_fireball() -> void:
 	print("[fireball]")
