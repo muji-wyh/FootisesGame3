@@ -14,13 +14,14 @@ const ASSETS := "res://characters/blaze/assets/"
 
 ## Per-normal animation clips (the shared CharacterKit supplies the frame data).
 const NORMAL_CLIPS := {
-	"st_lp": "KB_p_Jab_R_1", "st_mp": "KB_m_Uppercut_L", "st_hp": "KB_m_Overhand_R",
+	"st_lp": "KB_p_Jab_R_1", "st_mp": "KB_m_Uppercut_R", "st_hp": "KB_m_Overhand_R",
 	"st_lk": "KB_p_LowKick_R_1", "st_mk": "KB_m_MidKick_R", "st_hk": "KB_m_HighKickRound_R_1",
 	"cr_lp": "KB_crouch_p_Jab_L", "cr_mp": "KB_crouch_p_Jab_R", "cr_hp": "KB_crouch_p_Uppercut_R",
 	"cr_lk": "KB_crouch_p_LowKick_L", "cr_mk": "KB_crouch_p_LowKickRound_R", "cr_hk": "KB_crouch_p_LowKickRound_R",
 	"air_lp": "KB_JumpPunch", "air_mp": "KB_m_Hook_R", "air_hp": "KB_m_Overhand_R",
-	"air_lk": "KB_JumpKick", "air_mk": "KB_m_HighKickRound_R_1", "air_hk": "KB_AxeKick",
+	"air_lk": "KB_JumpKick", "air_mk": "KB_p_MidKickFront_L", "air_hk": "KB_p_HighKick_R_1",
 }
+const ST_HP_FRAME_DATA := {"startup": 9, "active": 4, "recovery": 18}
 
 static func build() -> CharacterData:
 	var c := CharacterData.new()
@@ -39,6 +40,10 @@ static func build() -> CharacterData:
 	c.rig = _rig()
 
 	CharacterKit.add_standard_normals(c, 0.95, ["fireball", "uppercut", "hurricane", "super_inferno"], NORMAL_CLIPS)
+	var st_hp := c.get_move("st_hp")
+	st_hp.startup = ST_HP_FRAME_DATA["startup"]
+	st_hp.active = ST_HP_FRAME_DATA["active"]
+	st_hp.recovery = ST_HP_FRAME_DATA["recovery"]
 
 	c.add_move(CharacterKit.make_move({"id": "fireball", "display_name": "Flare Bolt", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.LP, "motion": MotionParser.QCF, "startup": 11, "active": 2, "recovery": 24,

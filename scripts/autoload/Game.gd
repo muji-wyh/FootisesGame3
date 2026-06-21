@@ -16,6 +16,9 @@ func _ready() -> void:
 	_register_inputs()
 
 func _register_inputs() -> void:
+	if not InputMap.has_action("ui_move_list"):
+		InputMap.add_action("ui_move_list")
+		_add_key("ui_move_list", KEY_TAB)
 	# Single-player keyboard: left hand on WASD to move, right hand on U/I/O (punches) and
 	# J/K/L (kicks) for the six attacks. A gamepad on device 0 mirrors it.
 	_bind_player("p1",

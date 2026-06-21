@@ -191,5 +191,8 @@ func _on_match_over(winner_side: int) -> void:
 	Game.last_winner_name = arena.fighters[winner_side].character.display_name
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_move_list"):
+		hud.toggle_move_list()
+		return
 	if event.is_action_pressed("ui_cancel"):
 		Game.goto_scene("res://scenes/ui/MainMenu.tscn")

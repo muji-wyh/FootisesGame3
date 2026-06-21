@@ -13,39 +13,46 @@ const MP_W := 360.0
 const MP_H := 12.0
 const DR_W := 270.0
 const DR_H := 6.0
+const MOVE_LIST_W := 560.0
+const MOVE_LIST_H := 430.0
 
 var _hp_fill := [null, null]
 var _mp_fill := [null, null]
 var _dr_fill := [null, null]
 var _pips := [[], []]
+var _root: Control
 var _banner: Label
 var _timer_label: Label
 var _counter_label: Label
+var _move_list_panel: Panel
+var _move_list_labels := [null, null]
 var _counter_timer: int = 0
 
 func build(p1: CharacterData, p2: CharacterData) -> void:
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(root)
+	_root = Control.new()
+	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_root)
 
-	_build_side(root, 0, p1, 40.0)
-	_build_side(root, 1, p2, BASE_W - 40.0 - HP_W)
+	_build_side(_root, 0, p1, 40.0)
+	_build_side(_root, 1, p2, BASE_W - 40.0 - HP_W)
 
-	_timer_label = _label(root, Vector2(BASE_W * 0.5 - 60.0, 18.0), Vector2(120.0, 50.0), 40)
+	_timer_label = _label(_root, Vector2(BASE_W * 0.5 - 60.0, 18.0), Vector2(120.0, 50.0), 40)
 	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_timer_label.text = str(GameConst.ROUND_TIME_SECONDS)
 
-	_banner = _label(root, Vector2(BASE_W * 0.5 - 400.0, 190.0), Vector2(800.0, 90.0), 64)
+	_banner = _label(_root, Vector2(BASE_W * 0.5 - 400.0, 190.0), Vector2(800.0, 90.0), 64)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.add_theme_color_override("font_color", Color(1, 0.92, 0.5))
 	_banner.text = ""
 
 	# Counter / Punish Counter call-out, shown briefly on a counter hit. Its own label and
 	# timer so it never clobbers (or is clobbered by) round announcements.
-	_counter_label = _label(root, Vector2(BASE_W * 0.5 - 350.0, 300.0), Vector2(700.0, 70.0), 52)
+	_counter_label = _label(_root, Vector2(BASE_W * 0.5 - 350.0, 300.0), Vector2(700.0, 70.0), 52)
 	_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_counter_label.text = ""
+
+	_build_move_list(p1, p2)
 
 func _build_side(root: Control, side: int, ch: CharacterData, x: float) -> void:
 	# Health bar.
@@ -144,6 +151,80 @@ func tick_counter() -> void:
 		_counter_timer -= 1
 		if _counter_timer == 0:
 			_counter_label.text = ""
+
+func toggle_move_list() -> void:
+	if _move_list_panel:
+		_move_list_panel.visible = not _move_list_panel.visible
+
+func is_move_list_visible() -> bool:
+	return _move_list_panel != null and _move_list_panel.visible
+
+func _build_move_list(p1: CharacterData, p2: CharacterData) -> void:
+	_move_list_panel = Panel.new()
+	_move_list_panel.position = Vector2(BASE_W * 0.5 - MOVE_LIST_W * 0.5, 150.0)
+	_move_list_panel.size = Vector2(MOVE_LIST_W, MOVE_LIST_H)
+	_move_list_panel.visible = false
+	_root.add_child(_move_list_panel)
+
+	var title := _label(_move_list_panel, Vector2(24, 18), Vector2(MOVE_LIST_W - 48.0, 34), 28)
+	title.text = "MOVE LIST"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", Color(0.98, 0.9, 0.4))
+
+	var hint := _label(_move_list_panel, Vector2(24, 52), Vector2(MOVE_LIST_W - 48.0, 24), 16)
+	hint.text = "TAB: close"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	var left := _label(_move_list_panel, Vector2(26, 94), Vector2(240, MOVE_LIST_H - 118.0), 18)
+	left.text = _move_list_text(p1)
+	var right := _label(_move_list_panel, Vector2(MOVE_LIST_W - 266.0, 94), Vector2(240, MOVE_LIST_H - 118.0), 18)
+	right.text = _move_list_text(p2)
+	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_move_list_labels[0] = left
+	_move_list_labels[1] = right
+
+func _move_list_text(ch: CharacterData) -> String:
+	var lines := [ch.display_name.to_upper(), ""]
+	for m in ch.specials:
+		lines.append("%s" % m.display_name)
+		lines.append("%s" % _input_text(m))
+		lines.append("")
+	for m in ch.supers:
+		lines.append("%s" % m.display_name)
+		lines.append("%s" % _input_text(m))
+		lines.append("")
+	return "\n".join(lines).strip_edges()
+
+func _input_text(m: MoveData) -> String:
+	var parts := []
+	if not m.motion.is_empty():
+		parts.append(_motion_text(m.motion))
+	parts.append(_button_text(m.button))
+	if m.meter_cost > 0:
+		parts.append("(%d meter)" % m.meter_cost)
+	return " + ".join(parts)
+
+func _motion_text(seq: Array[int]) -> String:
+	var digits := ""
+	for d in seq:
+		digits += str(d)
+	return digits
+
+func _button_text(button: int) -> String:
+	match button:
+		GameConst.Btn.LP:
+			return "LP"
+		GameConst.Btn.MP:
+			return "MP"
+		GameConst.Btn.HP:
+			return "HP"
+		GameConst.Btn.LK:
+			return "LK"
+		GameConst.Btn.MK:
+			return "MK"
+		GameConst.Btn.HK:
+			return "HK"
+	return "BTN"
 
 # --- factory ---------------------------------------------------------------
 

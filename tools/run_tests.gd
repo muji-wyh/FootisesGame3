@@ -83,6 +83,7 @@ func _initialize() -> void:
 	_test_timeout_draw()
 	_test_cpu_ai()
 	_test_blaze_roster()
+	_test_move_list_overlay()
 	_test_multihit()
 	_test_move_sfx()
 	_test_animated_rig()
@@ -452,6 +453,22 @@ func _test_blaze_roster() -> void:
 	_check("blaze has 1 super", b.supers.size() == 1)
 	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
 
+func _test_move_list_overlay() -> void:
+	print("[move list overlay]")
+	var hud := HUD.new()
+	root.add_child(hud)
+	var blaze := CharacterLibrary.create("blaze")
+	hud.build(blaze, blaze)
+	_check("move list hidden by default", not hud.is_move_list_visible())
+	hud.toggle_move_list()
+	_check("move list opens on toggle", hud.is_move_list_visible())
+	var left: Label = hud._move_list_labels[0]
+	_check("move list shows uppercut entry", left.text.contains("Blaze Rise"))
+	_check("move list shows motion input text", left.text.contains("623 + HP"))
+	hud.toggle_move_list()
+	_check("move list closes on second toggle", not hud.is_move_list_visible())
+	hud.queue_free()
+
 func _test_multihit() -> void:
 	print("[multi-hit]")
 	var ctx := _build("blaze", "blaze")
@@ -494,9 +511,10 @@ func _test_animated_rig() -> void:
 	_check("animated rig built ok", arig.ok)
 	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
+	_check("grafted stand MP clip", arig._player != null and arig._player.has_animation("kb/KB_m_Uppercut_R"))
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
 	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
-	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_m_HighKickRound_R_1", "KB_AxeKick"]:
+	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_p_MidKickFront_L", "KB_p_HighKick_R_1"]:
 		_check("grafted air clip " + clip, arig._player.has_animation("kb/" + clip))
 	for clip in ["KB_Hit_p_MidFront_Weak", "KB_Hit_m_MidFront_Med", "KB_Hit_m_HighFront_Stagger"]:
 		_check("grafted hit clip " + clip, arig._player.has_animation("kb/" + clip))
