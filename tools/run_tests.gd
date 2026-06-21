@@ -84,6 +84,7 @@ func _initialize() -> void:
 	_test_drive_gauge()
 	_test_drive_rush()
 	_test_uppercut_rise()
+	_test_camera()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -833,3 +834,33 @@ func _test_uppercut_rise() -> void:
 	_check("attacker returned to the ground after the uppercut", absf(f1.position.y) < 0.05)
 	_check("rising uppercut connected on a grounded opponent", connected)
 	ctx["arena"].queue_free()
+
+func _test_camera() -> void:
+	print("[camera]")
+	var cam := FightCamera.new()
+	root.add_child(cam)
+	# Close (fighters ~touching): camera pulls in to its nearest framing.
+	for i in range(40):
+		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
+	_check("camera pulls in when fighters are close", cam.position.z <= FightCamera.MIN_Z + 0.3)
+	# Far (fighters near opposite walls): camera zooms out, capped at MAX_Z.
+	for i in range(80):
+		cam.track(Vector3(-6.2, 0, 0), Vector3(6.2, 0, 0))
+	_check("camera zooms out when fighters separate", cam.position.z > FightCamera.MIN_Z + 1.0)
+	_check("camera zoom stays within MAX_Z", cam.position.z <= FightCamera.MAX_Z + 0.01)
+	var halfw: float = cam.position.z * cam._half_width_tan()
+	_check("both fighters stay on screen when far", 6.2 - absf(cam.position.x) <= halfw + 0.05)
+	# Feet anchored near the bottom across zoom: derive the feet's screen fraction from the
+	# camera pitch (rotation.x), which look_at_from_position sets reliably (unlike the global
+	# basis out of tree). Verify it stays put at both near and far zoom.
+	var feet_frac := func(c: FightCamera) -> float:
+		var center := rad_to_deg(c.rotation.x)
+		var feet_world := -rad_to_deg(atan(FightCamera.HEIGHT / c.position.z))
+		return (1.0 - (feet_world - center) / (FightCamera.FOV * 0.5)) * 0.5
+	var far_frac: float = feet_frac.call(cam)
+	for i in range(60):
+		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
+	var near_frac: float = feet_frac.call(cam)
+	_check("feet anchored near bottom when far", far_frac > 0.82 and far_frac < 0.92)
+	_check("feet anchored near bottom when close", near_frac > 0.82 and near_frac < 0.92)
+	cam.free()
