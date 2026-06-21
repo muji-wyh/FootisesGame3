@@ -72,34 +72,39 @@ scripts/
   core/        Constants, InputBuffer, MotionParser (special-move detection)
   input/       InputFrame, InputController, PlayerController
   ai/          CpuController                      (range-based AI, emits inputs)
-  combat/      MoveData, CharacterData, HitResolver, Projectile
-  data/        CharacterLibrary                   (the roster + frame data, as code)
+  combat/      MoveData, CharacterData, RigConfig, CharacterKit, HitResolver, Projectile
+  data/        CharacterLibrary                   (registry: id -> character module)
   fighter/     Fighter (state machine + combat), FighterRig (procedural model)
   stage/       Stage                              (floor/walls/lights, built in code)
   match/       Arena (the step loop), FightCamera, RoundManager, MatchScene
   ui/          Main, MainMenu, CharacterSelect, ResultsScreen, HUD
   autoload/    Game (singleton: input map, match config), AudioManager
+
+characters/    one self-contained module per fighter (see characters/README.md)
+  blaze/       blaze.gd (stats/moves/frame data + RigConfig) + assets/ (gitignored)
 ```
 
 **Per-tick order** (`Arena.step`): poll inputs → advance both fighters → spawn/move
 projectiles → resolve pushboxes/stage bounds → `HitResolver` (snapshot then apply, so
 trades work) → update facing → pose rigs → KO check.
 
-**Tuning:** all balance lives in `CharacterLibrary.gd` as `MoveData` — startup/active/
-recovery, damage, hitstun/blockstun, guard level, knockback, meter, hitbox geometry,
-cancel routes. No engine changes needed to rebalance.
+**Tuning:** each fighter is a self-contained module under `characters/<id>/`; all balance
+lives in that module's `build()` as `MoveData` (startup/active/recovery, damage, hitstun/
+blockstun, guard level, knockback, meter, hitbox geometry, cancel routes) plus its `RigConfig`
+visuals. The engine is character-agnostic — no engine changes needed to rebalance or add a
+character. See `characters/README.md`.
 
 ## Real 3D characters (FBX / Mixamo / Kubold)
 
 The blockout fighters are swappable — the rig only *reads* `Fighter` state, it never
-affects gameplay. **`AnimatedFighterRig` is already implemented**: a character that sets
-`CharacterData.model_path` gets an imported model whose animation clips are grafted on and
-driven from `Fighter.state` / `current_move` (per-move clip via `MoveData.anim_clip`). If
+affects gameplay. **`AnimatedFighterRig` is already implemented** and generic: a character that
+provides a `RigConfig` + `model_path` gets an imported model whose animation clips are grafted
+on and driven from `Fighter.state` / `current_move` (per-move clip via `MoveData.anim_clip`). If
 the model is missing, `MatchScene` falls back to the procedural blockout, so a clean clone
 still runs.
 
 Dropping the licensed **Fighters Pack** + **Kubold Fighting Animset Pro** FBX into
-`assets/models/` (gitignored) reskins Blaze with the animated Maskman model + mocap
-clips. See `assets/models/README.md` for the import details, the per-pack skeleton notes,
-and the editor **retargeting** workflow needed to animate the Unreal-rigged Fighters Pack
+`characters/blaze/assets/` (gitignored) reskins Blaze with the animated Maskman model + mocap
+clips. See `characters/blaze/assets/README.md` for the import details and the per-pack skeleton
+notes, and the editor **retargeting** workflow needed to animate the Unreal-rigged Fighters Pack
 characters with the Kubold (Mixamo/Biped) clips.

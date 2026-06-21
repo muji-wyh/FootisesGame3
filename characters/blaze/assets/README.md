@@ -38,20 +38,22 @@ gameplay. To use an imported model instead of the procedural blockout:
 
 ## What's wired in this project
 
-`AnimatedFighterRig` (scripts/fighter/) loads a model, **grafts** animation clips onto its
-skeleton, strips horizontal root motion (in-place), tints it with the character colour, and
-plays clips from `Fighter` state. A character opts in via `CharacterData.model_path`; if the
-(gitignored) model is missing, `MatchScene` falls back to the procedural blockout.
+`AnimatedFighterRig` (scripts/fighter/) is generic: it loads a model, **grafts** animation
+clips onto its skeleton, strips horizontal root motion (in-place), tints it, and plays clips
+from `Fighter` state — all driven by the character's `RigConfig` (`CharacterData.rig`). A
+character opts in by providing a `RigConfig` + `model_path`; if the (gitignored) model is
+missing, `MatchScene` falls back to the procedural blockout.
 
-Currently **Blaze** (orange) uses `maskman.fbx` + the Kubold mocap clips
-(`anims/KB_*.fbx`). These share one skeleton family (Mixamo/Biped naming), so the clips graft
-directly with **no retargeting**. Per-move clips are set via `MoveData.anim_clip`
-(e.g. `KB_p_Jab_R_1`, `KB_p_Uppercut_R`, `KB_Projectile_1`, `KB_Superpunch`).
+**Blaze** (orange) uses `maskman.fbx` + the Kubold mocap clips (`anims/KB_*.fbx`). These share
+one skeleton family (Mixamo/Biped naming), so the clips graft directly with **no retargeting**.
+Blaze's `RigConfig`, clip maps and per-normal clips live in `characters/blaze/blaze.gd`;
+per-move clips are set via `MoveData.anim_clip`.
 
-Expected drop-in layout (all gitignored):
+Expected drop-in layout for this character (all gitignored except this README):
 ```
-assets/models/maskman.fbx                 # Kubold "Maskman" model
-assets/models/anims/KB_*.fbx              # Kubold Fighting Animset Pro clips
+characters/blaze/assets/maskman.fbx         # Kubold "Maskman" model
+characters/blaze/assets/anims/KB_*.fbx      # Kubold Fighting Animset Pro clips
+characters/blaze/assets/tex/*.png           # downscaled, web-friendly textures
 ```
 
 ## Using the Fighters Pack characters (needs retargeting)
