@@ -99,14 +99,14 @@ func _report_anims(path: String) -> void:
 	inst.free()
 
 func _initialize() -> void:
-	_report_model("res://assets/models/maskman.fbx")
+	_report_model("res://characters/blaze/assets/maskman.fbx")
 	print("\n---- rotation candidates (want Y tallest ~1.84) ----")
 	for cand in [Vector3(0,0,0), Vector3(-90,0,0), Vector3(90,0,0), Vector3(-90,-90,0), Vector3(-90,90,0)]:
-		_test_rotation("res://assets/models/maskman.fbx", cand)
+		_test_rotation("res://characters/blaze/assets/maskman.fbx", cand)
 	print("\n---- animation clips ----")
-	var dir := DirAccess.open("res://assets/models/anims")
+	var dir := DirAccess.open("res://characters/blaze/assets/anims")
 	if dir:
 		for f in dir.get_files():
 			if f.ends_with(".fbx"):
-				_report_anims("res://assets/models/anims/" + f)
+				_report_anims("res://characters/blaze/assets/anims/" + f)
 	quit()

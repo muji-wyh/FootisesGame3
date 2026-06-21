@@ -10,7 +10,7 @@ const DISPLAY_NAME := "Blaze"
 
 ## Where this character's model + animation + texture assets live. (The licensed FBX/textures
 ## are gitignored; see assets/README.md.)
-const ASSETS := "res://assets/models/"
+const ASSETS := "res://characters/blaze/assets/"
 
 ## Per-normal animation clips (the shared CharacterKit supplies the frame data).
 const NORMAL_CLIPS := {

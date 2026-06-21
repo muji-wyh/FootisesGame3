@@ -26,14 +26,16 @@ godot*.exe
 
 # Licensed Unity assets (Fighters Pack, Kubold Fighting Animset Pro) — kept local,
 # NEVER committed. The model-backed rig falls back to the procedural blockout when
-# these are absent, so a clean clone still runs.
-assets/models/**/*.fbx
-assets/models/**/*.FBX
-assets/models/**/*.tga
-assets/models/**/*.fbx.import
-assets/models/**/*.FBX.import
-assets/models/**/*.tga.import
-assets/models/tex/
+# these are absent, so a clean clone still runs. Per-character under characters/<id>/assets/
+# (each character's README.md IS tracked).
+characters/**/assets/**/*.fbx
+characters/**/assets/**/*.FBX
+characters/**/assets/**/*.tga
+characters/**/assets/**/*.png
+characters/**/assets/**/*.fbx.import
+characters/**/assets/**/*.FBX.import
+characters/**/assets/**/*.tga.import
+characters/**/assets/**/*.png.import
 _probe/
 
 
