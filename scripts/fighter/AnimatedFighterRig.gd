@@ -91,7 +91,7 @@ func pose(f: Fighter) -> void:
 		_play(target, 0.12, 1.0, target in _cfg.looped_clips)
 
 func _pose_attack(f: Fighter) -> void:
-	if f.current_move != _cur_move:
+	if f.current_move != _cur_move or f.state_frame == 0:
 		_cur_move = f.current_move
 		var clip := _move_clip(f.current_move)
 		_play_fitted(clip, f.current_move.total_frames(), 0.05)
@@ -229,7 +229,10 @@ func _play(clip: String, blend: float, speed: float = 1.0, loop: bool = false) -
 		return
 	var anim := _player.get_animation(full)
 	anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
+	var restarting_same := _player.current_animation == full
 	_player.play(full, blend, speed)
+	if restarting_same:
+		_player.seek(0.0, true)
 	_cur_clip = clip
 
 func _length(clip: String) -> float:

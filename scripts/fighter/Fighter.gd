@@ -26,7 +26,7 @@ enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, 
 
 const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.42
-const STUN_FRICTION := 0.82
+const STUN_FRICTION := 0.90
 const DASH_WINDOW := 12      # ticks within which a second tap triggers a dash
 const DASH_DURATION := 16
 const DASH_SPEED := 7.5
@@ -679,6 +679,8 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 	if not blocked and opponent != null and is_instance_valid(opponent):
 		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
 	hitstop = stop
+	if blocked:
+		position.x -= facing * m.pushback_self
 	if not blocked:
 		_add_meter(m.meter_gain)
 	contact.emit(blocked, m)

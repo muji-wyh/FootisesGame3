@@ -55,10 +55,12 @@ func _initialize() -> void:
 	_test_walk()
 	_test_normal_hit()
 	_test_block()
+	_test_pushback_scaling()
 	_test_fireball()
 	_test_super()
 	_test_ko()
 	_test_round_flow()
+	_test_timeout_draw()
 	_test_cpu_ai()
 	_test_blaze_roster()
 	_test_multihit()
@@ -125,6 +127,7 @@ func _test_block() -> void:
 	f1.position.x = -0.6
 	f2.position.x = 0.6
 	var hp_before: int = f2.health
+	var start_sep: float = f2.position.x - f1.position.x
 	var saw_blockstun := false
 	# P2 holds back (away from P1, i.e. to the right = +1) while P1 jabs.
 	for i in range(20):
@@ -135,7 +138,18 @@ func _test_block() -> void:
 			saw_blockstun = true
 	_check("blocked jab deals no life damage (chip 0)", f2.health == hp_before)
 	_check("P2 entered blockstun", saw_blockstun)
+	_check("blocked jab creates spacing", f2.position.x - f1.position.x > start_sep + 0.35)
 	ctx["arena"].queue_free()
+
+func _test_pushback_scaling() -> void:
+	print("[pushback tuning]")
+	var b := CharacterLibrary.create("blaze")
+	_check("stand jab knockback increased", b.get_move("st_lp").knockback >= 2.5)
+	_check("stand medium pushes farther than jab", b.get_move("st_mp").knockback > b.get_move("st_lp").knockback)
+	_check("stand heavy pushes farther than medium", b.get_move("st_hp").knockback > b.get_move("st_mp").knockback)
+	_check("crouch medium pushes farther than crouch jab", b.get_move("cr_mk").knockback > b.get_move("cr_lp").knockback)
+	_check("fireball pushback increased", b.get_move("fireball").knockback >= 4.4)
+	_check("hurricane stays controlled for multihit", b.get_move("hurricane").knockback <= 1.6)
 
 func _test_fireball() -> void:
 	print("[fireball]")
@@ -234,6 +248,38 @@ func _test_round_flow() -> void:
 	rm.queue_free()
 	arena.queue_free()
 
+func _test_timeout_draw() -> void:
+	print("[timeout draw]")
+	var ctx := _build()
+	var arena: Arena = ctx["arena"]
+	var rm := RoundManager.new()
+	root.add_child(rm)
+	rm.arena = arena
+	var last_announce := [""]
+	rm.announce.connect(func(text: String): last_announce[0] = text)
+	rm.start()
+	var safety := 0
+	while rm.phase != RoundManager.Phase.FIGHT and safety < 300:
+		safety += 1
+		ctx["c1"].frame = _neutral()
+		ctx["c2"].frame = _neutral()
+		rm.tick(DELTA)
+	rm.time_left_ticks = 1
+	ctx["f1"].health = 500
+	ctx["f2"].health = 500
+	ctx["c1"].frame = _neutral()
+	ctx["c2"].frame = _neutral()
+	rm.tick(DELTA)
+	_check("timeout tie becomes a draw", rm._round_winner == -1)
+	_check("timeout draw awards no round", rm.p1_wins == 0 and rm.p2_wins == 0)
+	_check("timeout draw announces draw", last_announce[0] == "Draw")
+	while rm.phase == RoundManager.Phase.ROUND_OVER and safety < 600:
+		safety += 1
+		rm.tick(DELTA)
+	_check("draw advances to the next round", rm.round_number == 2 and rm.phase == RoundManager.Phase.INTRO)
+	rm.queue_free()
+	arena.queue_free()
+
 func _test_cpu_ai() -> void:
 	print("[cpu ai]")
 	seed(20260619)
@@ -315,6 +361,18 @@ func _test_animated_rig() -> void:
 		_check("grafted hit clip " + clip, arig._player.has_animation("kb/" + clip))
 	# Idle must be set to loop (otherwise it stops after one play ~3s).
 	_check("idle clip loops", arig._player.get_animation("kb/KB_Idle_1").loop_mode == Animation.LOOP_LINEAR)
+	var f := Fighter.new()
+	f.setup(blaze, Manual.new(), GameConst.Side.P1, 0.0)
+	f.current_move = blaze.get_move("st_lp")
+	f.state = Fighter.State.ATTACK
+	f.state_frame = 4
+	arig.pose(f)
+	arig._player.advance(0.18)
+	var before_restart: float = arig._player.current_animation_position
+	f.state_frame = 0
+	arig.pose(f)
+	arig._player.advance(0.03)
+	_check("same-move cancel restarts the clip", arig._player.current_animation_position < before_restart)
 	arig.queue_free()
 
 func _test_six_buttons() -> void:

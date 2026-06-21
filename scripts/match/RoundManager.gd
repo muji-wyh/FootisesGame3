@@ -81,7 +81,12 @@ func _tick_round_over(_delta: float) -> void:
 func _on_ko(loser_side: int) -> void:
 	if phase != Phase.FIGHT:
 		return
-	_round_winner = 1 - loser_side
+	var f1: Fighter = arena.fighters[0]
+	var f2: Fighter = arena.fighters[1]
+	if f1.is_dead() and f2.is_dead():
+		_round_winner = -1
+	else:
+		_round_winner = 1 - loser_side
 	_end_round()
 
 func _decide_by_time() -> void:
@@ -92,7 +97,7 @@ func _decide_by_time() -> void:
 	elif f2.health > f1.health:
 		_round_winner = GameConst.Side.P2
 	else:
-		_round_winner = GameConst.Side.P1   # tie-break to P1 for the slice
+		_round_winner = -1
 	_end_round()
 
 func _end_round() -> void:
@@ -100,15 +105,27 @@ func _end_round() -> void:
 	phase_timer = ROUND_OVER_TICKS
 	if _round_winner == GameConst.Side.P1:
 		p1_wins += 1
-	else:
+	elif _round_winner == GameConst.Side.P2:
 		p2_wins += 1
 	arena.set_active(false)
-	var winner: Fighter = arena.fighters[_round_winner]
-	var loser: Fighter = arena.fighters[1 - _round_winner]
-	winner.set_win()
-	loser.set_ko()
+	if _round_winner == GameConst.Side.P1 or _round_winner == GameConst.Side.P2:
+		var winner: Fighter = arena.fighters[_round_winner]
+		var loser: Fighter = arena.fighters[1 - _round_winner]
+		winner.set_win()
+		loser.set_ko()
+	else:
+		for f in arena.fighters:
+			if f.is_dead():
+				f.set_ko()
+			else:
+				f.velocity = Vector3.ZERO
+				f._goto(Fighter.State.IDLE)
 	rounds_changed.emit(p1_wins, p2_wins)
-	announce.emit("%s wins the round" % winner.character.display_name)
+	if _round_winner == GameConst.Side.P1 or _round_winner == GameConst.Side.P2:
+		var winner: Fighter = arena.fighters[_round_winner]
+		announce.emit("%s wins the round" % winner.character.display_name)
+	else:
+		announce.emit("Draw")
 
 func _advance_after_round() -> void:
 	if p1_wins >= GameConst.ROUNDS_TO_WIN or p2_wins >= GameConst.ROUNDS_TO_WIN:

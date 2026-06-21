@@ -42,7 +42,7 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "fireball", "display_name": "Flare Bolt", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.LP, "motion": MotionParser.QCF, "startup": 11, "active": 2, "recovery": 24,
 		"damage": 55, "hitstun": 18, "blockstun": 12, "hitstop": 4, "guard": GameConst.Guard.MID,
-		"knockback": 1.5, "meter_gain": 12, "projectile": true, "projectile_speed": 8.0,
+		"knockback": 4.4, "meter_gain": 12, "projectile": true, "projectile_speed": 8.0,
 		"projectile_life": 100, "sfx": "fire", "anim_limb": "arm_r", "anim_extend": 0.7,
 		"anim_clip": "KB_Projectile_4", "hit_size": Vector3(0.6, 0.6, 0.6)}))
 
@@ -50,7 +50,7 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "uppercut", "display_name": "Blaze Rise", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.DP, "startup": 5, "active": 10, "recovery": 30,
 		"damage": 60, "hits": 2, "hit_gap": 5, "hitstun": 22, "blockstun": 14, "hitstop": 9,
-		"guard": GameConst.Guard.MID, "knockback": 1.2, "launch": true, "launch_velocity": 10.0,
+		"guard": GameConst.Guard.MID, "knockback": 3.6, "launch": true, "launch_velocity": 10.0,
 		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_crouch_m_Uppercut_R_2",
 		"rises": true, "rise_height": 1.3, "hit_offset": Vector3(0.7, 1.0, 0.0), "hit_size": Vector3(0.8, 1.7, 0.7)}))
 
@@ -58,7 +58,7 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "hurricane", "display_name": "Cyclone Kick", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.LK, "motion": MotionParser.QCB, "startup": 9, "active": 20, "recovery": 22,
 		"damage": 35, "hits": 3, "hit_gap": 6, "hitstun": 16, "blockstun": 12, "hitstop": 6,
-		"guard": GameConst.Guard.MID, "knockback": 1.0, "advance": 5.0, "meter_gain": 8,
+		"guard": GameConst.Guard.MID, "knockback": 1.5, "advance": 5.0, "meter_gain": 8,
 		"sfx": "spin", "anim_limb": "leg_r", "anim_extend": 0.95, "anim_clip": "KB_m_RoundhouseKickRight",
 		"hit_offset": Vector3(0.9, 1.0, 0.0), "hit_size": Vector3(1.0, 1.1, 0.7)}))
 
@@ -67,7 +67,7 @@ static func build() -> CharacterData:
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF_QCF, "meter_cost": 100,
 		"startup": 8, "active": 22, "recovery": 44, "damage": 52, "hits": 5, "hit_gap": 4,
 		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 8, "guard": GameConst.Guard.MID,
-		"knockback": 1.3, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
+		"knockback": 1.8, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
 	return c
