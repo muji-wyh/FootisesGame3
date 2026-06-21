@@ -21,7 +21,26 @@ const NORMAL_CLIPS := {
 	"air_lp": "KB_JumpPunch", "air_mp": "KB_m_Hook_R", "air_hp": "KB_m_Overhand_R",
 	"air_lk": "KB_JumpKick", "air_mk": "KB_p_MidKickFront_L", "air_hk": "KB_p_HighKick_R_1",
 }
-const ST_HP_FRAME_DATA := {"startup": 9, "active": 4, "recovery": 18}
+const NORMAL_TUNING := {
+	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.62, 1.0, 0.0), "hit_size": Vector3(0.42, 0.36, 0.55), "cancel_into": ["st_lp", "st_mp", "st_hp", "fireball", "uppercut", "hurricane", "super_inferno"]},
+	"st_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "cancel_into": ["st_hp", "fireball", "uppercut", "hurricane", "super_inferno"]},
+	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 1.4, "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
+	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.0, "cancel_into": ["st_mk", "fireball", "uppercut", "hurricane", "super_inferno"]},
+	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 4.2, "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
+	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 5.6, "launch": true, "launch_velocity": 7.0},
+	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.1, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.40, 0.34, 0.55), "cancel_into": ["cr_lp", "cr_mp", "cr_mk", "fireball", "uppercut", "hurricane", "super_inferno"]},
+	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 3.5, "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
+	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "launch": true, "launch_velocity": 9.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7)},
+	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.LOW, "knockback": 2.7, "cancel_into": ["cr_mk", "fireball", "uppercut", "hurricane", "super_inferno"]},
+	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.LOW, "knockback": 4.0, "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
+	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.8, "launch": true, "launch_velocity": 5.5},
+	"air_lp": {"startup": 3, "active": 16, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 6, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.8, "hit_offset": Vector3(0.6, 0.4, 0.0), "hit_size": Vector3(0.9, 1.1, 0.7)},
+	"air_mp": {"startup": 5, "active": 15, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.8, "hit_offset": Vector3(0.7, 0.5, 0.0), "hit_size": Vector3(1.0, 1.1, 0.7)},
+	"air_hp": {"startup": 7, "active": 15, "recovery": 6, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.0, "hit_offset": Vector3(0.7, 0.5, 0.0), "hit_size": Vector3(1.0, 1.2, 0.7)},
+	"air_lk": {"startup": 4, "active": 16, "recovery": 4, "damage": 29, "hitstun": 16, "blockstun": 10, "hitstop": 6, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.9, "hit_offset": Vector3(0.6, 0.3, 0.0), "hit_size": Vector3(0.9, 1.2, 0.7)},
+	"air_mk": {"startup": 6, "active": 15, "recovery": 5, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.1, "hit_offset": Vector3(0.7, 0.4, 0.0), "hit_size": Vector3(1.0, 1.2, 0.7)},
+	"air_hk": {"startup": 8, "active": 15, "recovery": 6, "damage": 82, "hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.3, "hit_offset": Vector3(0.7, 0.2, 0.0), "hit_size": Vector3(1.0, 1.4, 0.7)},
+}
 
 static func build() -> CharacterData:
 	var c := CharacterData.new()
@@ -40,10 +59,7 @@ static func build() -> CharacterData:
 	c.rig = _rig()
 
 	CharacterKit.add_standard_normals(c, 0.95, ["fireball", "uppercut", "hurricane", "super_inferno"], NORMAL_CLIPS)
-	var st_hp := c.get_move("st_hp")
-	st_hp.startup = ST_HP_FRAME_DATA["startup"]
-	st_hp.active = ST_HP_FRAME_DATA["active"]
-	st_hp.recovery = ST_HP_FRAME_DATA["recovery"]
+	_apply_move_overrides(c)
 
 	c.add_move(CharacterKit.make_move({"id": "fireball", "display_name": "Flare Bolt", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.LP, "motion": MotionParser.QCF, "startup": 11, "active": 2, "recovery": 24,
@@ -77,6 +93,16 @@ static func build() -> CharacterData:
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
 	return c
+
+static func _apply_move_overrides(c: CharacterData) -> void:
+	for move_id in NORMAL_TUNING.keys():
+		var m := c.get_move(move_id)
+		var props: Dictionary = NORMAL_TUNING[move_id]
+		for key in props.keys():
+			if key == "cancel_into":
+				m.cancel_into.assign(props[key])
+			else:
+				m.set(key, props[key])
 
 ## Blaze's rig configuration: the Kubold "Maskman" model's animation sources, clip maps,
 ## materials and directional hit-reaction templates.
