@@ -14,11 +14,21 @@ const MP_H := 12.0
 const DR_W := 270.0
 const DR_H := 6.0
 const MOVE_LIST_W := 560.0
-const MOVE_LIST_H := 430.0
+const MOVE_LIST_H := 540.0
+const TRAIL_CATCHUP := 1.6      # recoverable-health trail units (fraction/sec) chasing real HP
 
 var _hp_fill := [null, null]
+var _hp_trail := [null, null]   # recoverable-health (white) trail behind each HP bar
+var _hp_target := [1.0, 1.0]    # real HP fraction the trail eases toward
+var _trail_frac := [1.0, 1.0]   # current trail fraction (lags _hp_target downward)
 var _mp_fill := [null, null]
+var _mp_glow := [null, null]    # pulsing overlay shown when the Super meter is full
+var _mp_full := [false, false]
 var _dr_fill := [null, null]
+var _dr_burnout := [false, false]
+var _combo_label := [null, null]
+var _combo_show := [0.0, 0.0]   # combo-counter fade timer (seconds) per side
+var _glow_t := 0.0              # shared pulse clock for MAX / burnout flashes
 var _pips := [[], []]
 var _root: Control
 var _banner: Label
@@ -27,8 +37,16 @@ var _counter_label: Label
 var _move_list_panel: Panel
 var _move_list_labels := [null, null]
 var _counter_timer: int = 0
+var _dr_tint: ColorRect
 
 func build(p1: CharacterData, p2: CharacterData) -> void:
+	# Full-screen Drive Rush tint, behind every HUD element (added first).
+	_dr_tint = ColorRect.new()
+	_dr_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dr_tint.color = Color(0.3, 1.0, 0.7, 0.0)
+	_dr_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_dr_tint)
+
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -53,20 +71,38 @@ func build(p1: CharacterData, p2: CharacterData) -> void:
 	_counter_label.text = ""
 
 	_build_move_list(p1, p2)
+	_build_combo_labels()
+
+## Per-side combo counter ("N HITS" + scaled damage), shown while a combo is live and
+## briefly after it ends (fade driven by tick()). Placed toward each player's own side.
+func _build_combo_labels() -> void:
+	var c0 := _label(_root, Vector2(70.0, 384.0), Vector2(420.0, 90.0), 40)
+	c0.add_theme_color_override("font_color", Color(1.0, 0.95, 0.5))
+	c0.modulate.a = 0.0
+	_combo_label[0] = c0
+	var c1 := _label(_root, Vector2(BASE_W - 70.0 - 420.0, 384.0), Vector2(420.0, 90.0), 40)
+	c1.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	c1.add_theme_color_override("font_color", Color(1.0, 0.95, 0.5))
+	c1.modulate.a = 0.0
+	_combo_label[1] = c1
 
 func _build_side(root: Control, side: int, ch: CharacterData, x: float) -> void:
-	# Health bar.
+	# Health bar: dark base, a recoverable-health (white) trail, then the live coloured fill.
 	_panel(root, Vector2(x - 3, 25), Vector2(HP_W + 6, HP_H + 6), Color(0, 0, 0, 0.6))
 	_panel(root, Vector2(x, 28), Vector2(HP_W, HP_H), Color(0.2, 0.05, 0.05))
+	var trail := _panel(root, Vector2(x, 28), Vector2(HP_W, HP_H), Color(0.95, 0.95, 0.98, 0.85))
+	_hp_trail[side] = {"rect": trail, "x": x}
 	var hp := _panel(root, Vector2(x, 28), Vector2(HP_W, HP_H), ch.color)
 	_hp_fill[side] = {"rect": hp, "x": x}
 
-	# Meter bar.
+	# Meter bar with a MAX glow overlay (hidden until full).
 	var mx := x if side == 0 else x + HP_W - MP_W
 	_panel(root, Vector2(mx, 66), Vector2(MP_W, MP_H), Color(0.1, 0.1, 0.12))
 	var mp := _panel(root, Vector2(mx, 66), Vector2(MP_W, MP_H), ch.accent)
 	_mp_fill[side] = {"rect": mp, "x": mx}
 	mp.size.x = 0
+	var glow := _panel(root, Vector2(mx, 64), Vector2(MP_W, MP_H + 4), Color(1.0, 0.95, 0.5, 0.0))
+	_mp_glow[side] = glow
 
 	# Drive gauge (separate from the Super meter), six bars, between the HP and meter bars.
 	var dx := x if side == 0 else x + HP_W - DR_W
@@ -98,6 +134,20 @@ func set_health(side: int, current: int, maximum: int) -> void:
 	rect.size.x = HP_W * frac
 	if side == 1:
 		rect.position.x = info["x"] + HP_W * (1.0 - frac)
+	# The recoverable-health trail snaps UP instantly on a heal/reset but lags DOWN after a
+	# hit (eased in tick), leaving a brief white "damage" band — the SF6 health-bar feel.
+	if frac >= _trail_frac[side]:
+		_trail_frac[side] = frac
+		_apply_trail(side)
+	_hp_target[side] = frac
+
+func _apply_trail(side: int) -> void:
+	var info = _hp_trail[side]
+	var rect: ColorRect = info["rect"]
+	var frac: float = _trail_frac[side]
+	rect.size.x = HP_W * frac
+	if side == 1:
+		rect.position.x = info["x"] + HP_W * (1.0 - frac)
 
 func set_meter(side: int, current: int, maximum: int) -> void:
 	var frac := clampf(float(current) / float(max(1, maximum)), 0.0, 1.0)
@@ -106,6 +156,9 @@ func set_meter(side: int, current: int, maximum: int) -> void:
 	rect.size.x = MP_W * frac
 	if side == 1:
 		rect.position.x = info["x"] + MP_W * (1.0 - frac)
+	_mp_full[side] = frac >= 1.0
+	if not _mp_full[side] and _mp_glow[side] != null:
+		_mp_glow[side].color.a = 0.0
 
 func set_drive(side: int, current: int, maximum: int) -> void:
 	var frac := clampf(float(current) / float(max(1, maximum)), 0.0, 1.0)
@@ -114,6 +167,51 @@ func set_drive(side: int, current: int, maximum: int) -> void:
 	rect.size.x = DR_W * frac
 	if side == 1:
 		rect.position.x = info["x"] + DR_W * (1.0 - frac)
+
+## Show this side's combo count + (scaled) damage. hits < 2 starts the fade-out but keeps
+## the last value on screen; hits >= 2 refreshes it. Driven by the fighter's combo_changed.
+func set_combo(side: int, hits: int, damage: int) -> void:
+	var lbl: Label = _combo_label[side]
+	if lbl == null:
+		return
+	if hits >= 2:
+		lbl.text = "%d HITS\n%d DMG" % [hits, damage]
+		_combo_show[side] = 1.1
+
+## Toggle this side's Drive-gauge Burnout flash (empty gauge, recovering).
+func set_burnout(side: int, burnout: bool) -> void:
+	_dr_burnout[side] = burnout
+	if not burnout and _dr_fill[side] != null:
+		_dr_fill[side]["rect"].color = Color(0.3, 0.9, 0.5)
+
+## Set the full-screen Drive Rush tint intensity (0 = off). Colour is the rusher's accent.
+func set_dr_tint(intensity: float, color: Color) -> void:
+	if _dr_tint == null:
+		return
+	_dr_tint.color = Color(color.r, color.g, color.b, clampf(intensity, 0.0, 0.16))
+
+## Per-frame presentation update (combo fade, recoverable-health trail, MAX/burnout pulse).
+func tick_visuals(delta: float) -> void:
+	_glow_t += delta
+	var pulse := 0.5 + 0.5 * sin(_glow_t * 9.0)
+	for side in range(2):
+		# Recoverable-health trail eases down toward the real HP.
+		if _trail_frac[side] > _hp_target[side]:
+			_trail_frac[side] = maxf(_hp_target[side], _trail_frac[side] - TRAIL_CATCHUP * delta)
+			_apply_trail(side)
+		# Combo counter fade.
+		if _combo_label[side] != null:
+			if _combo_show[side] > 0.0:
+				_combo_show[side] = maxf(0.0, _combo_show[side] - delta)
+				_combo_label[side].modulate.a = clampf(_combo_show[side] / 0.4, 0.0, 1.0)
+			elif _combo_label[side].modulate.a != 0.0:
+				_combo_label[side].modulate.a = 0.0
+		# Super meter MAX glow.
+		if _mp_glow[side] != null:
+			_mp_glow[side].color.a = (0.25 + 0.45 * pulse) if _mp_full[side] else 0.0
+		# Drive Burnout flash (gauge turns an alarmed red and pulses).
+		if _dr_fill[side] != null and _dr_burnout[side]:
+			_dr_fill[side]["rect"].color = Color(1.0, 0.35, 0.25).lerp(Color(1.0, 0.7, 0.3), pulse)
 
 func set_timer(seconds: int) -> void:
 	_timer_label.text = str(max(0, seconds))
@@ -161,7 +259,7 @@ func is_move_list_visible() -> bool:
 
 func _build_move_list(p1: CharacterData, p2: CharacterData) -> void:
 	_move_list_panel = Panel.new()
-	_move_list_panel.position = Vector2(BASE_W * 0.5 - MOVE_LIST_W * 0.5, 150.0)
+	_move_list_panel.position = Vector2(BASE_W * 0.5 - MOVE_LIST_W * 0.5, 100.0)
 	_move_list_panel.size = Vector2(MOVE_LIST_W, MOVE_LIST_H)
 	_move_list_panel.visible = false
 	_root.add_child(_move_list_panel)
@@ -199,9 +297,15 @@ func _input_text(m: MoveData) -> String:
 	var parts := []
 	if not m.motion.is_empty():
 		parts.append(_motion_text(m.motion))
-	parts.append(_button_text(m.button))
+	if m.drive_cost > 0:
+		# Overdrive (EX): two same-type buttons (PP / KK).
+		parts.append("PP" if (m.multi_button & GameConst.Btn.LP) else "KK")
+	else:
+		parts.append(_button_text(m.button))
 	if m.meter_cost > 0:
 		parts.append("(%d meter)" % m.meter_cost)
+	if m.drive_cost > 0:
+		parts.append("(EX)")
 	return " + ".join(parts)
 
 func _motion_text(seq: Array[int]) -> String:

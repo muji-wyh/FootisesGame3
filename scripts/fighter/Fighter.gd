@@ -21,6 +21,7 @@ signal contact(blocked: bool, move: MoveData)   # this fighter connected an atta
 signal got_hit(blocked: bool)                    # this fighter was hit
 signal countered(kind: int)                      # this fighter was hit as a Counter/Punish
 signal jumped()
+signal combo_changed(hits: int, damage: int)     # this fighter's combo on its opponent changed
 
 enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP, DRIVE_RUSH }
 
@@ -42,6 +43,14 @@ const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const RDR_COST := 1000              # Drive spent by a raw Drive Rush (1 bar)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
+const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
+const DRIVE_RUSH_CARRY := 4.5       # forward slide speed granted to the first normal out of a Drive Rush
+const DRIVE_RUSH_CARRY_TICKS := 8   # ticks that carry momentum lasts
+const BURNOUT_TICKS := 90           # ticks Drive regen is suspended after the gauge empties (SF6 Burnout)
+
+## Combo damage scaling (SF6-style): the n-th hit of a combo deals this fraction of its
+## damage. Gentle and only kicks in past hit 3 so single moves / short strings are unscaled.
+const COMBO_SCALING := [1.0, 1.0, 1.0, 0.9, 0.8, 0.7, 0.7, 0.6]
 
 # Configuration
 var character: CharacterData
@@ -78,6 +87,13 @@ var input_buffer := InputBuffer.new()
 # Drive (SF6-style gauge, separate from the Super meter).
 var drive: int = 0
 var drive_rush_pending: bool = false   # first normal out of a Drive Rush gets a one-time advantage
+var _dr_carry: int = 0                  # ticks of forward slide momentum left on a Drive Rush normal
+var _burnout_timer: int = 0             # ticks Drive regen stays suspended after the gauge empties
+
+# Combo state (tracked on the victim; the attacker is this fighter's opponent). Used for
+# combo damage scaling and the HUD combo counter.
+var combo_count: int = 0               # consecutive hits taken before recovering
+var combo_damage: int = 0              # cumulative (post-scaling) damage of the current combo
 # Cancel buffer: most-recent attack press, ageing only on advancing ticks (survives hitstop).
 var _cancel_btn: int = 0
 var _cancel_age: int = 999
@@ -196,8 +212,11 @@ func update_visual() -> void:
 func _step_neutral(inp: InputFrame) -> void:
 	# A pressed move (special/super/normal) takes priority over a dash/RDR on the same tick,
 	# so motion inputs whose path crosses forward (e.g. shoryuken, double-QCF super) are not
-	# eaten by an accidental double-tap.
+	# eaten by an accidental double-tap. A press buffered a few frames early (INPUT_BUFFER)
+	# still fires on this first actionable frame, for SF6-style responsiveness.
 	var move := _select_move(inp)
+	if move == null:
+		move = _buffered_move(inp)
 	if move:
 		_start_move(move)
 		return
@@ -293,26 +312,59 @@ func _current_stance(inp: InputFrame) -> int:
 	return GameConst.Stance.STAND
 
 func _select_move(inp: InputFrame) -> MoveData:
-	if inp.pressed == 0:
+	return _select_move_for(inp.pressed, inp)
+
+## Pick a move from a `pressed` button mask (the live press, or a buffered one) given the
+## current directional `inp`. Overdrive (EX) specials are checked first (two buttons + Drive),
+## then supers, then regular specials, then stance-matched normals.
+func _select_move_for(pressed: int, inp: InputFrame) -> MoveData:
+	if pressed == 0:
 		return null
 	var stance := _current_stance(inp)
-	# Specials/supers are ground-only here.
+	# Specials/supers/overdrives are ground-only here.
 	if on_ground:
+		var od := _select_overdrive(pressed)
+		if od:
+			return od
 		for m in character.supers:
-			if (inp.pressed & m.button) and meter >= m.meter_cost and _motion_ok(m):
+			if (pressed & m.button) and meter >= m.meter_cost and _motion_ok(m):
 				return m
 		for m in character.specials:
-			if (inp.pressed & m.button) and _motion_ok(m):
+			if m.drive_cost > 0:
+				continue   # Overdrive variants handled above
+			if (pressed & m.button) and _motion_ok(m):
 				return m
 	# Normals: match button and the current stance, with a same-button fallback.
 	var fallback: MoveData = null
 	for m in character.normals:
-		if inp.pressed & m.button:
+		if pressed & m.button:
 			if m.stance == stance:
 				return m
 			if fallback == null:
 				fallback = m
 	return fallback
+
+## Overdrive (EX) specials: require >=2 buttons of the move's `multi_button` mask pressed at
+## once, the move's motion, and enough Drive. Returns the first affordable match, or null.
+func _select_overdrive(pressed: int) -> MoveData:
+	for m in character.specials:
+		if m.drive_cost <= 0:
+			continue
+		if m.multi_button != 0 and _bit_count(pressed & m.multi_button) < 2:
+			continue
+		if drive < m.drive_cost:
+			continue
+		if _motion_ok(m):
+			return m
+	return null
+
+## A move from the input buffer: the most recent attack press, still fresh (within
+## INPUT_BUFFER advancing ticks), fired on the first actionable frame. Gives the SF6 feel
+## where a slightly-early press is honoured instead of dropped.
+func _buffered_move(inp: InputFrame) -> MoveData:
+	if _cancel_btn == 0 or _cancel_age > INPUT_BUFFER:
+		return null
+	return _select_move_for(_cancel_btn, inp)
 
 func _motion_ok(m: MoveData) -> bool:
 	if m.motion.is_empty():
@@ -320,19 +372,25 @@ func _motion_ok(m: MoveData) -> bool:
 	return MotionParser.completed(input_buffer, facing, m.motion)
 
 func _start_move(m: MoveData) -> void:
-	# Arm the one-time Drive Rush advantage when a normal is performed out of a Drive Rush.
-	drive_rush_pending = (state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL)
+	# Arm the one-time Drive Rush advantage when a normal is performed out of a Drive Rush,
+	# and grant it a brief forward slide so it closes the gap (SF6 Drive Rush momentum).
+	var from_dr := (state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL)
+	drive_rush_pending = from_dr
+	_dr_carry = DRIVE_RUSH_CARRY_TICKS if from_dr else 0
 	current_move = m
 	move_hits_done = 0
 	move_hit_cooldown = 0
 	_cancel_age = 999   # a fresh press is required to cancel this new move
 	if m.kind == GameConst.MoveKind.SUPER:
 		_add_meter(-m.meter_cost)
+	if m.drive_cost > 0:
+		spend_drive(m.drive_cost)   # Overdrive (EX): affordability was checked on selection
 	_goto(State.ATTACK)
 	state_frame = 0   # ensure a fresh attack even when cancelling ATTACK -> ATTACK
-	# Air attacks keep their jump momentum (arc); grounded attacks stop in place.
+	# Air attacks keep their jump momentum (arc); grounded attacks stop in place, except a
+	# Drive Rush normal which slides forward for its carry window.
 	if m.stance != GameConst.Stance.AIR:
-		velocity.x = 0
+		velocity.x = facing * DRIVE_RUSH_CARRY if from_dr else 0.0
 	move_started.emit(m)
 
 func _step_attack(_inp: InputFrame) -> void:
@@ -351,6 +409,10 @@ func _step_attack(_inp: InputFrame) -> void:
 			return
 	elif m.advance > 0.0 and state_frame < m.startup + m.active:
 		velocity.x = facing * m.advance   # ground lunge/advance
+	elif _dr_carry > 0:
+		# Drive Rush normal: keep sliding forward (decaying) so it closes the gap.
+		_dr_carry -= 1
+		velocity.x = facing * DRIVE_RUSH_CARRY * (float(_dr_carry) / float(DRIVE_RUSH_CARRY_TICKS))
 	else:
 		velocity.x = 0
 	# Rising attacks (DP-style): leap along a scripted vertical arc within the move's frames.
@@ -383,10 +445,18 @@ func _select_cancel(from_move: MoveData) -> MoveData:
 		return null
 	var btn := _cancel_btn
 	if on_ground:
+		# Overdrive (EX) cancels first: two buttons + motion + Drive, listed in cancel_into.
+		for m in character.specials:
+			if m.drive_cost > 0 and from_move.cancel_into.has(m.id) \
+					and m.multi_button != 0 and _bit_count(btn & m.multi_button) >= 2 \
+					and drive >= m.drive_cost and _motion_ok(m):
+				return m
 		for m in character.supers:
 			if (btn & m.button) and from_move.cancel_into.has(m.id) and meter >= m.meter_cost and _motion_ok(m):
 				return m
 		for m in character.specials:
+			if m.drive_cost > 0:
+				continue
 			if (btn & m.button) and from_move.cancel_into.has(m.id) and _motion_ok(m):
 				return m
 	var stance := _current_stance(input_buffer.latest())
@@ -459,6 +529,7 @@ func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> 
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
+	_end_combo()   # a block drops any combo this fighter was being hit by
 	stun_timer = m.blockstun + bonus_hitstun
 	_goto(State.BLOCKSTUN)
 	if m.chip > 0:
@@ -468,6 +539,12 @@ func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> 
 
 func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
 	var counter := _counter_kind()   # read before current_move is cleared
+	# Combo bookkeeping: a hit taken while already stunned/airborne extends the combo,
+	# otherwise it starts a fresh one. Damage is then scaled by the combo length (SF6-style).
+	var continuing := state == State.HITSTUN or not on_ground or launched
+	combo_count = combo_count + 1 if continuing else 1
+	if not continuing:
+		combo_damage = 0
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
@@ -484,7 +561,10 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 			bonus_stun = COUNTER_BONUS_HITSTUN
 	if counter != GameConst.Counter.NONE:
 		countered.emit(counter)
-	_damage(m.damage)
+	var dealt := _scaled_damage(m.damage, combo_count)
+	combo_damage += dealt
+	combo_changed.emit(combo_count, combo_damage)
+	_damage(dealt)
 	if health <= 0:
 		return   # KO handled by RoundManager observing health
 	if m.launch:
@@ -500,6 +580,22 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 		stun_timer = m.hitstun + bonus_stun + bonus_hitstun
 		velocity.x = attacker_facing * m.knockback
 		_goto(State.HITSTUN)
+
+## Combo damage scaling: the n-th hit (1-based) of a combo deals COMBO_SCALING[n-1] of its
+## listed damage (clamped to the last, smallest entry), so long combos taper instead of
+## deleting the health bar. Single hits and short strings (<=3) are unscaled.
+func _scaled_damage(base: int, n: int) -> int:
+	var idx := clampi(n - 1, 0, COMBO_SCALING.size() - 1)
+	return int(round(float(base) * COMBO_SCALING[idx]))
+
+## End the current combo (victim recovered, blocked, was knocked down, or round reset) and
+## notify listeners so the HUD combo counter can begin its fade.
+func _end_combo() -> void:
+	if combo_count == 0 and combo_damage == 0:
+		return
+	combo_count = 0
+	combo_damage = 0
+	combo_changed.emit(0, 0)
 
 ## Classify how a launching hit knocks the victim down, selecting the knockdown/get-up
 ## animation: a juggle out of the air, a sweep off the legs, an uppercut launch, or a
@@ -529,6 +625,7 @@ func _step_stun() -> void:
 		return   # airborne: wait until landing (handled in _apply_physics)
 	stun_timer -= 1
 	if stun_timer <= 0:
+		_end_combo()
 		_goto(State.IDLE)
 
 ## Capture the context of an incoming hit (strength, height, stance, direction) so the
@@ -605,6 +702,7 @@ func _on_landed() -> void:
 				launched = false
 				stun_timer = KNOCKDOWN_TICKS
 				velocity.x = 0
+				_end_combo()   # juggle ends when the victim hits the floor
 				_goto(State.KNOCKDOWN)
 
 # --- hit / hurt boxes ------------------------------------------------------
@@ -644,6 +742,15 @@ func _goto(s: int) -> void:
 		state = s
 		state_frame = 0
 
+## Count set bits in a button mask (no native popcount in GDScript). Used to detect a
+## two-button Overdrive (EX) press.
+func _bit_count(mask: int) -> int:
+	var n := 0
+	while mask != 0:
+		n += mask & 1
+		mask >>= 1
+	return n
+
 func _damage(amount: int) -> void:
 	health = max(0, health - amount)
 	health_changed.emit(health, character.max_health)
@@ -662,15 +769,28 @@ func _add_drive(amount: int) -> void:
 	drive_changed.emit(drive, character.max_drive)
 
 func _regen_drive() -> void:
-	if active and drive < character.max_drive:
+	if not active:
+		return
+	# Burnout: after the gauge empties, Drive regen is suspended for a short window (SF6).
+	if _burnout_timer > 0:
+		_burnout_timer -= 1
+		return
+	if drive < character.max_drive:
 		_add_drive(character.drive_regen)
 
-## Spend `cost` Drive if affordable; returns whether the spend succeeded.
+## Spend `cost` Drive if affordable; returns whether the spend succeeded. Emptying the gauge
+## triggers Burnout (a brief regen pause).
 func spend_drive(cost: int) -> bool:
 	if drive < cost:
 		return false
 	_add_drive(-cost)
+	if drive <= 0:
+		_burnout_timer = BURNOUT_TICKS
 	return true
+
+## In Burnout: the Drive gauge is empty and still recovering (no Drive actions available).
+func is_burnout() -> bool:
+	return _burnout_timer > 0 or drive <= 0
 
 ## One-time hitstun/blockstun bonus for the first normal performed out of a Drive Rush,
 ## consumed on contact (read by HitResolver and passed to the victim).
@@ -731,6 +851,10 @@ func reset_for_round() -> void:
 	knockdown_kind = GameConst.Knockdown.NONE
 	drive = character.max_drive
 	drive_rush_pending = false
+	_dr_carry = 0
+	_burnout_timer = 0
+	combo_count = 0
+	combo_damage = 0
 	_cancel_btn = 0
 	_cancel_age = 999
 	on_ground = true
@@ -740,6 +864,7 @@ func reset_for_round() -> void:
 	health_changed.emit(health, character.max_health)
 	meter_changed.emit(meter, character.max_meter)
 	drive_changed.emit(drive, character.max_drive)
+	combo_changed.emit(0, 0)
 
 func is_dead() -> bool:
 	return health <= 0

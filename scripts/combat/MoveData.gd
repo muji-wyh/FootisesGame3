@@ -15,6 +15,12 @@ extends Resource
 @export var stance: int = GameConst.Stance.STAND   # STAND / CROUCH / AIR normal
 @export var meter_cost: int = 0              # meter required (supers)
 
+## Overdrive (EX) trigger: when drive_cost > 0 this is an Overdrive special, fired by
+## pressing TWO buttons of `multi_button`'s mask at once (e.g. two punches) with `motion`,
+## and it spends `drive_cost` Drive units. Stronger than its base special. (SF6 "OD".)
+@export var drive_cost: int = 0              # Drive units spent (0 = not an Overdrive move)
+@export var multi_button: int = 0            # mask requiring >=2 set bits (e.g. all punches)
+
 ## Frame data (ticks).
 @export var startup: int = 4                 # frames before the hitbox appears
 @export var active: int = 3                  # frames the hitbox is live
