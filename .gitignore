@@ -1,5 +1,7 @@
 # Godot 4 .gitignore
 
+.idea/
+
 # Godot-specific import cache and generated files
 .godot/
 /android/
