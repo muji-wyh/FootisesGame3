@@ -5,7 +5,11 @@ extends Node
 ## pool of AudioStreamPlayers lets several effects overlap. BGM loops by replaying on the
 ## `finished` signal. Safe in headless mode (the dummy audio driver makes play() a no-op).
 
-const SFX := ["hit", "block", "whoosh", "jump", "ko", "fire", "rising", "spin", "super", "hit_heavy", "counter"]
+const SFX := [
+	"hit", "block", "whoosh", "jump", "ko", "fire", "rising", "spin", "super", "hit_heavy", "counter",
+	"lp", "mp", "hp", "lk", "mk", "hk",
+]
+const BGM_PATH := "res://assets/bgm/urban_world_warrior_bgm_v2_more_rhythm.ogg"
 const POOL_SIZE := 8
 
 var _streams := {}
@@ -27,7 +31,7 @@ func _ensure_initialized() -> void:
 		add_child(p)
 		_players.append(p)
 	_bgm = AudioStreamPlayer.new()
-	_bgm.stream = load("res://assets/audio/bgm.wav")
+	_bgm.stream = load(BGM_PATH)
 	_bgm.volume_db = -10.0
 	_bgm.finished.connect(func(): _bgm.play())
 	add_child(_bgm)

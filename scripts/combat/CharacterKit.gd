@@ -22,6 +22,15 @@ static func make_move(props: Dictionary) -> MoveData:
 ## Add a full set of 6-button normals in three stances (standing / crouching / air). `dmg_scale`
 ## weights damage by class; light/medium normals cancel into `cancels` (the character's special
 ## ids). `clips` maps each normal id to its animation clip name.
+const BUTTON_SFX := {
+	GameConst.Btn.LP: "lp",
+	GameConst.Btn.MP: "mp",
+	GameConst.Btn.HP: "hp",
+	GameConst.Btn.LK: "lk",
+	GameConst.Btn.MK: "mk",
+	GameConst.Btn.HK: "hk",
+}
+
 static func add_standard_normals(c: CharacterData, dmg_scale: float, cancels: Array, clips: Dictionary) -> void:
 	var heavy_cancels := cancels.duplicate()
 	var defs := [
@@ -111,4 +120,5 @@ static func add_standard_normals(c: CharacterData, dmg_scale: float, cancels: Ar
 		props["kind"] = GameConst.MoveKind.NORMAL
 		props["damage"] = int(round(float(props["damage"]) * dmg_scale))
 		props["anim_clip"] = String(clips.get(d["id"], ""))
+		props["sfx"] = String(BUTTON_SFX.get(int(d["button"]), "whoosh"))
 		c.add_move(make_move(props))

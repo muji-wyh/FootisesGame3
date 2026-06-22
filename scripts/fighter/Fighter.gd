@@ -29,25 +29,26 @@ const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.35
 const STUN_FRICTION := 0.90
 const DASH_WINDOW := 12      # ticks within which a second tap triggers a dash
-const DASH_DURATION := 16
-const DASH_SPEED := 7.5
-const BACKDASH_SPEED := 7.0
+const DASH_DURATION := 12
+const DASH_SPEED := 6.0
+const BACKDASH_SPEED := 5.6
 const COUNTER_BONUS_HITSTUN := 6    # extra hitstun on a Counter Hit
 const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo window)
 const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knockdown
 const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
-const DRIVE_RUSH_SPEED := 9.0       # forward speed while in a Drive Rush
-const DRIVE_RUSH_ATTACK_SPEED := 4.5 # carried momentum for the first normal out of Drive Rush
-const DRIVE_RUSH_DURATION := 18     # ticks a Drive Rush advances before returning to neutral
+const DRC_INPUT_BUFFER := 18        # real ticks a two-punch DRC input can wait after contact/hitstop
+const DRIVE_RUSH_SPEED := 11.5      # forward speed while in a Drive Rush
+const DRIVE_RUSH_ATTACK_SPEED := 6.5 # carried momentum for the first normal out of Drive Rush
+const DRIVE_RUSH_DURATION := 24     # ticks a Drive Rush advances before returning to neutral
 const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
-const RDR_COST := 1000              # Drive spent by a raw Drive Rush (1 bar)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
-const DRIVE_RUSH_CARRY := 4.5       # forward slide speed granted to the first normal out of a Drive Rush
-const DRIVE_RUSH_CARRY_TICKS := 8   # ticks that carry momentum lasts
+const DRIVE_RUSH_CARRY := 6.5       # forward slide speed granted to the first normal out of a Drive Rush
+const DRIVE_RUSH_CARRY_TICKS := 12  # ticks that carry momentum lasts
 const BURNOUT_TICKS := 90           # ticks Drive regen is suspended after the gauge empties (SF6 Burnout)
+const DRC_PUNCH_MASK := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
 
 ## Combo damage scaling (SF6-style): the n-th hit of a combo deals this fraction of its
 ## damage. Gentle and only kicks in past hit 3 so single moves / short strings are unscaled.
@@ -106,6 +107,8 @@ var _prev_back: bool = false
 var _fwd_tap: int = -100
 var _back_tap: int = -100
 var _dash_req: int = 0
+var _drc_input_buffer: int = 0
+var _drc_input_buffer_age: int = 999
 
 # Presentation (optional; null in headless tests)
 var rig: Node = null
@@ -144,14 +147,15 @@ func advance(delta: float) -> void:
 	if pressed_now:
 		_cancel_btn = lf.pressed
 		_cancel_age = 0
+	_tick += 1
+	_update_dash_taps(input_buffer.latest())
+	_update_drc_input_buffer(input_buffer.latest())
 	if hitstop > 0:
 		hitstop -= 1
 		return
 	if not pressed_now:
 		_cancel_age += 1
 	_regen_drive()
-	_tick += 1
-	_update_dash_taps(input_buffer.latest())
 	state_frame += 1
 	var inp := input_buffer.latest()
 	match state:
@@ -197,6 +201,30 @@ func _update_dash_taps(inp: InputFrame) -> void:
 	_prev_fwd = fwd
 	_prev_back = back
 
+func _update_drc_input_buffer(inp: InputFrame) -> void:
+	if _is_drc_input(inp) and state == State.ATTACK and move_hits_done > 0:
+		_drc_input_buffer = 1
+		_drc_input_buffer_age = 0
+		return
+	if _drc_input_buffer == 0:
+		return
+	_drc_input_buffer_age += 1
+	if _drc_input_buffer_age > DRC_INPUT_BUFFER:
+		_clear_drc_input_buffer()
+
+func _is_drc_input(inp: InputFrame) -> bool:
+	return (inp.pressed & DRC_PUNCH_MASK) != 0 and _bit_count(inp.held & DRC_PUNCH_MASK) >= 2
+
+func _consume_drc_input() -> bool:
+	if _drc_input_buffer > 0 and _drc_input_buffer_age <= DRC_INPUT_BUFFER:
+		_clear_drc_input_buffer()
+		return true
+	return false
+
+func _clear_drc_input_buffer() -> void:
+	_drc_input_buffer = 0
+	_drc_input_buffer_age = 999
+
 func update_facing() -> void:
 	if not _is_actionable():
 		return
@@ -211,7 +239,7 @@ func update_visual() -> void:
 # --- neutral / movement ----------------------------------------------------
 
 func _step_neutral(inp: InputFrame) -> void:
-	# A pressed move (special/super/normal) takes priority over a dash/RDR on the same tick,
+	# A pressed move (special/super/normal) takes priority over a dash on the same tick,
 	# so motion inputs whose path crosses forward (e.g. shoryuken, double-QCF super) are not
 	# eaten by an accidental double-tap. A press buffered a few frames early (INPUT_BUFFER)
 	# still fires on this first actionable frame, for SF6-style responsiveness.
@@ -222,11 +250,7 @@ func _step_neutral(inp: InputFrame) -> void:
 		_start_move(move)
 		return
 	if _dash_req > 0:
-		# Forward double-tap is a Raw Drive Rush when Drive is available, else an ordinary dash.
-		if spend_drive(RDR_COST):
-			_start_drive_rush()
-		else:
-			_start_dash(true)
+		_start_dash(true)
 		return
 	if _dash_req < 0:
 		_start_dash(false)
@@ -373,6 +397,7 @@ func _motion_ok(m: MoveData) -> bool:
 	return MotionParser.completed(input_buffer, facing, m.motion)
 
 func _start_move(m: MoveData) -> void:
+	_clear_drc_input_buffer()
 	# Arm the one-time Drive Rush advantage when a normal is performed out of a Drive Rush,
 	# and grant it a brief forward slide so it closes the gap (SF6 Drive Rush momentum).
 	var from_dr := (state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL)
@@ -426,10 +451,14 @@ func _step_attack(_inp: InputFrame) -> void:
 	# Spawn a projectile on the first active frame.
 	if m.projectile and state_frame == m.startup:
 		pending_projectiles.append(m)
-	# Once connected (hit or block), the move can be cancelled: a Drive Rush Cancel (forward
-	# double-tap, spends Drive) or a buffered follow-up move listed in cancel_into.
+	# Once connected (hit or block), the move can be cancelled: special/super/OD cancels,
+	# a two-punch Drive Rush Cancel, or a buffered follow-up normal listed in cancel_into.
 	if move_hits_done > 0 and not m.cancel_into.is_empty():
-		if _dash_req > 0 and m.kind == GameConst.MoveKind.NORMAL and spend_drive(DRC_COST):
+		var special_cancel := _select_cancel(m, false)
+		if special_cancel:
+			_start_move(special_cancel)
+			return
+		if m.kind == GameConst.MoveKind.NORMAL and _consume_drc_input() and spend_drive(DRC_COST):
 			_start_drive_rush()
 			return
 		var nxt := _select_cancel(m)
@@ -443,7 +472,7 @@ func _step_attack(_inp: InputFrame) -> void:
 ## Choose a buffered cancel target. Uses the hitstop-aware cancel buffer (a press within the
 ## last CANCEL_BUFFER advancing ticks) rather than a frame-fresh press, and only allows moves
 ## listed in the source move's cancel_into. Specials/supers validate their motion over the buffer.
-func _select_cancel(from_move: MoveData) -> MoveData:
+func _select_cancel(from_move: MoveData, allow_normals: bool = true) -> MoveData:
 	if _cancel_btn == 0 or _cancel_age > CANCEL_BUFFER:
 		return null
 	var btn := _cancel_btn
@@ -462,6 +491,8 @@ func _select_cancel(from_move: MoveData) -> MoveData:
 				continue
 			if (btn & m.button) and from_move.cancel_into.has(m.id) and _motion_ok(m):
 				return m
+	if not allow_normals:
+		return null
 	var stance := _current_stance(input_buffer.latest())
 	var fallback: MoveData = null
 	for m in character.normals:
@@ -860,6 +891,7 @@ func reset_for_round() -> void:
 	combo_damage = 0
 	_cancel_btn = 0
 	_cancel_age = 999
+	_clear_drc_input_buffer()
 	on_ground = true
 	position.y = 0
 	input_buffer.clear()

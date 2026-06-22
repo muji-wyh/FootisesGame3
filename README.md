@@ -5,9 +5,10 @@ that runs in **Chrome** via Godot 4's HTML5/WebAssembly export.
 
 > **Legal:** This project contains **no** Street Fighter assets, characters, or names.
 > Fighters are original placeholders or locally supplied asset packs. Gameplay SFX are
-> imported from the local `Sound_HIT_AND_PUNCH` source pack and converted for the web build;
-> verify third-party asset licenses before redistribution. `tools/gen_audio.py` can still
-> regenerate the original placeholder audio.
+> imported from the local `Sound_HIT_AND_PUNCH` source pack; BGM is imported from the local
+> `AIGenBGM` source folder. Audio is converted for the web build; verify third-party asset
+> licenses before redistribution. `tools/gen_audio.py` can still regenerate the original
+> placeholder audio.
 
 ## Tech stack
 
@@ -42,12 +43,13 @@ A six-bar **Drive gauge** (separate from the Super meter) powers the modern mech
 
 | Mechanic | Input | Cost |
 |---|---|---|
-| **Drive Rush** (绿冲) | double-tap forward (with Drive) | 1 bar |
-| **Drive Rush Cancel** (DRC) | double-tap forward during a *connected* normal | 3 bars |
+| **Dash** | double-tap forward / back | - |
+| **Drive Rush Cancel** (DRC / 绿冲) | any two punch buttons during a *connected* normal | 3 bars |
 | **Overdrive (EX) special** | special motion + **two punches** or **two kicks** | 2 bars |
 
 A Drive Rush trails a cyan **afterimage** streak and lets the first normal out of it slide
-in and link (a built-in advantage). Empty the gauge and you enter brief **Burnout** (the
+in and link (a built-in advantage). DRC two-punch inputs entered during hitstop are
+buffered into the first actionable frame. Empty the gauge and you enter brief **Burnout** (the
 gauge flashes red and stops regenerating). Combos are tracked by an on-screen **hit
 counter** and use **damage scaling** so long routes taper instead of deleting the bar.
 There's also a small **input buffer**, so a slightly-early attack still comes out. The HUD

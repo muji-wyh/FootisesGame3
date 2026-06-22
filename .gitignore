@@ -34,10 +34,12 @@ characters/**/assets/**/*.fbx
 characters/**/assets/**/*.FBX
 characters/**/assets/**/*.tga
 characters/**/assets/**/*.png
+characters/**/assets/**/*.tscn
 characters/**/assets/**/*.fbx.import
 characters/**/assets/**/*.FBX.import
 characters/**/assets/**/*.tga.import
 characters/**/assets/**/*.png.import
+characters/**/assets/**/*.tscn.import
 _probe/
 
 

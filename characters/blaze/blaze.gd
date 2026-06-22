@@ -68,12 +68,12 @@ static func build() -> CharacterData:
 		"projectile_life": 100, "sfx": "fire", "anim_limb": "arm_r", "anim_extend": 0.7,
 		"anim_clip": "KB_Projectile_4", "hit_size": Vector3(0.6, 0.6, 0.6)}))
 
-	# Rising uppercut: 2-hit anti-air launcher; Blaze leaps along a scripted arc (rises).
+	# Rising uppercut: 2-hit anti-air launcher; Blaze leaps along a scripted arc.
 	c.add_move(CharacterKit.make_move({"id": "uppercut", "display_name": "Blaze Rise", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.DP, "startup": 5, "active": 10, "recovery": 30,
 		"damage": 60, "hits": 2, "hit_gap": 5, "hitstun": 22, "blockstun": 14, "hitstop": 9,
 		"guard": GameConst.Guard.MID, "knockback": 3.6, "launch": true, "launch_velocity": 10.0,
-		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_crouch_m_Uppercut_R_2",
+		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_Shoryuken",
 		"rises": true, "rise_height": 1.3, "hit_offset": Vector3(0.7, 1.0, 0.0), "hit_size": Vector3(0.8, 1.7, 0.7)}))
 
 	# Hurricane kick: advancing 3-hit. Low knockback per hit so the victim stays in range.
@@ -81,7 +81,7 @@ static func build() -> CharacterData:
 		"button": GameConst.Btn.LK, "motion": MotionParser.QCB, "startup": 9, "active": 20, "recovery": 22,
 		"damage": 35, "hits": 3, "hit_gap": 6, "hitstun": 16, "blockstun": 12, "hitstop": 6,
 		"guard": GameConst.Guard.MID, "knockback": 1.5, "advance": 5.0, "meter_gain": 8,
-		"sfx": "spin", "anim_limb": "leg_r", "anim_extend": 0.95, "anim_clip": "KB_m_RoundhouseKickRight",
+		"sfx": "spin", "anim_limb": "leg_r", "anim_extend": 0.95, "anim_clip": "KB_Tatsu",
 		"hit_offset": Vector3(0.9, 1.0, 0.0), "hit_size": Vector3(1.0, 1.1, 0.7)}))
 
 	# Super: advancing 5-hit flaming rush.
@@ -119,7 +119,7 @@ static func _add_overdrives(c: CharacterData) -> void:
 		"startup": 4, "active": 12, "recovery": 30, "damage": 45, "hits": 3, "hit_gap": 4, "hitstun": 24,
 		"blockstun": 14, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.4, "launch": true,
 		"launch_velocity": 12.0, "meter_gain": 10, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 1.0,
-		"anim_clip": "KB_crouch_m_Uppercut_R_2", "rises": true, "rise_height": 1.7,
+		"anim_clip": "KB_Shoryuken_OD", "rises": true, "rise_height": 1.7,
 		"hit_offset": Vector3(0.7, 1.1, 0.0), "hit_size": Vector3(0.85, 1.9, 0.7)}))
 
 	# OD Cyclone: a 5-hit advancing hurricane that ends in a knockdown.
@@ -128,7 +128,7 @@ static func _add_overdrives(c: CharacterData) -> void:
 		"startup": 8, "active": 26, "recovery": 20, "damage": 30, "hits": 5, "hit_gap": 5, "hitstun": 16,
 		"blockstun": 12, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 1.6, "advance": 6.0,
 		"launch": true, "launch_velocity": 7.5, "meter_gain": 10, "sfx": "spin", "anim_limb": "leg_r",
-		"anim_extend": 1.0, "anim_clip": "KB_m_RoundhouseKickRight", "hit_offset": Vector3(0.9, 1.0, 0.0),
+		"anim_extend": 1.0, "anim_clip": "KB_Tatsu_OD", "hit_offset": Vector3(0.9, 1.0, 0.0),
 		"hit_size": Vector3(1.05, 1.15, 0.7)}))
 
 ## Any normal that can special-cancel can also cancel into the matching Overdrive (EX)
@@ -167,10 +167,13 @@ static func _rig() -> RigConfig:
 		ASSETS + "anims/KB_Hits.fbx",
 		ASSETS + "anims/KB_KOs.fbx",
 		ASSETS + "anims/KB_Specials.fbx",
+		ASSETS + "anims/KB_Shoryuken.tscn",
+		ASSETS + "anims/KB_Tatsu.tscn",
 	]
 	r.lib_name = "kb"
 	r.skip_clips = ["BindPose", "tpose", "Take 001"]
 	r.root_bones = ["Hips", "Root"]
+	r.grounded_clips = ["KB_Tatsu", "KB_Tatsu_OD"]
 	r.foot_bones = ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]
 	r.state_clips = {
 		"idle": "KB_Idle_1", "walk_f": "KB_WalkFwd1", "walk_b": "KB_WalkBwd",

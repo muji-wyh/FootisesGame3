@@ -14,6 +14,7 @@ extends Resource
 @export var lib_name: String = "kb"
 @export var skip_clips: Array[String] = ["BindPose", "tpose", "Take 001"]
 @export var root_bones: Array[String] = ["Hips", "Root"]   # horizontal root motion stripped (in place)
+@export var grounded_clips: Array[String] = []              # clips whose root vertical motion is stripped too
 @export var foot_bones: Array[String] = ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]
 
 ## State -> default clip name. Per-move clips come from MoveData.anim_clip.

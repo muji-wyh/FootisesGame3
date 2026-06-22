@@ -265,16 +265,16 @@ static func build_library(cfg: RigConfig) -> AnimationLibrary:
 				if clip_name in cfg.skip_clips or lib.has_animation(clip_name):
 					continue
 				var anim: Animation = ap.get_animation(clip_name).duplicate(true)
-				_strip_root_motion(anim, cfg.root_bones)
+				_strip_root_motion(anim, cfg.root_bones, clip_name in cfg.grounded_clips)
 				if clip_name in cfg.looped_clips:
 					anim.loop_mode = Animation.LOOP_LINEAR
 				lib.add_animation(clip_name, anim)
 		inst.free()
 	return lib
 
-## Cancel the root bone's HORIZONTAL travel (so clips play in place) while keeping its
-## vertical height/bob - removing the track entirely would collapse the character.
-static func _strip_root_motion(anim: Animation, root_bones: Array) -> void:
+## Cancel the root bone's travel so clips play in place. Most clips keep vertical bob; grounded
+## override clips also freeze root Y so the fighter never appears to hop.
+static func _strip_root_motion(anim: Animation, root_bones: Array, strip_vertical: bool = false) -> void:
 	for i in range(anim.get_track_count()):
 		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
 			continue
@@ -290,7 +290,7 @@ static func _strip_root_motion(anim: Animation, root_bones: Array) -> void:
 		var first: Vector3 = anim.track_get_key_value(i, 0)
 		for k in range(kc):
 			var v: Vector3 = anim.track_get_key_value(i, k)
-			anim.track_set_key_value(i, k, Vector3(first.x, v.y, first.z))
+			anim.track_set_key_value(i, k, Vector3(first.x, first.y if strip_vertical else v.y, first.z))
 
 func _ground_and_tint(character: CharacterData) -> void:
 	var meshes: Array[MeshInstance3D] = []

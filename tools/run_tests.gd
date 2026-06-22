@@ -524,6 +524,10 @@ func _test_blaze_roster() -> void:
 	_check("blaze has 3 Overdrive specials", od_specials == 3)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
+	_check("blaze uppercut uses generated shoryuken clip", b.get_move("uppercut") != null and b.get_move("uppercut").anim_clip == "KB_Shoryuken" and b.get_move("uppercut").rises)
+	_check("blaze OD uppercut uses generated shoryuken clip", b.get_move("od_uppercut") != null and b.get_move("od_uppercut").anim_clip == "KB_Shoryuken_OD")
+	_check("blaze hurricane uses generated Tatsu clip", b.get_move("hurricane") != null and b.get_move("hurricane").anim_clip == "KB_Tatsu")
+	_check("blaze OD hurricane uses generated Tatsu clip", b.get_move("od_hurricane") != null and b.get_move("od_hurricane").anim_clip == "KB_Tatsu_OD")
 
 func _test_move_list_overlay() -> void:
 	print("[move list overlay]")
@@ -570,16 +574,50 @@ func _test_move_sfx() -> void:
 	_check("fireball has its own sfx", fb != null and fb.sfx == "fire")
 	_check("hurricane has its own sfx", hur != null and hur.sfx == "spin")
 	_check("super has its own sfx", sup != null and sup.sfx == "super")
+	var button_sfx := {
+		GameConst.Btn.LP: "lp",
+		GameConst.Btn.MP: "mp",
+		GameConst.Btn.HP: "hp",
+		GameConst.Btn.LK: "lk",
+		GameConst.Btn.MK: "mk",
+		GameConst.Btn.HK: "hk",
+	}
+	var seen_sfx := {}
+	for m in [b.get_move("st_lp"), b.get_move("st_mp"), b.get_move("st_hp"), b.get_move("st_lk"), b.get_move("st_mk"), b.get_move("st_hk")]:
+		_check("%s has fixed button sfx" % m.id, m != null and m.sfx == button_sfx[m.button])
+		seen_sfx[m.sfx] = true
+	_check("six attack buttons use distinct sfx", seen_sfx.size() == 6)
 	for name in AudioManager.SFX:
 		_check("base hit-pack sfx " + name, ResourceLoader.exists("res://assets/audio/%s.wav" % name))
 	var am := AudioManager.new()
 	root.add_child(am)
 	am._ensure_initialized()
+	_check("BGM uses imported AIGenBGM track", ResourceLoader.exists(AudioManager.BGM_PATH) and am._bgm.stream != null)
 	for name in AudioManager.SFX:
 		var stream = am._stream_for(name)
 		_check(name + " uses imported stream", stream != null)
 		_check(name + " resolves to a fixed stream", stream == am._stream_for(name))
 	am.queue_free()
+
+func _root_y_delta(anim: Animation) -> float:
+	var max_delta := 0.0
+	for i in range(anim.get_track_count()):
+		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		var p := anim.track_get_path(i)
+		var sub := ""
+		if p.get_subname_count() > 0:
+			sub = String(p.get_subname(p.get_subname_count() - 1))
+		if not (sub in ["Hips", "Root"]):
+			continue
+		var kc := anim.track_get_key_count(i)
+		if kc == 0:
+			continue
+		var first: Vector3 = anim.track_get_key_value(i, 0)
+		for k in range(kc):
+			var v: Vector3 = anim.track_get_key_value(i, k)
+			max_delta = maxf(max_delta, absf(v.y - first.y))
+	return max_delta
 
 func _test_animated_rig() -> void:
 	print("[animated rig]")
@@ -594,6 +632,18 @@ func _test_animated_rig() -> void:
 	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
 	_check("grafted stand MP clip", arig._player != null and arig._player.has_animation("kb/KB_m_Uppercut_R"))
+	_check("grafted generated shoryuken clip", arig._player != null and arig._player.has_animation("kb/KB_Shoryuken"))
+	_check("grafted generated OD shoryuken clip", arig._player != null and arig._player.has_animation("kb/KB_Shoryuken_OD"))
+	_check("grafted generated Tatsu clip", arig._player != null and arig._player.has_animation("kb/KB_Tatsu"))
+	_check("grafted generated OD Tatsu clip", arig._player != null and arig._player.has_animation("kb/KB_Tatsu_OD"))
+	if arig._player != null and arig._player.has_animation("kb/KB_Shoryuken"):
+		_check("shoryuken clip root rises", _root_y_delta(arig._player.get_animation("kb/KB_Shoryuken")) > 0.25)
+	if arig._player != null and arig._player.has_animation("kb/KB_Shoryuken_OD"):
+		_check("OD shoryuken clip root rises", _root_y_delta(arig._player.get_animation("kb/KB_Shoryuken_OD")) > 0.35)
+	if arig._player != null and arig._player.has_animation("kb/KB_Tatsu"):
+		_check("Tatsu clip root stays grounded", _root_y_delta(arig._player.get_animation("kb/KB_Tatsu")) < 0.001)
+	if arig._player != null and arig._player.has_animation("kb/KB_Tatsu_OD"):
+		_check("OD Tatsu clip root stays grounded", _root_y_delta(arig._player.get_animation("kb/KB_Tatsu_OD")) < 0.001)
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
 	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
 	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_p_MidKickFront_L", "KB_p_HighKick_R_1"]:
@@ -635,8 +685,8 @@ func _test_dash() -> void:
 	print("[dash]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
-	f1.drive = 0   # with no Drive, forward double-tap is an ordinary dash (not a Raw Drive Rush)
 	var start_x: float = f1.position.x
+	var drive_before: int = f1.drive
 	var saw_dash := false
 	# Double-tap forward: tap, release, tap (within the dash window).
 	var seq := [_mk(1, 0), _mk(0, 0), _mk(1, 0)]
@@ -652,8 +702,10 @@ func _test_dash() -> void:
 		ctx["arena"].step(DELTA)
 		if f1.state == Fighter.State.DASH_F:
 			saw_dash = true
+	var dash_dist := f1.position.x - start_x
 	_check("forward dash triggered", saw_dash)
-	_check("dash moved forward quickly", f1.position.x > start_x + 1.2)
+	_check("dash is quick but shorter", dash_dist > 0.75 and dash_dist < 1.55)
+	_check("forward dash spends no Drive", f1.drive == drive_before)
 	ctx["arena"].queue_free()
 
 func _test_air_attack() -> void:
@@ -1014,23 +1066,15 @@ func _drive_rush_dbltap(ctx: Dictionary) -> void:
 
 func _test_drive_rush() -> void:
 	print("[drive rush]")
-	# Raw Drive Rush from neutral spends 1 bar and enters DRIVE_RUSH.
+	# Forward double-tap is always a normal dash, not a raw Drive Rush.
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var d0: int = f1.drive
 	_drive_rush_dbltap(ctx)
-	_check("RDR entered DRIVE_RUSH", f1.state == Fighter.State.DRIVE_RUSH)
-	_check("RDR spent one bar", f1.drive == d0 - Fighter.RDR_COST)
+	_check("forward double-tap is dash, not raw Drive Rush", f1.state == Fighter.State.DASH_F)
+	_check("forward double-tap spends no Drive", f1.drive == d0)
 	ctx["arena"].queue_free()
-	# With no Drive, forward double-tap is an ordinary dash and spends nothing.
-	var ctxd := _build()
-	var fd: Fighter = ctxd["f1"]
-	fd.drive = 0
-	_drive_rush_dbltap(ctxd)
-	_check("no-Drive forward double-tap is an ordinary dash", fd.state == Fighter.State.DASH_F)
-	_check("ordinary dash spent no Drive", fd.drive < Fighter.RDR_COST)
-	ctxd["arena"].queue_free()
-	# Drive Rush Cancel off a connected normal: spends 3 bars, enters DRIVE_RUSH, extends.
+	# Drive Rush Cancel off a connected normal: two punches spend 3 bars, enters DRIVE_RUSH, extends.
 	var ctxa := _build()
 	var a: Fighter = ctxa["f1"]
 	var b: Fighter = ctxa["f2"]
@@ -1047,12 +1091,10 @@ func _test_drive_rush() -> void:
 		ctxa["c2"].frame = _neutral()
 		ctxa["arena"].step(DELTA)
 	var drc_entered := false
-	var fwd_phase := 0
 	for i in range(20):
 		var fr := _neutral()
 		if a.hitstop == 0:
-			fr = _mk(1, 0) if (fwd_phase % 2 == 0) else _mk(0, 0)
-			fwd_phase += 1
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
 		ctxa["c1"].frame = fr
 		ctxa["c2"].frame = _neutral()
 		ctxa["arena"].step(DELTA)
@@ -1072,6 +1114,39 @@ func _test_drive_rush() -> void:
 			follow_hit = true
 	_check("Drive Rush follow-up normal connected", follow_hit)
 	ctxa["arena"].queue_free()
+	# DRC input is buffered through hitstop: players can press two punches during impact freeze and
+	# get the cancel on the first actionable frame after freeze.
+	var ctxh := _build()
+	var ha: Fighter = ctxh["f1"]
+	var hb: Fighter = ctxh["f2"]
+	ha.position.x = -0.7
+	hb.position.x = 0.6
+	var hda: int = ha.drive
+	ctxh["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctxh["c2"].frame = _neutral()
+	ctxh["arena"].step(DELTA)
+	var hhp: int = hb.health
+	for i in range(8):
+		if hb.health < hhp:
+			break
+		ctxh["c1"].frame = _neutral()
+		ctxh["c2"].frame = _neutral()
+		ctxh["arena"].step(DELTA)
+	var buffered_drc_started_in_hitstop := ha.hitstop > 0
+	ctxh["c1"].frame = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+	ctxh["c2"].frame = _neutral()
+	ctxh["arena"].step(DELTA)
+	var hitstop_buffered_drc := false
+	for i in range(20):
+		ctxh["c1"].frame = _neutral()
+		ctxh["c2"].frame = _neutral()
+		ctxh["arena"].step(DELTA)
+		if ha.state == Fighter.State.DRIVE_RUSH:
+			hitstop_buffered_drc = true
+			break
+	_check("DRC accepts two punches buffered during hitstop", buffered_drc_started_in_hitstop and hitstop_buffered_drc)
+	_check("hitstop-buffered DRC spent ~3 bars", ha.drive <= hda - Fighter.DRC_COST + 60)
+	ctxh["arena"].queue_free()
 	# DRC also works off a blocked normal (pressure). Corner the defender so holding back
 	# blocks in place instead of walking out of range (Blaze's MP reach is short).
 	var ctxb := _build()
@@ -1090,12 +1165,10 @@ func _test_drive_rush() -> void:
 		if q.state == Fighter.State.BLOCKSTUN:
 			did_block = true
 	var drc_block := false
-	var bphase := 0
 	for i in range(20):
 		var fr := _neutral()
 		if p.hitstop == 0:
-			fr = _mk(1, 0) if (bphase % 2 == 0) else _mk(0, 0)
-			bphase += 1
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
 		ctxb["c1"].frame = fr
 		ctxb["c2"].frame = _mk(1, 0)
 		ctxb["arena"].step(DELTA)
@@ -1266,6 +1339,33 @@ func _test_overdrive() -> void:
 	_check("regular fireball still comes out without Drive", arena.projectiles.size() > proj0)
 	ctx["arena"].queue_free()
 
+	var ctxc := _build()
+	var ca: Fighter = ctxc["f1"]
+	var cb: Fighter = ctxc["f2"]
+	ca.position.x = -0.7
+	cb.position.x = 0.6
+	var cd0: int = ca.drive
+	ctxc["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctxc["c2"].frame = _neutral()
+	ctxc["arena"].step(DELTA)
+	var chp: int = cb.health
+	for i in range(8):
+		if cb.health < chp:
+			break
+		ctxc["c1"].frame = _neutral()
+		ctxc["c2"].frame = _neutral()
+		ctxc["arena"].step(DELTA)
+	while ca.hitstop > 0:
+		ctxc["c1"].frame = _neutral()
+		ctxc["c2"].frame = _neutral()
+		ctxc["arena"].step(DELTA)
+	_step(ctxc, _mk(0, -1), _neutral(), 2)
+	_step(ctxc, _mk(1, -1), _neutral(), 2)
+	_step(ctxc, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("OD cancel takes priority over two-punch DRC", ca.current_move != null and ca.current_move.id == "od_fireball")
+	_check("OD cancel spent 2 bars, not DRC cost", ca.drive > cd0 - Fighter.DRC_COST)
+	ctxc["arena"].queue_free()
+
 func _test_combo_scaling() -> void:
 	print("[combo scaling]")
 	var ctx := _build()
@@ -1313,13 +1413,31 @@ func _test_drive_rush_carry() -> void:
 	print("[drive rush carry]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
-	f1.position.x = -2.0
-	# Enter a raw Drive Rush (forward double-tap with Drive).
-	for fr in [_mk(1, 0), _mk(0, 0), _mk(1, 0)]:
-		ctx["c1"].frame = fr
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.7
+	f2.position.x = 0.6
+	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctx["c2"].frame = _neutral()
+	ctx["arena"].step(DELTA)
+	var hp_before: int = f2.health
+	for i in range(8):
+		if f2.health < hp_before:
+			break
+		ctx["c1"].frame = _neutral()
 		ctx["c2"].frame = _neutral()
 		ctx["arena"].step(DELTA)
-	_check("entered Drive Rush", f1.state == Fighter.State.DRIVE_RUSH)
+	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+	ctx["c2"].frame = _neutral()
+	ctx["arena"].step(DELTA)
+	var entered_drc := false
+	for i in range(20):
+		ctx["c1"].frame = _neutral()
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		if f1.state == Fighter.State.DRIVE_RUSH:
+			entered_drc = true
+			break
+	_check("entered Drive Rush from DRC", entered_drc)
 	# Cancel the rush into a standing normal: it must slide forward (carry momentum).
 	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
 	ctx["c2"].frame = _neutral()
