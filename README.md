@@ -32,7 +32,24 @@ every normal.
 Gamepad: device 0 (D-pad; face buttons + shoulders for the 6 attacks). A second player
 can use a gamepad on device 1 in Local 2P; there is no keyboard layout for P2.
 `Esc` returns to the menu. Attacks differ by stance: hold **down** for crouching normals
-(lows), or attack while **jumping** for air normals (overheads).
+(lows), or attack while **jumping** for air normals (overheads). `Tab` shows the move list.
+
+## Drive system (SF6-style)
+
+A six-bar **Drive gauge** (separate from the Super meter) powers the modern mechanics:
+
+| Mechanic | Input | Cost |
+|---|---|---|
+| **Drive Rush** (绿冲) | double-tap forward (with Drive) | 1 bar |
+| **Drive Rush Cancel** (DRC) | double-tap forward during a *connected* normal | 3 bars |
+| **Overdrive (EX) special** | special motion + **two punches** or **two kicks** | 2 bars |
+
+A Drive Rush trails a cyan **afterimage** streak and lets the first normal out of it slide
+in and link (a built-in advantage). Empty the gauge and you enter brief **Burnout** (the
+gauge flashes red and stops regenerating). Combos are tracked by an on-screen **hit
+counter** and use **damage scaling** so long routes taper instead of deleting the bar.
+There's also a small **input buffer**, so a slightly-early attack still comes out. The HUD
+shows a recoverable-health trail and a glow when the Super meter is full.
 
 ## Run it
 

@@ -92,7 +92,56 @@ static func build() -> CharacterData:
 		"knockback": 1.8, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
+
+	_add_overdrives(c)
+	_enable_overdrive_cancels(c)
 	return c
+
+## Overdrive (EX) specials (SF6-style): pressing two punches / two kicks with the motion
+## spends 2 Drive bars for an enhanced version. Stronger, more hits, better knockdown -
+## the premium combo enders / reversals. multi_button is the same-type button mask.
+const PUNCHES := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
+const KICKS := GameConst.Btn.LK | GameConst.Btn.MK | GameConst.Btn.HK
+const OD_COST := 2000   # 2 Drive bars
+
+static func _add_overdrives(c: CharacterData) -> void:
+	# OD Flare Bolt: a faster, harder-hitting fireball that hard-knocks-down.
+	c.add_move(CharacterKit.make_move({"id": "od_fireball", "display_name": "Flare Bolt (OD)", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.LP, "multi_button": PUNCHES, "drive_cost": OD_COST, "motion": MotionParser.QCF,
+		"startup": 10, "active": 2, "recovery": 22, "damage": 80, "hitstun": 22, "blockstun": 14, "hitstop": 5,
+		"guard": GameConst.Guard.MID, "knockback": 6.0, "launch": true, "launch_velocity": 6.5, "meter_gain": 14,
+		"projectile": true, "projectile_speed": 10.0, "projectile_life": 110, "sfx": "fire",
+		"anim_limb": "arm_r", "anim_extend": 0.8, "anim_clip": "KB_Projectile_4", "hit_size": Vector3(0.8, 0.8, 0.7)}))
+
+	# OD Blaze Rise: 3-hit invincible-feeling reversal uppercut; higher launch for juggles.
+	c.add_move(CharacterKit.make_move({"id": "od_uppercut", "display_name": "Blaze Rise (OD)", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.HP, "multi_button": PUNCHES, "drive_cost": OD_COST, "motion": MotionParser.DP,
+		"startup": 4, "active": 12, "recovery": 30, "damage": 45, "hits": 3, "hit_gap": 4, "hitstun": 24,
+		"blockstun": 14, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.4, "launch": true,
+		"launch_velocity": 12.0, "meter_gain": 10, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 1.0,
+		"anim_clip": "KB_crouch_m_Uppercut_R_2", "rises": true, "rise_height": 1.7,
+		"hit_offset": Vector3(0.7, 1.1, 0.0), "hit_size": Vector3(0.85, 1.9, 0.7)}))
+
+	# OD Cyclone: a 5-hit advancing hurricane that ends in a knockdown.
+	c.add_move(CharacterKit.make_move({"id": "od_hurricane", "display_name": "Cyclone Kick (OD)", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.LK, "multi_button": KICKS, "drive_cost": OD_COST, "motion": MotionParser.QCB,
+		"startup": 8, "active": 26, "recovery": 20, "damage": 30, "hits": 5, "hit_gap": 5, "hitstun": 16,
+		"blockstun": 12, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 1.6, "advance": 6.0,
+		"launch": true, "launch_velocity": 7.5, "meter_gain": 10, "sfx": "spin", "anim_limb": "leg_r",
+		"anim_extend": 1.0, "anim_clip": "KB_m_RoundhouseKickRight", "hit_offset": Vector3(0.9, 1.0, 0.0),
+		"hit_size": Vector3(1.05, 1.15, 0.7)}))
+
+## Any normal that can special-cancel can also cancel into the matching Overdrive (EX)
+## version, so the whole kit gains EX combo routes without editing each move's list by hand.
+static func _enable_overdrive_cancels(c: CharacterData) -> void:
+	var pairs := {"fireball": "od_fireball", "uppercut": "od_uppercut", "hurricane": "od_hurricane"}
+	for m in c.normals:
+		var extra: Array[String] = []
+		for base in pairs.keys():
+			if m.cancel_into.has(base) and not m.cancel_into.has(pairs[base]):
+				extra.append(pairs[base])
+		if not extra.is_empty():
+			m.cancel_into.assign(m.cancel_into + extra)
 
 static func _apply_move_overrides(c: CharacterData) -> void:
 	for move_id in NORMAL_TUNING.keys():

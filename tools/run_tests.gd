@@ -111,6 +111,12 @@ func _initialize() -> void:
 	_test_uppercut_rise()
 	_test_rise_interruption_lands()
 	_test_camera()
+	_test_input_buffer()
+	_test_overdrive()
+	_test_combo_scaling()
+	_test_burnout()
+	_test_drive_rush_carry()
+	_test_hud_combo_and_fx()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
@@ -505,7 +511,17 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
-	_check("blaze has 3 specials", b.specials.size() == 3)
+	# Three base specials + three Overdrive (EX) variants.
+	_check("blaze has 6 specials (3 base + 3 OD)", b.specials.size() == 6)
+	var base_specials := 0
+	var od_specials := 0
+	for m in b.specials:
+		if m.drive_cost > 0:
+			od_specials += 1
+		else:
+			base_specials += 1
+	_check("blaze has 3 base specials", base_specials == 3)
+	_check("blaze has 3 Overdrive specials", od_specials == 3)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
 
@@ -1046,13 +1062,13 @@ func _test_drive_rush() -> void:
 			follow_hit = true
 	_check("Drive Rush follow-up normal connected", follow_hit)
 	ctxa["arena"].queue_free()
-	# DRC also works off a blocked normal (pressure).
+	# DRC also works off a blocked normal (pressure). Corner the defender so holding back
+	# blocks in place instead of walking out of range (Blaze's MP reach is short).
 	var ctxb := _build()
 	var p: Fighter = ctxb["f1"]
 	var q: Fighter = ctxb["f2"]
-	# Start close enough that holding back blocks the normal instead of walking out first.
-	p.position.x = -0.45
-	q.position.x = 0.45
+	p.position.x = 6.0
+	q.position.x = 6.6
 	ctxb["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
 	ctxb["c2"].frame = _mk(1, 0)
 	ctxb["arena"].step(DELTA)
@@ -1179,3 +1195,176 @@ func _test_camera() -> void:
 		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
 	_check("camera settles back after landing", absf(cam.position.y - FightCamera.HEIGHT) < 0.2)
 	cam.free()
+
+func _test_input_buffer() -> void:
+	print("[input buffer]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	# Keep them apart so st_hp whiffs (no cancels available) and LP can only come from the
+	# neutral input buffer, not a cancel.
+	f1.position.x = -4.0
+	f2.position.x = 5.0
+	var hp := f1.character.get_move("st_hp")
+	# Start stand HP.
+	_step(ctx, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_check("stand HP started", f1.current_move != null and f1.current_move.id == "st_hp")
+	# Advance to within the buffer window of the end of recovery.
+	while f1.state == Fighter.State.ATTACK and f1.state_frame < hp.total_frames() - 2:
+		_step(ctx, _neutral(), _neutral(), 1)
+	# Press LP a couple frames BEFORE actionable; release; it must fire on the first free frame.
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	var saw_lp := false
+	for i in range(6):
+		_step(ctx, _neutral(), _neutral(), 1)
+		if f1.current_move != null and f1.current_move.id == "st_lp":
+			saw_lp = true
+	_check("buffered attack fires on the first actionable frame", saw_lp)
+	ctx["arena"].queue_free()
+
+func _test_overdrive() -> void:
+	print("[overdrive]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var arena: Arena = ctx["arena"]
+	var od := f1.character.get_move("od_fireball")
+	_check("OD fireball exists with a Drive cost", od != null and od.drive_cost == 2000)
+	_check("OD fireball is a two-punch trigger", od != null and od.multi_button != 0)
+	var od_dp := f1.character.get_move("od_uppercut")
+	_check("OD uppercut exists", od_dp != null and od_dp.drive_cost == 2000)
+	var d0: int = f1.drive
+	var hp0: int = f2.health
+	# QCF + two punches (LP+MP) -> Overdrive fireball, not the LP fireball.
+	_step(ctx, _mk(0, -1), _neutral(), 3)
+	_step(ctx, _mk(1, -1), _neutral(), 3)
+	_step(ctx, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("OD fireball spent ~2 Drive bars", f1.drive <= d0 - 1900)
+	_step(ctx, _neutral(), _neutral(), 14)
+	_check("OD fireball spawned a projectile", arena.projectiles.size() >= 1)
+	_step(ctx, _neutral(), _neutral(), 90)
+	_check("OD fireball dealt damage", f2.health < hp0)
+	# With fewer than 2 bars the Overdrive is unaffordable; the regular (free) LP fireball
+	# comes out instead, so no 2-bar spend happens.
+	f1.drive = 1000
+	var proj0: int = arena.projectiles.size()
+	_step(ctx, _mk(0, -1), _neutral(), 3)
+	_step(ctx, _mk(1, -1), _neutral(), 3)
+	_step(ctx, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("OD unaffordable: no 2-bar Drive spend", f1.drive >= 900)
+	_step(ctx, _neutral(), _neutral(), 14)
+	_check("regular fireball still comes out without Drive", arena.projectiles.size() > proj0)
+	ctx["arena"].queue_free()
+
+func _test_combo_scaling() -> void:
+	print("[combo scaling]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	# Scaling function: unscaled early, tapering later, floored.
+	_check("hit 1 unscaled", f2._scaled_damage(100, 1) == 100)
+	_check("hit 3 unscaled", f2._scaled_damage(100, 3) == 100)
+	_check("hit 5 scaled to 80%", f2._scaled_damage(100, 5) == 80)
+	_check("deep combo floored at 60%", f2._scaled_damage(100, 20) == 60)
+	# Combo counter tracks consecutive hits and resets after recovery. Start point-blank so
+	# Blaze's tightened light/medium normals actually chain into a true combo.
+	f1.position.x = -0.35
+	f2.position.x = 0.35
+	var max_combo := 0
+	var script: Array = [_mk(0, 0, GameConst.Btn.LP)]
+	for i in range(4): script.append(_mk(0, 0))
+	for i in range(8): script.append(_mk(0, 0, GameConst.Btn.MP))
+	for i in range(12): script.append(_mk(0, 0, GameConst.Btn.HP))
+	for fr in script:
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		max_combo = maxi(max_combo, f2.combo_count)
+	_check("combo counter reached >= 2 hits", max_combo >= 2)
+	_step(ctx, _neutral(), _neutral(), 90)
+	_check("combo counter resets after the victim recovers", f2.combo_count == 0)
+	ctx["arena"].queue_free()
+
+func _test_burnout() -> void:
+	print("[burnout]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	f1.drive = 1000
+	var ok := f1.spend_drive(1000)
+	_check("spending the last bar empties the gauge", ok and f1.drive == 0)
+	_check("Burnout is active when the gauge empties", f1.is_burnout())
+	_step(ctx, _neutral(), _neutral(), 30)
+	_check("Drive regen is paused during Burnout", f1.drive == 0)
+	_step(ctx, _neutral(), _neutral(), 120)
+	_check("Drive recovers after the Burnout window", f1.drive > 0)
+	ctx["arena"].queue_free()
+
+func _test_drive_rush_carry() -> void:
+	print("[drive rush carry]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	f1.position.x = -2.0
+	# Enter a raw Drive Rush (forward double-tap with Drive).
+	for fr in [_mk(1, 0), _mk(0, 0), _mk(1, 0)]:
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+	_check("entered Drive Rush", f1.state == Fighter.State.DRIVE_RUSH)
+	# Cancel the rush into a standing normal: it must slide forward (carry momentum).
+	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctx["c2"].frame = _neutral()
+	ctx["arena"].step(DELTA)
+	_check("Drive Rush normal started", f1.state == Fighter.State.ATTACK)
+	_check("Drive Rush normal carries forward momentum", f1.velocity.x > 1.0)
+	ctx["arena"].queue_free()
+
+func _test_hud_combo_and_fx() -> void:
+	print("[hud combo + drive-rush fx]")
+	var c1 := CharacterLibrary.create("blaze")
+	var c2 := CharacterLibrary.create("blaze")
+	var hud := HUD.new()
+	root.add_child(hud)
+	hud.build(c1, c2)
+	# Recoverable-health trail: after damage it lags above the real HP, then eases down.
+	hud.set_health(0, 1000, 1000)
+	hud.set_health(0, 500, 1000)
+	_check("trail starts above the damaged HP", hud._trail_frac[0] > 0.55)
+	for i in range(120):
+		hud.tick_visuals(1.0 / 60.0)
+	_check("trail eases down to the real HP", absf(hud._trail_frac[0] - 0.5) < 0.05)
+	# Combo counter shows on >= 2 hits, then fades out.
+	hud.set_combo(0, 7, 312)
+	hud.tick_visuals(1.0 / 60.0)
+	_check("combo label populated", hud._combo_label[0].text.contains("7 HITS"))
+	_check("combo label visible while live", hud._combo_label[0].modulate.a > 0.5)
+	for i in range(120):
+		hud.tick_visuals(1.0 / 60.0)
+	_check("combo label faded after the combo ended", hud._combo_label[0].modulate.a < 0.05)
+	# Meter MAX glow + Drive Burnout flash don't error and toggle off cleanly.
+	hud.set_meter(0, 100, 100)
+	hud.set_burnout(0, true)
+	hud.set_dr_tint(0.12, Color(0.35, 1.0, 0.7))
+	hud.tick_visuals(1.0 / 60.0)
+	_check("MAX glow active when meter full", hud._mp_glow[0].color.a > 0.0)
+	hud.set_meter(0, 40, 100)
+	hud.set_burnout(0, false)
+	hud.tick_visuals(1.0 / 60.0)
+	_check("MAX glow clears when meter spent", hud._mp_glow[0].color.a == 0.0)
+	hud.free()
+	# DriveRushFx emits afterimages while the fighter rushes and stops otherwise.
+	var f := Fighter.new()
+	f.setup(CharacterLibrary.create("blaze"), Manual.new(), GameConst.Side.P1, 0.0)
+	root.add_child(f)
+	var fx := DriveRushFx.new()
+	root.add_child(fx)
+	fx.setup(f, Color(0.35, 1.0, 0.7))
+	f.state = Fighter.State.DRIVE_RUSH
+	for i in range(6):
+		fx._process(0.03)
+	_check("drive-rush fx spawned afterimages", fx._ghosts.size() >= 1)
+	f.state = Fighter.State.IDLE
+	f.drive_rush_pending = false
+	for i in range(20):
+		fx._process(0.03)
+	_check("drive-rush fx ghosts fade out", fx._ghosts.is_empty())
+	f.free()

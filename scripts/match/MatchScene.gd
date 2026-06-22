@@ -17,6 +17,8 @@ var f2: Fighter
 var _match_over: bool = false
 var _post_match_timer: int = 0
 var _slowmo := SlowMoDirector.new()
+var _dr_was := [false, false]   # per-fighter "was drive-rushing last frame" edge tracker
+var _dr_tint_level: float = 0.0
 
 func _ready() -> void:
 	var stage := Stage.new()
@@ -106,6 +108,9 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	f2.countered.connect(_on_countered)
 	f1.got_hit.connect(func(blocked): _on_struck(f1, blocked))
 	f2.got_hit.connect(func(blocked): _on_struck(f2, blocked))
+	# Combo counters: a fighter's own combo (hits it has taken) drives the OTHER side's display.
+	f1.combo_changed.connect(func(h, d): hud.set_combo(1, h, d))
+	f2.combo_changed.connect(func(h, d): hud.set_combo(0, h, d))
 	hud.set_health(0, f1.health, c1.max_health)
 	hud.set_health(1, f2.health, c2.max_health)
 	hud.set_meter(0, 0, c1.max_meter)
@@ -163,6 +168,31 @@ func _on_countered(kind: int) -> void:
 	if kind == GameConst.Counter.PUNISH:
 		_slowmo.request(0.35, 12)
 
+## Drive Rush presentation: spawn an afterimage trail on the frame a fighter starts rushing,
+## play a whoosh, pulse the screen tint while anyone is rushing, and surface Burnout on the HUD.
+func _update_drive_rush(delta: float) -> void:
+	var fs := [f1, f2]
+	var any_rush := false
+	for i in range(2):
+		var f: Fighter = fs[i]
+		var rushing: bool = f.state == Fighter.State.DRIVE_RUSH
+		if rushing or f.drive_rush_pending:
+			any_rush = true
+		if rushing and not _dr_was[i]:
+			_spawn_dr_fx(f)
+			if audio != null:
+				audio.play("spin", -4.0)
+		_dr_was[i] = rushing
+		hud.set_burnout(i, f.is_burnout())
+	var target: float = 0.12 if any_rush else 0.0
+	_dr_tint_level = lerpf(_dr_tint_level, target, 0.25)
+	hud.set_dr_tint(_dr_tint_level, Color(0.35, 1.0, 0.7))
+
+func _spawn_dr_fx(f: Fighter) -> void:
+	var fx := DriveRushFx.new()
+	arena.add_child(fx)
+	fx.setup(f, Color(0.35, 1.0, 0.7))
+
 func _physics_process(delta: float) -> void:
 	round_manager.tick(delta)
 	# Keep the rigs posed every frame (incl. intro / round-over), so a fighter never holds
@@ -170,6 +200,8 @@ func _physics_process(delta: float) -> void:
 	f1.update_visual()
 	f2.update_visual()
 	hud.tick_counter()
+	hud.tick_visuals(delta)
+	_update_drive_rush(delta)
 	camera.track(f1.position, f2.position)
 	# Slow-motion beats (Punish Counter / KO): advance the director and apply its scale.
 	_slowmo.tick()
