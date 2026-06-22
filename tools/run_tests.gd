@@ -570,6 +570,16 @@ func _test_move_sfx() -> void:
 	_check("fireball has its own sfx", fb != null and fb.sfx == "fire")
 	_check("hurricane has its own sfx", hur != null and hur.sfx == "spin")
 	_check("super has its own sfx", sup != null and sup.sfx == "super")
+	for name in AudioManager.SFX:
+		_check("base hit-pack sfx " + name, ResourceLoader.exists("res://assets/audio/%s.wav" % name))
+	var am := AudioManager.new()
+	root.add_child(am)
+	am._ensure_initialized()
+	for name in AudioManager.SFX:
+		var stream = am._stream_for(name)
+		_check(name + " uses imported stream", stream != null)
+		_check(name + " resolves to a fixed stream", stream == am._stream_for(name))
+	am.queue_free()
 
 func _test_animated_rig() -> void:
 	print("[animated rig]")

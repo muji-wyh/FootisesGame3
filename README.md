@@ -4,8 +4,10 @@ An original **2.5D fighting game** (3D models on a 2D plane, *Street Fighter 6*â
 that runs in **Chrome** via Godot 4's HTML5/WebAssembly export.
 
 > **Legal:** This project contains **no** Street Fighter assets, characters, or names.
-> All content is original or royalty-free: fighters are placeholder blockout models and
-> all audio is self-synthesised (CC0, see `tools/gen_audio.py`).
+> Fighters are original placeholders or locally supplied asset packs. Gameplay SFX are
+> imported from the local `Sound_HIT_AND_PUNCH` source pack and converted for the web build;
+> verify third-party asset licenses before redistribution. `tools/gen_audio.py` can still
+> regenerate the original placeholder audio.
 
 ## Tech stack
 

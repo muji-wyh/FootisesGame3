@@ -1,7 +1,7 @@
 class_name AudioManager
 extends Node
 
-## Loads the synthesised SFX/BGM and plays them in response to gameplay signals. A small
+## Loads SFX/BGM and plays them in response to gameplay signals. A small
 ## pool of AudioStreamPlayers lets several effects overlap. BGM loops by replaying on the
 ## `finished` signal. Safe in headless mode (the dummy audio driver makes play() a no-op).
 
@@ -54,6 +54,9 @@ func _free_player() -> AudioStreamPlayer:
 		if not p.playing:
 			return p
 	return _players[0]
+
+func _stream_for(name: String):
+	return _streams.get(name)
 
 # --- wiring ----------------------------------------------------------------
 
