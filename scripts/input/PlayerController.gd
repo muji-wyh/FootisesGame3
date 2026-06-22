@@ -11,16 +11,22 @@ func _init(p_prefix: String) -> void:
 
 func poll(_self_fighter: Object, _opponent: Object) -> InputFrame:
 	var f := InputFrame.new()
-	var right := Input.is_action_pressed(prefix + "_right")
-	var left := Input.is_action_pressed(prefix + "_left")
-	var up := Input.is_action_pressed(prefix + "_up")
-	var down := Input.is_action_pressed(prefix + "_down")
+	var right := _is_pressed(prefix + "_right")
+	var left := _is_pressed(prefix + "_left")
+	var up := _is_pressed(prefix + "_up")
+	var down := _is_pressed(prefix + "_down")
 	f.dir_x = int(right) - int(left)
 	f.dir_y = int(up) - int(down)
 	for button in GameConst.BUTTON_SUFFIX.keys():
 		var action: String = prefix + GameConst.BUTTON_SUFFIX[button]
-		if Input.is_action_pressed(action):
+		if _is_pressed(action):
 			f.held |= button
-		if Input.is_action_just_pressed(action):
+		if _is_just_pressed(action):
 			f.pressed |= button
 	return f
+
+func _is_pressed(action: String) -> bool:
+	return InputMap.has_action(action) and Input.is_action_pressed(action)
+
+func _is_just_pressed(action: String) -> bool:
+	return InputMap.has_action(action) and Input.is_action_just_pressed(action)

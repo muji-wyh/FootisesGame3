@@ -22,7 +22,7 @@ func _ready() -> void:
 	add_child(root)
 
 	var title := Label.new()
-	title.text = "CHOOSE YOUR FIGHTER"
+	title.text = "CHOOSE TRAINING PARTNERS" if Game.mode == GameConst.Mode.TRAINING else "CHOOSE YOUR FIGHTER"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 44)
 	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.35))
@@ -63,7 +63,10 @@ func _make_column(side: int) -> Control:
 	if side == 0:
 		header.text = "PLAYER 1"
 	else:
-		header.text = "PLAYER 2 (CPU)" if Game.mode == GameConst.Mode.VS_CPU else "PLAYER 2"
+		if Game.mode == GameConst.Mode.TRAINING:
+			header.text = "TRAINING DUMMY"
+		else:
+			header.text = "PLAYER 2 (CPU)" if Game.mode == GameConst.Mode.VS_CPU else "PLAYER 2"
 	vb.add_child(header)
 
 	var name_label := Label.new()
@@ -103,7 +106,10 @@ func _refresh(side: int) -> void:
 func _on_fight() -> void:
 	Game.p1_char_id = _ids[_sel[0]]
 	Game.p2_char_id = _ids[_sel[1]]
-	Game.goto_scene("res://scenes/match/Match.tscn")
+	Game.goto_scene(_target_scene())
+
+func _target_scene() -> String:
+	return "res://scenes/match/Training.tscn" if Game.mode == GameConst.Mode.TRAINING else "res://scenes/match/Match.tscn"
 
 func _button(text: String, font_size: int) -> Button:
 	var b := Button.new()

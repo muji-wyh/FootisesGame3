@@ -83,6 +83,7 @@ func _initialize() -> void:
 	_test_airborne_match_winner_lands()
 	_test_timeout_draw()
 	_test_cpu_ai()
+	_test_training_mode()
 	_test_blaze_roster()
 	_test_move_list_overlay()
 	_test_multihit()
@@ -464,6 +465,39 @@ func _test_cpu_ai() -> void:
 	_check("CPU dealt damage to the idle player", f1.health < hp1_before)
 	arena.queue_free()
 
+func _test_training_mode() -> void:
+	print("[training mode]")
+	var game := root.get_node("Game")
+	var old_mode: int = int(game.get("mode"))
+	var old_p1: String = String(game.get("p1_char_id"))
+	var old_p2: String = String(game.get("p2_char_id"))
+	game.set("mode", GameConst.Mode.TRAINING)
+	game.set("p1_char_id", "blaze")
+	game.set("p2_char_id", "blaze")
+	var select = load("res://scripts/ui/CharacterSelect.gd").new()
+	_check("training character select routes to training", select._target_scene() == "res://scenes/match/Training.tscn")
+	select.free()
+	var scene := TrainingScene.new()
+	root.add_child(scene)
+	scene._build_training(game)
+	_check("training scene builds arena", scene.arena != null and scene.f1 != null and scene.f2 != null)
+	_check("training uses neutral dummy controller",
+		scene.f2.controller is InputController
+		and not (scene.f2.controller is CpuController)
+		and not (scene.f2.controller is PlayerController))
+	_check("training has no round manager", scene.round_manager == null)
+	_check("training starts active", scene.f1.active and scene.f2.active)
+	scene.f2.health = 0
+	scene._on_training_ko(GameConst.Side.P2)
+	for i in range(TrainingScene.RESET_DELAY_TICKS + 1):
+		scene._physics_process(DELTA)
+	_check("training reset restores dummy health", scene.f2.health == scene.f2.character.max_health and scene.f2.state != Fighter.State.KO)
+	_check("training resources stay full", scene.f1.meter == scene.f1.character.max_meter and scene.f1.drive == scene.f1.character.max_drive)
+	scene.queue_free()
+	game.set("mode", old_mode)
+	game.set("p1_char_id", old_p1)
+	game.set("p2_char_id", old_p2)
+
 func _test_blaze_roster() -> void:
 	print("[blaze roster]")
 	_check("roster is exactly [blaze]", CharacterLibrary.ids() == ["blaze"])
@@ -562,8 +596,12 @@ func _test_six_buttons() -> void:
 	_check("18 normals (6 buttons x 3 stances)", k.normals.size() == 18)
 	var st_mp := k.get_move("st_mp")
 	_check("standing MP exists", st_mp != null and st_mp.button == GameConst.Btn.MP and st_mp.stance == GameConst.Stance.STAND)
+	var st_hk := k.get_move("st_hk")
+	_check("standing HK uses mid round kick clip", st_hk != null and st_hk.anim_clip == "KB_m_MidKickRoud_R_1")
 	var cr_mk := k.get_move("cr_mk")
 	_check("crouch MK is a low", cr_mk != null and cr_mk.stance == GameConst.Stance.CROUCH and cr_mk.guard == GameConst.Guard.LOW)
+	var cr_hk := k.get_move("cr_hk")
+	_check("crouch HK uses medium low round kick clip", cr_hk != null and cr_hk.anim_clip == "KB_crouch_m_LowKickRound_R")
 	var air_hp := k.get_move("air_hp")
 	_check("air HP is an overhead", air_hp != null and air_hp.stance == GameConst.Stance.AIR and air_hp.guard == GameConst.Guard.OVERHEAD)
 
@@ -1012,8 +1050,9 @@ func _test_drive_rush() -> void:
 	var ctxb := _build()
 	var p: Fighter = ctxb["f1"]
 	var q: Fighter = ctxb["f2"]
-	p.position.x = -0.6
-	q.position.x = 0.6
+	# Start close enough that holding back blocks the normal instead of walking out first.
+	p.position.x = -0.45
+	q.position.x = 0.45
 	ctxb["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
 	ctxb["c2"].frame = _mk(1, 0)
 	ctxb["arena"].step(DELTA)

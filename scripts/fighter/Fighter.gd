@@ -37,6 +37,7 @@ const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knoc
 const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
 const DRIVE_RUSH_SPEED := 9.0       # forward speed while in a Drive Rush
+const DRIVE_RUSH_ATTACK_SPEED := 4.5 # carried momentum for the first normal out of Drive Rush
 const DRIVE_RUSH_DURATION := 18     # ticks a Drive Rush advances before returning to neutral
 const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
@@ -349,6 +350,8 @@ func _step_attack(_inp: InputFrame) -> void:
 			current_move = null
 			_goto(State.IDLE)
 			return
+	elif drive_rush_pending and state_frame < m.startup + m.active:
+		velocity.x = facing * maxf(DRIVE_RUSH_ATTACK_SPEED, m.advance)
 	elif m.advance > 0.0 and state_frame < m.startup + m.active:
 		velocity.x = facing * m.advance   # ground lunge/advance
 	else:

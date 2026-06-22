@@ -83,6 +83,7 @@ enum MoveKind {
 enum Mode {
 	LOCAL_2P,
 	VS_CPU,
+	TRAINING,
 }
 
 ## Which side a fighter starts on.

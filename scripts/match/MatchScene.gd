@@ -23,12 +23,13 @@ func _ready() -> void:
 	stage.build()
 	add_child(stage)
 
-	var c1 := CharacterLibrary.create(Game.p1_char_id)
-	var c2 := CharacterLibrary.create(Game.p2_char_id)
+	var game := _game()
+	var c1 := CharacterLibrary.create(String(game.get("p1_char_id")))
+	var c2 := CharacterLibrary.create(String(game.get("p2_char_id")))
 
 	var ctrl1 := PlayerController.new("p1")
 	var ctrl2: InputController
-	if Game.mode == GameConst.Mode.VS_CPU:
+	if int(game.get("mode")) == GameConst.Mode.VS_CPU:
 		ctrl2 = CpuController.new(1)
 	else:
 		ctrl2 = PlayerController.new("p2")
@@ -176,7 +177,7 @@ func _physics_process(delta: float) -> void:
 	if _match_over:
 		_post_match_timer -= 1
 		if _post_match_timer <= 0:
-			Game.goto_scene("res://scenes/ui/ResultsScreen.tscn")
+			_game().call("goto_scene", "res://scenes/ui/ResultsScreen.tscn")
 
 ## Restore normal time flow when leaving the match (guards against a scene change while a
 ## slow-motion dip is active).
@@ -187,12 +188,16 @@ func _exit_tree() -> void:
 func _on_match_over(winner_side: int) -> void:
 	_match_over = true
 	_post_match_timer = 210
-	Game.last_winner_side = winner_side
-	Game.last_winner_name = arena.fighters[winner_side].character.display_name
+	var game := _game()
+	game.set("last_winner_side", winner_side)
+	game.set("last_winner_name", arena.fighters[winner_side].character.display_name)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_move_list"):
 		hud.toggle_move_list()
 		return
 	if event.is_action_pressed("ui_cancel"):
-		Game.goto_scene("res://scenes/ui/MainMenu.tscn")
+		_game().call("goto_scene", "res://scenes/ui/MainMenu.tscn")
+
+func _game() -> Node:
+	return get_tree().root.get_node("Game")

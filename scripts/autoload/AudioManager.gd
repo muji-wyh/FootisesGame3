@@ -11,8 +11,15 @@ const POOL_SIZE := 8
 var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
 var _bgm: AudioStreamPlayer
+var _initialized: bool = false
 
 func _ready() -> void:
+	_ensure_initialized()
+
+func _ensure_initialized() -> void:
+	if _initialized:
+		return
+	_initialized = true
 	for name in SFX:
 		_streams[name] = load("res://assets/audio/%s.wav" % name)
 	for i in range(POOL_SIZE):
@@ -26,18 +33,23 @@ func _ready() -> void:
 	add_child(_bgm)
 
 func play(name: String, volume_db: float = 0.0) -> void:
+	_ensure_initialized()
 	var stream = _streams.get(name)
 	if stream == null:
 		return
 	var p := _free_player()
 	p.stream = stream
 	p.volume_db = volume_db
-	p.play()
+	if p.is_inside_tree():
+		p.play()
 
 func start_bgm() -> void:
-	_bgm.play()
+	_ensure_initialized()
+	if _bgm.is_inside_tree():
+		_bgm.play()
 
 func _free_player() -> AudioStreamPlayer:
+	_ensure_initialized()
 	for p in _players:
 		if not p.playing:
 			return p

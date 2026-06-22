@@ -15,9 +15,9 @@ const ASSETS := "res://characters/blaze/assets/"
 ## Per-normal animation clips (the shared CharacterKit supplies the frame data).
 const NORMAL_CLIPS := {
 	"st_lp": "KB_p_Jab_R_1", "st_mp": "KB_m_Uppercut_R", "st_hp": "KB_m_Overhand_R",
-	"st_lk": "KB_p_LowKick_R_1", "st_mk": "KB_m_MidKick_R", "st_hk": "KB_m_HighKickRound_R_1",
+	"st_lk": "KB_p_LowKick_R_1", "st_mk": "KB_m_MidKick_R", "st_hk": "KB_m_MidKickRoud_R_1",
 	"cr_lp": "KB_crouch_p_Jab_L", "cr_mp": "KB_crouch_p_Jab_R", "cr_hp": "KB_crouch_p_Uppercut_R",
-	"cr_lk": "KB_crouch_p_LowKick_L", "cr_mk": "KB_crouch_p_LowKickRound_R", "cr_hk": "KB_crouch_p_LowKickRound_R",
+	"cr_lk": "KB_crouch_p_LowKick_L", "cr_mk": "KB_crouch_p_LowKickRound_R", "cr_hk": "KB_crouch_m_LowKickRound_R",
 	"air_lp": "KB_JumpPunch", "air_mp": "KB_m_Hook_R", "air_hp": "KB_m_Overhand_R",
 	"air_lk": "KB_JumpKick", "air_mk": "KB_p_MidKickFront_L", "air_hk": "KB_p_HighKick_R_1",
 }

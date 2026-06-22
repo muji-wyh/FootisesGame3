@@ -118,6 +118,9 @@ func set_drive(side: int, current: int, maximum: int) -> void:
 func set_timer(seconds: int) -> void:
 	_timer_label.text = str(max(0, seconds))
 
+func set_timer_text(text: String) -> void:
+	_timer_label.text = text
+
 func set_rounds(p1_wins: int, p2_wins: int) -> void:
 	_fill_pips(0, p1_wins)
 	_fill_pips(1, p2_wins)
