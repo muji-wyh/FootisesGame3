@@ -38,9 +38,13 @@ const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knoc
 const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
 const DRC_INPUT_BUFFER := 18        # real ticks a two-punch DRC input can wait after contact/hitstop
+const GREEN_RUSH_CHORD_BUFFER := 5  # ticks to complete a slightly staggered two-punch input
 const DRIVE_RUSH_SPEED := 11.5      # forward speed while in a Drive Rush
+const DRIVE_RUSH_START_SPEED := 0.55 # initial crawl before the rush fully engages
+const DRIVE_RUSH_STARTUP_TICKS := 3 # startup frames before normals can be cancelled from rush
+const DRIVE_RUSH_ACCEL_TICKS := 18  # acceleration frames from startup speed to full speed
 const DRIVE_RUSH_ATTACK_SPEED := 6.5 # carried momentum for the first normal out of Drive Rush
-const DRIVE_RUSH_DURATION := 24     # ticks a Drive Rush advances before returning to neutral
+const DRIVE_RUSH_DURATION := 36     # ticks a Drive Rush advances before returning to neutral
 const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
 const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green rush (1 bar)
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
@@ -219,6 +223,18 @@ func _update_drc_input_buffer(inp: InputFrame, age_buffer: bool) -> void:
 func _is_drc_input(inp: InputFrame) -> bool:
 	return (inp.pressed & DRC_PUNCH_MASK) != 0 and _bit_count(inp.held & DRC_PUNCH_MASK) >= 2
 
+func _recent_punch_count(window: int) -> int:
+	var count := 0
+	for button in [GameConst.Btn.LP, GameConst.Btn.MP, GameConst.Btn.HP]:
+		if input_buffer.pressed_within(button, window):
+			count += 1
+	return count
+
+func _is_green_rush_chord(inp: InputFrame) -> bool:
+	if _is_drc_input(inp):
+		return true
+	return _bit_count(inp.held & DRC_PUNCH_MASK) >= 2 and _recent_punch_count(GREEN_RUSH_CHORD_BUFFER) >= 2
+
 func _consume_drc_input() -> bool:
 	if _drc_input_buffer > 0 and _drc_input_buffer_age <= DRC_INPUT_BUFFER:
 		_clear_drc_input_buffer()
@@ -243,7 +259,7 @@ func update_visual() -> void:
 # --- neutral / movement ----------------------------------------------------
 
 func _step_neutral(inp: InputFrame) -> void:
-	if _is_drc_input(inp) and spend_drive(RAW_DRIVE_RUSH_COST):
+	if _is_green_rush_chord(inp) and spend_drive(RAW_DRIVE_RUSH_COST):
 		_start_drive_rush()
 		return
 	# A pressed move (special/super/normal) takes priority over a dash on the same tick,
@@ -321,14 +337,35 @@ func _start_drive_rush() -> void:
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
-	velocity.x = facing * DRIVE_RUSH_SPEED
+	_cancel_btn = 0
+	_cancel_age = 999
+	velocity.x = 0.0
+
+func _drive_rush_speed() -> float:
+	if state_frame <= DRIVE_RUSH_STARTUP_TICKS:
+		return DRIVE_RUSH_START_SPEED
+	var t := clampf(float(state_frame - DRIVE_RUSH_STARTUP_TICKS) / float(DRIVE_RUSH_ACCEL_TICKS), 0.0, 1.0)
+	return lerpf(DRIVE_RUSH_START_SPEED, DRIVE_RUSH_SPEED, t)
 
 func _step_drive_rush(inp: InputFrame) -> void:
-	var move := _select_move(inp)
-	if move != null and move.stance != GameConst.Stance.AIR:
-		_start_move(move)   # _start_move arms the Drive Rush bonus for normals out of DRIVE_RUSH
+	if inp.dir_x * facing < 0:
+		_cancel_btn = 0
+		_cancel_age = 999
+		velocity.x = facing * _drive_rush_speed()
 		return
-	velocity.x = facing * DRIVE_RUSH_SPEED
+	if _is_green_rush_chord(inp):
+		_cancel_btn = 0
+		_cancel_age = 999
+		velocity.x = facing * _drive_rush_speed()
+		return
+	if state_frame > DRIVE_RUSH_STARTUP_TICKS:
+		var move := _select_move(inp)
+		if move == null:
+			move = _buffered_move(inp)
+		if move != null and move.stance != GameConst.Stance.AIR:
+			_start_move(move)   # _start_move arms the Drive Rush bonus for normals out of DRIVE_RUSH
+			return
+	velocity.x = facing * _drive_rush_speed()
 	if state_frame >= DRIVE_RUSH_DURATION:
 		velocity.x = 0
 		drive_rush_pending = false
@@ -430,6 +467,10 @@ func _step_attack(_inp: InputFrame) -> void:
 	var m := current_move
 	if m == null:
 		_goto(State.IDLE)
+		return
+	if m.kind == GameConst.MoveKind.NORMAL and move_hits_done == 0 and state_frame <= GREEN_RUSH_CHORD_BUFFER \
+			and _is_green_rush_chord(_inp) and spend_drive(RAW_DRIVE_RUSH_COST):
+		_start_drive_rush()
 		return
 	if move_hit_cooldown > 0:
 		move_hit_cooldown -= 1

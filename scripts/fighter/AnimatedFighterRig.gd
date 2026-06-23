@@ -234,6 +234,8 @@ func _play(clip: String, blend: float, speed: float = 1.0, loop: bool = false) -
 	_player.play(full, blend, speed)
 	if restarting_same:
 		_player.seek(0.0, true)
+	if _player.is_inside_tree():
+		_player.advance(0.0)
 	_cur_clip = clip
 
 func _length(clip: String) -> float:

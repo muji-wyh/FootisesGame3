@@ -47,9 +47,11 @@ A six-bar **Drive gauge** (separate from the Super meter) powers the modern mech
 | **Green Rush** (绿冲) | any two punch buttons from neutral | 1 bar |
 | **Drive Rush Cancel** (DRC / 绿冲) | any two punch buttons during a *connected* normal | 3 bars |
 
-A Drive Rush trails a cyan **afterimage** streak and lets the first normal out of it slide
-in and link (a built-in advantage). DRC two-punch inputs entered during hitstop are
-buffered into the first actionable frame. Blaze currently has no special moves or authored
+A Drive Rush trails a cyan **afterimage** streak, starts with a brief wind-up, accelerates
+instead of launching at full speed immediately, and lets the first normal out of it slide in
+and link (a built-in advantage). Slightly staggered two-punch inputs still start Green Rush,
+pressing back during the rush does not cancel it, and DRC two-punch inputs entered during hitstop
+are buffered into the first actionable frame. Blaze currently has no special moves or authored
 combo cancel routes, so neutral feel is focused on normals, jump-ins, Green Rush and DRC.
 Empty the gauge and you enter brief **Burnout** (the
 gauge flashes red and stops regenerating). Combos are tracked by an on-screen **hit
@@ -65,7 +67,7 @@ Godot 4.7 is installed at `C:\uworks\tools\Godot_v4.7-stable_win64.exe` on this 
 # Play in the editor / desktop
 & C:\uworks\tools\Godot_v4.7-stable_win64.exe --path C:\uworks\FootisesGame3
 
-# Run the headless combat/round/AI test suite (27 assertions)
+# Run the headless combat/round/AI test suite
 & C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
 ```
 
@@ -82,8 +84,65 @@ python tools/serve.py 8090
 # 3. Open http://localhost:8090/ in Chrome
 ```
 
-The build is verified to boot and play in Chromium (Edge) — see `tools/shotter/shot.js`,
-which drives the build headlessly and screenshots the menu and a live match.
+### Deploy to Azure Static Web Apps
+
+`web-build/` is a static Godot Web export. The easiest Azure hosting path is Azure Static
+Web Apps. Install the Azure CLI and Static Web Apps CLI once:
+
+```powershell
+az login
+npm install -g @azure/static-web-apps-cli
+```
+
+Create the app once:
+
+```powershell
+az group create --name rg-footises --location eastasia
+
+az staticwebapp create `
+    --name footises-game `
+    --resource-group rg-footises `
+    --location eastasia `
+    --sku Free
+```
+
+Add `web-build/staticwebapp.config.json` before deploying so WASM/PCK MIME types and
+cross-origin isolation headers are served correctly:
+
+```json
+{
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  },
+  "mimeTypes": {
+    ".wasm": "application/wasm",
+    ".pck": "application/octet-stream",
+    ".js": "text/javascript"
+  },
+  "globalHeaders": {
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Embedder-Policy": "require-corp"
+  }
+}
+```
+
+Deploy the current `web-build/`:
+
+```powershell
+$token = az staticwebapp secrets list `
+    --name footises-game `
+    --resource-group rg-footises `
+    --query "properties.apiKey" `
+    -o tsv
+
+swa deploy C:\uworks\FootisesGame3\web-build `
+    --deployment-token $token `
+    --env production
+```
+
+To update an existing deployment after changing the game, export Web again and run the same
+`swa deploy ... --env production` command against the same app. If the browser still shows
+old files, hard-refresh with Ctrl+F5.
 
 ## Architecture
 

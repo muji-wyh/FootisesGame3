@@ -12,6 +12,11 @@ class Manual extends InputController:
 	func poll(_s: Object, _o: Object) -> InputFrame:
 		return frame.duplicate_frame()
 
+class SpyRig extends Node:
+	var pose_count := 0
+	func pose(_fighter: Object) -> void:
+		pose_count += 1
+
 var _passed := 0
 var _failed := 0
 
@@ -995,7 +1000,26 @@ func _test_impact_fx_smoke() -> void:
 	root.add_child(spark)
 	spark.setup(Color(1.0, 0.5, 0.2), 1.3)
 	_check("hit spark built core + ring", spark.get_child_count() == 2)
+	var core := spark.get_child(0) as MeshInstance3D
+	var ring := spark.get_child(1) as MeshInstance3D
+	_check("hit spark core is compact", core != null and core.mesh is SphereMesh and (core.mesh as SphereMesh).radius <= 0.12)
+	_check("hit spark ring is compact", ring != null and ring.mesh is TorusMesh and (ring.mesh as TorusMesh).outer_radius <= 0.19)
 	spark.free()
+	var scene := MatchScene.new()
+	var victim := Fighter.new()
+	var attacker := Fighter.new()
+	var rig := SpyRig.new()
+	victim.add_child(rig)
+	victim.rig = rig
+	victim.opponent = attacker
+	attacker.opponent = victim
+	victim.hit_strength = 1
+	victim.hit_height = GameConst.HitHeight.MID
+	scene.camera = FightCamera.new()
+	scene.add_child(scene.camera)
+	scene._on_struck(victim, false)
+	_check("hit visual updates before spark spawn", rig.pose_count == 1 and scene.get_child_count() >= 2)
+	scene.free()
 
 func _test_slowmo_director() -> void:
 	print("[slow-mo director]")
@@ -1090,6 +1114,40 @@ func _test_drive_rush() -> void:
 		_check("two-punch neutral input starts green rush", r.state == Fighter.State.DRIVE_RUSH)
 		_check("raw green rush spends Drive", r.drive < d_before)
 		raw["arena"].queue_free()
+	var stagger := _build()
+	var sr: Fighter = stagger["f1"]
+	var sd: int = sr.drive
+	_step(stagger, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
+	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("slightly staggered two-punch input starts green rush", sr.state == Fighter.State.DRIVE_RUSH)
+	_check("staggered green rush spends Drive", sr.drive < sd)
+	stagger["arena"].queue_free()
+	var accel := _build()
+	var gr: Fighter = accel["f1"]
+	_step(accel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var start_speed := absf(gr.velocity.x)
+	_step(accel, _neutral(), _neutral(), 1)
+	var startup_speed := absf(gr.velocity.x)
+	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + 6)
+	var mid_speed := absf(gr.velocity.x)
+	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_ACCEL_TICKS)
+	var full_speed := absf(gr.velocity.x)
+	_check("green rush starts below full speed", start_speed < 0.1 and startup_speed < Fighter.DRIVE_RUSH_SPEED * 0.12)
+	_check("green rush accelerates gradually", mid_speed > startup_speed and mid_speed < Fighter.DRIVE_RUSH_SPEED * 0.65)
+	_check("green rush accelerates to full speed", full_speed > startup_speed + 5.0 and full_speed >= Fighter.DRIVE_RUSH_SPEED * 0.95)
+	accel["arena"].queue_free()
+	var cancel := _build()
+	var cr: Fighter = cancel["f1"]
+	_step(cancel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(cancel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + Fighter.DRIVE_RUSH_ACCEL_TICKS)
+	var rush_speed_before_brake := absf(cr.velocity.x)
+	_step(cancel, _mk(-cr.facing, 0), _neutral(), 1)
+	var speed_after_back := absf(cr.velocity.x)
+	var drive_before_reinput: int = cr.drive
+	_step(cancel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("back input cannot cancel green rush", cr.state == Fighter.State.DRIVE_RUSH and speed_after_back > rush_speed_before_brake * 0.8)
+	_check("green rush input is ignored while already rushing", cr.drive > drive_before_reinput - Fighter.RAW_DRIVE_RUSH_COST)
+	cancel["arena"].queue_free()
 	# Forward double-tap is still a normal dash, not a raw Drive Rush.
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
@@ -1434,10 +1492,12 @@ func _test_drive_rush_carry() -> void:
 			entered_drc = true
 			break
 	_check("entered Drive Rush from DRC", entered_drc)
-	# Cancel the rush into a standing normal: it must slide forward (carry momentum).
-	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
-	ctx["c2"].frame = _neutral()
-	ctx["arena"].step(DELTA)
+	# Cancel the rush into a standing normal: pressing during startup buffers and then slides forward.
+	_step(ctx, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	for i in range(Fighter.DRIVE_RUSH_STARTUP_TICKS + 2):
+		if f1.state == Fighter.State.ATTACK:
+			break
+		_step(ctx, _neutral(), _neutral(), 1)
 	_check("Drive Rush normal started", f1.state == Fighter.State.ATTACK)
 	_check("Drive Rush normal carries forward momentum", f1.velocity.x > 1.0)
 	ctx["arena"].queue_free()

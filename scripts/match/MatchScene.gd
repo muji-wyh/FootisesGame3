@@ -122,6 +122,10 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 ## camera, scaling intensity, colour and height by strength / counter / where it landed.
 func _on_struck(victim: Fighter, blocked: bool) -> void:
 	var atk: Fighter = victim.opponent
+	# Start the hit/block pose before spawning the spark so impact visuals line up.
+	victim.update_visual()
+	if atk != null and is_instance_valid(atk):
+		atk.update_visual()
 	var cx: float = victim.position.x
 	if atk != null and is_instance_valid(atk):
 		cx = (victim.position.x + atk.position.x) * 0.5
@@ -139,19 +143,19 @@ func _on_struck(victim: Fighter, blocked: bool) -> void:
 
 func _spark_params(victim: Fighter, blocked: bool) -> Dictionary:
 	if blocked:
-		return {"color": Color(0.6, 0.8, 1.0), "scale": 0.6, "shake": 0.03, "frames": 5, "y": 1.0}
+		return {"color": Color(0.6, 0.8, 1.0), "scale": 0.42, "shake": 0.03, "frames": 5, "y": 1.0}
 	var y := _hit_y(victim)
 	match victim.last_counter:
 		GameConst.Counter.PUNISH:
-			return {"color": Color(1.0, 0.35, 0.9), "scale": 1.7, "shake": 0.22, "frames": 12, "y": y}
+			return {"color": Color(1.0, 0.35, 0.9), "scale": 1.15, "shake": 0.22, "frames": 12, "y": y}
 		GameConst.Counter.COUNTER:
-			return {"color": Color(0.45, 0.9, 1.0), "scale": 1.35, "shake": 0.15, "frames": 10, "y": y}
+			return {"color": Color(0.45, 0.9, 1.0), "scale": 0.95, "shake": 0.15, "frames": 10, "y": y}
 	match victim.hit_strength:
 		2:
-			return {"color": Color(1.0, 0.5, 0.2), "scale": 1.3, "shake": 0.12, "frames": 9, "y": y}
+			return {"color": Color(1.0, 0.5, 0.2), "scale": 0.9, "shake": 0.12, "frames": 9, "y": y}
 		1:
-			return {"color": Color(1.0, 0.8, 0.35), "scale": 1.0, "shake": 0.07, "frames": 7, "y": y}
-	return {"color": Color(1.0, 0.95, 0.7), "scale": 0.75, "shake": 0.04, "frames": 6, "y": y}
+			return {"color": Color(1.0, 0.8, 0.35), "scale": 0.68, "shake": 0.07, "frames": 7, "y": y}
+	return {"color": Color(1.0, 0.95, 0.7), "scale": 0.52, "shake": 0.04, "frames": 6, "y": y}
 
 func _hit_y(victim: Fighter) -> float:
 	match victim.hit_height:
