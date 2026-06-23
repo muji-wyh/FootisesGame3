@@ -52,8 +52,9 @@ instead of launching at full speed immediately, and lets the first normal out of
 and link (a built-in advantage). Press the two punch buttons together from neutral to start
 Green Rush; pressing them again during Green Rush startup does nothing. Pressing back during
 the rush does not cancel it, and DRC two-punch inputs entered during hitstop are buffered into
-the first actionable frame. Blaze currently has no special moves or authored
-combo cancel routes, so neutral feel is focused on normals, jump-ins, Green Rush and DRC.
+the first actionable frame. Blaze uses a Ken-inspired combo toolkit: `st.MP > st.HP`
+target routes, Flame Step confirms, Cinder Lash pressure, Ember Wheel corner carry,
+jump-ins, Green Rush and DRC.
 Empty the gauge and you enter brief **Burnout** (the
 gauge flashes red and stops regenerating). Combos are tracked by an on-screen **hit
 counter** and use **damage scaling** so long routes taper instead of deleting the bar.
