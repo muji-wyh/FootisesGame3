@@ -1,8 +1,8 @@
 extends RefCounted
 
-## Blaze - fiery rushdown shoto (Ken archetype): a fireball, a rising flame uppercut, a
-## multi-hit hurricane kick and a multi-hit super. Self-contained character module: stats,
-## moves, frame data and rig config live here; registered in CharacterLibrary.REGISTRY.
+## Blaze - fiery rushdown fighter (Ken-inspired normals): grounded pressure, jump-ins,
+## Drive Rush, and a multi-hit super. Self-contained character module: stats, moves,
+## frame data and rig config live here; registered in CharacterLibrary.REGISTRY.
 ## Each move is a small data dictionary, so this file reads like a tuning sheet.
 
 const ID := "blaze"
@@ -22,24 +22,24 @@ const NORMAL_CLIPS := {
 	"air_lk": "KB_JumpKick", "air_mk": "KB_p_MidKickFront_L", "air_hk": "KB_p_HighKick_R_1",
 }
 const NORMAL_TUNING := {
-	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.57, 1.0, 0.0), "hit_size": Vector3(0.37, 0.36, 0.55), "cancel_into": ["st_lp", "st_mp", "st_hp", "fireball", "uppercut", "hurricane", "super_inferno"]},
-	"st_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "fireball", "uppercut", "hurricane", "super_inferno"]},
-	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.02, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
-	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.0, "hit_offset": Vector3(0.60, 0.72, 0.0), "hit_size": Vector3(0.40, 0.34, 0.62), "cancel_into": ["st_mk", "fireball", "uppercut", "hurricane", "super_inferno"]},
-	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 4.2, "hit_offset": Vector3(0.61, 0.86, 0.0), "hit_size": Vector3(0.41, 0.40, 0.68), "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
-	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 5.6, "hit_offset": Vector3(0.62, 0.98, 0.0), "hit_size": Vector3(0.42, 0.46, 0.72), "launch": true, "launch_velocity": 7.0},
-	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 3.1, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": ["cr_lp", "cr_mp", "cr_mk", "fireball", "uppercut", "hurricane", "super_inferno"]},
-	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 8, "guard": GameConst.Guard.MID, "knockback": 3.5, "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
-	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "launch": true, "launch_velocity": 9.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7)},
-	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 6, "guard": GameConst.Guard.LOW, "knockback": 2.7, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": ["cr_mk", "fireball", "uppercut", "hurricane", "super_inferno"]},
-	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.LOW, "knockback": 4.0, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": ["fireball", "uppercut", "hurricane", "super_inferno"]},
-	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.8, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5},
-	"air_lp": {"startup": 3, "active": 16, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 6, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.8, "hit_offset": Vector3(0.6, 0.4, 0.0), "hit_size": Vector3(0.9, 1.1, 0.7)},
-	"air_mp": {"startup": 5, "active": 15, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.8, "hit_offset": Vector3(0.7, 0.5, 0.0), "hit_size": Vector3(1.0, 1.1, 0.7)},
-	"air_hp": {"startup": 7, "active": 15, "recovery": 6, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.0, "hit_offset": Vector3(0.7, 0.5, 0.0), "hit_size": Vector3(1.0, 1.2, 0.7)},
-	"air_lk": {"startup": 4, "active": 16, "recovery": 4, "damage": 29, "hitstun": 16, "blockstun": 10, "hitstop": 6, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.9, "hit_offset": Vector3(0.6, 0.3, 0.0), "hit_size": Vector3(0.9, 1.2, 0.7)},
-	"air_mk": {"startup": 6, "active": 15, "recovery": 5, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 8, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.1, "hit_offset": Vector3(0.7, 0.4, 0.0), "hit_size": Vector3(1.0, 1.2, 0.7)},
-	"air_hk": {"startup": 8, "active": 15, "recovery": 6, "damage": 82, "hitstun": 20, "blockstun": 12, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.3, "hit_offset": Vector3(0.7, 0.2, 0.0), "hit_size": Vector3(1.0, 1.4, 0.7)},
+	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.57, 1.0, 0.0), "hit_size": Vector3(0.37, 0.36, 0.55), "cancel_into": []},
+	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": []},
+	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.02, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": []},
+	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.0, "hit_offset": Vector3(0.60, 0.72, 0.0), "hit_size": Vector3(0.40, 0.34, 0.62), "cancel_into": []},
+	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.2, "hit_offset": Vector3(0.61, 0.86, 0.0), "hit_size": Vector3(0.41, 0.40, 0.68), "cancel_into": []},
+	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "hit_offset": Vector3(0.62, 0.98, 0.0), "hit_size": Vector3(0.42, 0.46, 0.72), "launch": true, "launch_velocity": 7.0},
+	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.1, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": []},
+	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.5, "cancel_into": []},
+	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 3.8, "launch": true, "launch_velocity": 9.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7)},
+	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 2.7, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": []},
+	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.0, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": []},
+	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.LOW, "knockback": 4.8, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5},
+	"air_lp": {"startup": 3, "active": 10, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.8, "hit_offset": Vector3(0.45, 0.35, 0.0), "hit_size": Vector3(0.55, 0.45, 0.65)},
+	"air_mp": {"startup": 5, "active": 8, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.8, "hit_offset": Vector3(0.52, 0.38, 0.0), "hit_size": Vector3(0.65, 0.50, 0.65)},
+	"air_hp": {"startup": 7, "active": 8, "recovery": 6, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.0, "hit_offset": Vector3(0.58, 0.42, 0.0), "hit_size": Vector3(0.75, 0.55, 0.7)},
+	"air_lk": {"startup": 4, "active": 10, "recovery": 4, "damage": 29, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.9, "hit_offset": Vector3(0.48, 0.18, 0.0), "hit_size": Vector3(0.65, 0.55, 0.65)},
+	"air_mk": {"startup": 7, "active": 6, "recovery": 5, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.1, "hit_offset": Vector3(0.25, 0.18, 0.0), "hit_size": Vector3(0.95, 0.55, 0.7)},
+	"air_hk": {"startup": 8, "active": 8, "recovery": 6, "damage": 82, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.3, "hit_offset": Vector3(0.55, 0.18, 0.0), "hit_size": Vector3(0.85, 0.65, 0.7)},
 }
 
 static func build() -> CharacterData:
@@ -48,7 +48,7 @@ static func build() -> CharacterData:
 	c.display_name = DISPLAY_NAME
 	c.color = Color(0.9, 0.33, 0.13)
 	c.accent = Color(1.0, 0.8, 0.25)
-	c.blurb = "Fiery rushdown. Fireball, anti-air uppercut, and a spinning multi-hit kick."
+	c.blurb = "Fiery rushdown. Ken-inspired normals, jump-ins, Drive Rush pressure, and a multi-hit super."
 	c.max_health = 950
 	c.walk_speed = 3.6
 	c.back_speed = 2.9
@@ -58,90 +58,19 @@ static func build() -> CharacterData:
 	c.model_face_deg = 90.0
 	c.rig = _rig()
 
-	CharacterKit.add_standard_normals(c, 0.95, ["fireball", "uppercut", "hurricane", "super_inferno"], NORMAL_CLIPS)
+	CharacterKit.add_standard_normals(c, 0.95, [], NORMAL_CLIPS)
 	_apply_move_overrides(c)
-
-	c.add_move(CharacterKit.make_move({"id": "fireball", "display_name": "Flare Bolt", "kind": GameConst.MoveKind.SPECIAL,
-		"button": GameConst.Btn.LP, "motion": MotionParser.QCF, "startup": 11, "active": 2, "recovery": 24,
-		"damage": 55, "hitstun": 18, "blockstun": 12, "hitstop": 4, "guard": GameConst.Guard.MID,
-		"knockback": 4.4, "meter_gain": 12, "projectile": true, "projectile_speed": 8.0,
-		"projectile_life": 100, "sfx": "fire", "anim_limb": "arm_r", "anim_extend": 0.7,
-		"anim_clip": "KB_Projectile_4", "hit_size": Vector3(0.6, 0.6, 0.6)}))
-
-	# Rising uppercut: 2-hit anti-air launcher; Blaze leaps along a scripted arc.
-	c.add_move(CharacterKit.make_move({"id": "uppercut", "display_name": "Blaze Rise", "kind": GameConst.MoveKind.SPECIAL,
-		"button": GameConst.Btn.HP, "motion": MotionParser.DP, "startup": 5, "active": 10, "recovery": 30,
-		"damage": 60, "hits": 2, "hit_gap": 5, "hitstun": 22, "blockstun": 14, "hitstop": 9,
-		"guard": GameConst.Guard.MID, "knockback": 3.6, "launch": true, "launch_velocity": 10.0,
-		"meter_gain": 8, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_Shoryuken",
-		"rises": true, "rise_height": 1.3, "hit_offset": Vector3(0.7, 1.0, 0.0), "hit_size": Vector3(0.8, 1.7, 0.7)}))
-
-	# Hurricane kick: advancing 3-hit. Low knockback per hit so the victim stays in range.
-	c.add_move(CharacterKit.make_move({"id": "hurricane", "display_name": "Cyclone Kick", "kind": GameConst.MoveKind.SPECIAL,
-		"button": GameConst.Btn.LK, "motion": MotionParser.QCB, "startup": 9, "active": 20, "recovery": 22,
-		"damage": 35, "hits": 3, "hit_gap": 6, "hitstun": 16, "blockstun": 12, "hitstop": 6,
-		"guard": GameConst.Guard.MID, "knockback": 1.5, "advance": 5.0, "meter_gain": 8,
-		"sfx": "spin", "anim_limb": "leg_r", "anim_extend": 0.95, "anim_clip": "KB_Tatsu",
-		"hit_offset": Vector3(0.9, 1.0, 0.0), "hit_size": Vector3(1.0, 1.1, 0.7)}))
 
 	# Super: advancing 5-hit flaming rush.
 	c.add_move(CharacterKit.make_move({"id": "super_inferno", "display_name": "Inferno Rush", "kind": GameConst.MoveKind.SUPER,
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF_QCF, "meter_cost": 100,
 		"startup": 8, "active": 22, "recovery": 44, "damage": 52, "hits": 5, "hit_gap": 4,
-		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 8, "guard": GameConst.Guard.MID,
+		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 12, "guard": GameConst.Guard.MID,
 		"knockback": 1.8, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
 
-	_add_overdrives(c)
-	_enable_overdrive_cancels(c)
 	return c
-
-## Overdrive (EX) specials (SF6-style): pressing two punches / two kicks with the motion
-## spends 2 Drive bars for an enhanced version. Stronger, more hits, better knockdown -
-## the premium combo enders / reversals. multi_button is the same-type button mask.
-const PUNCHES := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
-const KICKS := GameConst.Btn.LK | GameConst.Btn.MK | GameConst.Btn.HK
-const OD_COST := 2000   # 2 Drive bars
-
-static func _add_overdrives(c: CharacterData) -> void:
-	# OD Flare Bolt: a faster, harder-hitting fireball that hard-knocks-down.
-	c.add_move(CharacterKit.make_move({"id": "od_fireball", "display_name": "Flare Bolt (OD)", "kind": GameConst.MoveKind.SPECIAL,
-		"button": GameConst.Btn.LP, "multi_button": PUNCHES, "drive_cost": OD_COST, "motion": MotionParser.QCF,
-		"startup": 10, "active": 2, "recovery": 22, "damage": 80, "hitstun": 22, "blockstun": 14, "hitstop": 5,
-		"guard": GameConst.Guard.MID, "knockback": 6.0, "launch": true, "launch_velocity": 6.5, "meter_gain": 14,
-		"projectile": true, "projectile_speed": 10.0, "projectile_life": 110, "sfx": "fire",
-		"anim_limb": "arm_r", "anim_extend": 0.8, "anim_clip": "KB_Projectile_4", "hit_size": Vector3(0.8, 0.8, 0.7)}))
-
-	# OD Blaze Rise: 3-hit invincible-feeling reversal uppercut; higher launch for juggles.
-	c.add_move(CharacterKit.make_move({"id": "od_uppercut", "display_name": "Blaze Rise (OD)", "kind": GameConst.MoveKind.SPECIAL,
-		"button": GameConst.Btn.HP, "multi_button": PUNCHES, "drive_cost": OD_COST, "motion": MotionParser.DP,
-		"startup": 4, "active": 12, "recovery": 30, "damage": 45, "hits": 3, "hit_gap": 4, "hitstun": 24,
-		"blockstun": 14, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.4, "launch": true,
-		"launch_velocity": 12.0, "meter_gain": 10, "sfx": "rising", "anim_limb": "arm_r", "anim_extend": 1.0,
-		"anim_clip": "KB_Shoryuken_OD", "rises": true, "rise_height": 1.7,
-		"hit_offset": Vector3(0.7, 1.1, 0.0), "hit_size": Vector3(0.85, 1.9, 0.7)}))
-
-	# OD Cyclone: a 5-hit advancing hurricane that ends in a knockdown.
-	c.add_move(CharacterKit.make_move({"id": "od_hurricane", "display_name": "Cyclone Kick (OD)", "kind": GameConst.MoveKind.SPECIAL,
-		"button": GameConst.Btn.LK, "multi_button": KICKS, "drive_cost": OD_COST, "motion": MotionParser.QCB,
-		"startup": 8, "active": 26, "recovery": 20, "damage": 30, "hits": 5, "hit_gap": 5, "hitstun": 16,
-		"blockstun": 12, "hitstop": 6, "guard": GameConst.Guard.MID, "knockback": 1.6, "advance": 6.0,
-		"launch": true, "launch_velocity": 7.5, "meter_gain": 10, "sfx": "spin", "anim_limb": "leg_r",
-		"anim_extend": 1.0, "anim_clip": "KB_Tatsu_OD", "hit_offset": Vector3(0.9, 1.0, 0.0),
-		"hit_size": Vector3(1.05, 1.15, 0.7)}))
-
-## Any normal that can special-cancel can also cancel into the matching Overdrive (EX)
-## version, so the whole kit gains EX combo routes without editing each move's list by hand.
-static func _enable_overdrive_cancels(c: CharacterData) -> void:
-	var pairs := {"fireball": "od_fireball", "uppercut": "od_uppercut", "hurricane": "od_hurricane"}
-	for m in c.normals:
-		var extra: Array[String] = []
-		for base in pairs.keys():
-			if m.cancel_into.has(base) and not m.cancel_into.has(pairs[base]):
-				extra.append(pairs[base])
-		if not extra.is_empty():
-			m.cancel_into.assign(m.cancel_into + extra)
 
 static func _apply_move_overrides(c: CharacterData) -> void:
 	for move_id in NORMAL_TUNING.keys():
@@ -167,13 +96,11 @@ static func _rig() -> RigConfig:
 		ASSETS + "anims/KB_Hits.fbx",
 		ASSETS + "anims/KB_KOs.fbx",
 		ASSETS + "anims/KB_Specials.fbx",
-		ASSETS + "anims/KB_Shoryuken.tscn",
-		ASSETS + "anims/KB_Tatsu.tscn",
 	]
 	r.lib_name = "kb"
 	r.skip_clips = ["BindPose", "tpose", "Take 001"]
 	r.root_bones = ["Hips", "Root"]
-	r.grounded_clips = ["KB_Tatsu", "KB_Tatsu_OD"]
+	r.grounded_clips = []
 	r.foot_bones = ["LeftToeBase", "RightToeBase", "LeftFoot", "RightFoot"]
 	r.state_clips = {
 		"idle": "KB_Idle_1", "walk_f": "KB_WalkFwd1", "walk_b": "KB_WalkBwd",

@@ -24,7 +24,7 @@ characters/
   - `model_path` + `rig` (a `RigConfig`, see below) for the model-backed rig,
   - normals via `CharacterKit.add_standard_normals(c, dmg_scale, cancels, clip_map)` — shared
     "system normal" frame data with this character's clip names,
-  - specials/supers via `CharacterKit.make_move({...})`.
+  - optional specials/supers via `CharacterKit.make_move({...})` when that character uses them.
 - `RigConfig` (`scripts/combat/RigConfig.gd`) — everything the generic `AnimatedFighterRig`
   needs: animation source files, `state -> clip` map, looped/default/drive-rush clips, foot/root
   bones, the material surface→texture map + `tex_dir`, and the directional hit-reaction / KO /

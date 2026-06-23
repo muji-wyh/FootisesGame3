@@ -75,7 +75,7 @@ func _initialize() -> void:
 	_test_lp_pushout()
 	_test_corner_hit_pushback()
 	_test_pushback_scaling()
-	_test_fireball()
+	_test_specials_removed()
 	_test_super()
 	_test_ko()
 	_test_round_flow()
@@ -93,6 +93,8 @@ func _initialize() -> void:
 	_test_dash()
 	_test_air_attack()
 	_test_jump_in()
+	_test_jump_crossup()
+	_test_air_hitbox_tuning()
 	_test_air_clips_distinct()
 	_test_hit_strength()
 	_test_kb_library()
@@ -109,7 +111,6 @@ func _initialize() -> void:
 	_test_drive_gauge()
 	_test_drive_rush()
 	_test_uppercut_rise()
-	_test_rise_interruption_lands()
 	_test_camera()
 	_test_input_buffer()
 	_test_overdrive()
@@ -239,16 +240,18 @@ func _test_pushback_scaling() -> void:
 	_check("stand medium pushes farther than jab", b.get_move("st_mp").knockback > b.get_move("st_lp").knockback)
 	_check("stand heavy pushes farther than medium", b.get_move("st_hp").knockback > b.get_move("st_mp").knockback)
 	_check("crouch medium pushes farther than crouch jab", b.get_move("cr_mk").knockback > b.get_move("cr_lp").knockback)
-	_check("fireball pushback increased", b.get_move("fireball").knockback >= 4.4)
-	_check("hurricane stays controlled for multihit", b.get_move("hurricane").knockback <= 1.6)
+	var all_empty := true
+	for m in b.normals:
+		all_empty = all_empty and m.cancel_into.is_empty()
+	_check("normals no longer contain authored combo cancel routes", all_empty)
 
 func _test_lp_pushout() -> void:
 	print("[lp pushout]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	f1.position.x = -0.6
-	f2.position.x = 0.6
+	f1.position.x = -0.38
+	f2.position.x = 0.38
 	var hits := 0
 	var prev_hp := f2.health
 	for i in range(84):
@@ -274,22 +277,22 @@ func _test_corner_hit_pushback() -> void:
 	_check("attacker recoils on a cornered hit", f1.position.x < start_x - 0.08)
 	ctx["arena"].queue_free()
 
-func _test_fireball() -> void:
-	print("[fireball]")
+func _test_specials_removed() -> void:
+	print("[specials removed]")
 	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
 	var arena: Arena = ctx["arena"]
-	# Keep distance; perform QCF + LP as P1.
 	var hp_before: int = f2.health
-	_step(ctx, _mk(0, -1), _neutral(), 3)        # down
-	_step(ctx, _mk(1, -1), _neutral(), 3)        # down-forward
-	_step(ctx, _mk(1, 0, GameConst.Btn.LP), _neutral(), 1)  # forward + punch
-	# The projectile spawns on the move's active frame (startup=12), not instantly.
-	_step(ctx, _neutral(), _mk(0, 0), 14)
-	_check("a projectile spawned", arena.projectiles.size() >= 1)
-	# Let the fireball travel into P2 (standing, not blocking).
-	_step(ctx, _neutral(), _mk(0, 0), 90)
-	_check("fireball hit P2 for damage", f2.health < hp_before)
+	# QCF + LP used to be fireball. It should now stay in the normal system and never spawn
+	# a projectile or a special move.
+	_step(ctx, _mk(0, -1), _neutral(), 3)
+	_step(ctx, _mk(1, -1), _neutral(), 3)
+	_step(ctx, _mk(1, 0, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 20)
+	_check("QCF+LP no longer starts a fireball special", f1.current_move == null or f1.current_move.id != "fireball")
+	_check("removed fireball spawns no projectile", arena.projectiles.is_empty())
+	_check("removed fireball deals no projectile damage", f2.health == hp_before)
 	ctx["arena"].queue_free()
 
 func _test_super() -> void:
@@ -511,23 +514,12 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
-	# Three base specials + three Overdrive (EX) variants.
-	_check("blaze has 6 specials (3 base + 3 OD)", b.specials.size() == 6)
-	var base_specials := 0
-	var od_specials := 0
-	for m in b.specials:
-		if m.drive_cost > 0:
-			od_specials += 1
-		else:
-			base_specials += 1
-	_check("blaze has 3 base specials", base_specials == 3)
-	_check("blaze has 3 Overdrive specials", od_specials == 3)
+	_check("blaze has no specials", b.specials.is_empty())
 	_check("blaze has 1 super", b.supers.size() == 1)
-	_check("blaze hurricane uses QCB", b.get_move("hurricane") != null and b.get_move("hurricane").motion == MotionParser.QCB)
-	_check("blaze uppercut uses generated shoryuken clip", b.get_move("uppercut") != null and b.get_move("uppercut").anim_clip == "KB_Shoryuken" and b.get_move("uppercut").rises)
-	_check("blaze OD uppercut uses generated shoryuken clip", b.get_move("od_uppercut") != null and b.get_move("od_uppercut").anim_clip == "KB_Shoryuken_OD")
-	_check("blaze hurricane uses generated Tatsu clip", b.get_move("hurricane") != null and b.get_move("hurricane").anim_clip == "KB_Tatsu")
-	_check("blaze OD hurricane uses generated Tatsu clip", b.get_move("od_hurricane") != null and b.get_move("od_hurricane").anim_clip == "KB_Tatsu_OD")
+	for removed in ["fireball", "uppercut", "hurricane", "od_fireball", "od_uppercut", "od_hurricane"]:
+		_check("removed move absent: " + removed, b.get_move(removed) == null)
+	_check("Ken-like stand MP timing", b.get_move("st_mp").startup == 7 and b.get_move("st_mp").active == 3)
+	_check("Ken-like cross-up air MK timing", b.get_move("air_mk").startup == 7 and b.get_move("air_mk").active == 6)
 
 func _test_move_list_overlay() -> void:
 	print("[move list overlay]")
@@ -539,8 +531,8 @@ func _test_move_list_overlay() -> void:
 	hud.toggle_move_list()
 	_check("move list opens on toggle", hud.is_move_list_visible())
 	var left: Label = hud._move_list_labels[0]
-	_check("move list shows uppercut entry", left.text.contains("Blaze Rise"))
-	_check("move list shows motion input text", left.text.contains("623 + HP"))
+	_check("move list hides removed specials", not left.text.contains("Flare Bolt") and not left.text.contains("Blaze Rise") and not left.text.contains("Cyclone Kick"))
+	_check("move list still shows super", left.text.contains("Inferno Rush"))
 	hud.toggle_move_list()
 	_check("move list closes on second toggle", not hud.is_move_list_visible())
 	hud.queue_free()
@@ -550,29 +542,29 @@ func _test_multihit() -> void:
 	var ctx := _build("blaze", "blaze")
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	# Corner P2 so Blaze's advancing hurricane keeps connecting.
+	f1.meter = f1.character.max_meter
+	# Corner P2 so Blaze's advancing super keeps connecting after specials are removed.
 	f1.position.x = 5.2
 	f2.position.x = 6.2
 	var hits := [0]
 	f1.contact.connect(func(blocked, _m): if not blocked: hits[0] += 1)
 	var hp_before: int = f2.health
-	# Cyclone Kick: QCB ( down, down-back, back ) + LK.
-	_step(ctx, _mk(0, -1), _neutral(), 3)
-	_step(ctx, _mk(-1, -1), _neutral(), 3)
-	_step(ctx, _mk(-1, 0, GameConst.Btn.LK), _neutral(), 1)
+	# Inferno Rush: QCF QCF + HP.
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(1, -1), _neutral(), 2)
+	_step(ctx, _mk(1, 0), _neutral(), 2)
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(1, -1), _neutral(), 2)
+	_step(ctx, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
 	_step(ctx, _neutral(), _neutral(), 75)
-	_check("hurricane connected multiple times", hits[0] >= 2)
+	_check("super connected multiple times", hits[0] >= 2)
 	_check("multi-hit dealt cumulative damage", hp_before - f2.health >= 70)
 	ctx["arena"].queue_free()
 
 func _test_move_sfx() -> void:
 	print("[per-move sfx]")
 	var b := CharacterLibrary.create("blaze")
-	var fb := b.get_move("fireball")
-	var hur := b.get_move("hurricane")
 	var sup := b.get_move("super_inferno")
-	_check("fireball has its own sfx", fb != null and fb.sfx == "fire")
-	_check("hurricane has its own sfx", hur != null and hur.sfx == "spin")
 	_check("super has its own sfx", sup != null and sup.sfx == "super")
 	var button_sfx := {
 		GameConst.Btn.LP: "lp",
@@ -632,18 +624,6 @@ func _test_animated_rig() -> void:
 	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
 	_check("grafted stand MP clip", arig._player != null and arig._player.has_animation("kb/KB_m_Uppercut_R"))
-	_check("grafted generated shoryuken clip", arig._player != null and arig._player.has_animation("kb/KB_Shoryuken"))
-	_check("grafted generated OD shoryuken clip", arig._player != null and arig._player.has_animation("kb/KB_Shoryuken_OD"))
-	_check("grafted generated Tatsu clip", arig._player != null and arig._player.has_animation("kb/KB_Tatsu"))
-	_check("grafted generated OD Tatsu clip", arig._player != null and arig._player.has_animation("kb/KB_Tatsu_OD"))
-	if arig._player != null and arig._player.has_animation("kb/KB_Shoryuken"):
-		_check("shoryuken clip root rises", _root_y_delta(arig._player.get_animation("kb/KB_Shoryuken")) > 0.25)
-	if arig._player != null and arig._player.has_animation("kb/KB_Shoryuken_OD"):
-		_check("OD shoryuken clip root rises", _root_y_delta(arig._player.get_animation("kb/KB_Shoryuken_OD")) > 0.35)
-	if arig._player != null and arig._player.has_animation("kb/KB_Tatsu"):
-		_check("Tatsu clip root stays grounded", _root_y_delta(arig._player.get_animation("kb/KB_Tatsu")) < 0.001)
-	if arig._player != null and arig._player.has_animation("kb/KB_Tatsu_OD"):
-		_check("OD Tatsu clip root stays grounded", _root_y_delta(arig._player.get_animation("kb/KB_Tatsu_OD")) < 0.001)
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
 	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
 	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_p_MidKickFront_L", "KB_p_HighKick_R_1"]:
@@ -736,6 +716,55 @@ func _test_jump_in() -> void:
 	_check("jump-in connected with the opponent", f2.health < hp_before)
 	ctx["arena"].queue_free()
 
+func _test_jump_crossup() -> void:
+	print("[jump cross-up]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.45
+	f2.position.x = 0.25
+	_step(ctx, _mk(1, 1), _neutral(), 1)
+	var crossed := false
+	for i in range(34):
+		_step(ctx, _mk(1, 0), _neutral(), 1)
+		if not f1.on_ground and f1.position.x > f2.position.x + 0.05:
+			crossed = true
+			break
+	_check("jump arc can cross over the opponent before landing", crossed)
+	ctx["arena"].queue_free()
+
+	var hit_ctx := _build()
+	var a: Fighter = hit_ctx["f1"]
+	var b: Fighter = hit_ctx["f2"]
+	a.position.x = -2.05
+	b.position.x = 0.25
+	var hp_before: int = b.health
+	var kb_x := [0.0]
+	var crossed_on_hit := [false]
+	b.got_hit.connect(func(_blocked):
+		kb_x[0] = b.velocity.x
+		crossed_on_hit[0] = a.position.x > b.position.x)
+	_step(hit_ctx, _mk(1, 1), _neutral(), 1)
+	_step(hit_ctx, _mk(1, 0), _neutral(), 36)
+	_step(hit_ctx, _mk(1, 0, GameConst.Btn.MK), _neutral(), 1)
+	for i in range(20):
+		_step(hit_ctx, _mk(1, 0), _neutral(), 1)
+		if b.health < hp_before:
+			break
+	_check("cross-up air hit connected after passing behind", b.health < hp_before and crossed_on_hit[0])
+	_check("cross-up hit pushes defender away from the new attack side", float(kb_x[0]) < 0.0)
+	hit_ctx["arena"].queue_free()
+
+func _test_air_hitbox_tuning() -> void:
+	print("[air hitbox tuning]")
+	var b := CharacterLibrary.create("blaze")
+	for id in ["air_lp", "air_mp", "air_hp", "air_lk", "air_mk", "air_hk"]:
+		var m := b.get_move(id)
+		_check(id + " has a compact vertical attack box", m != null and m.hit_size.y <= 0.75)
+		_check(id + " has a bounded active window", m != null and m.active <= 10)
+	var mk := b.get_move("air_mk")
+	_check("air MK is the cross-up button", mk != null and mk.hit_offset.x < 0.35 and mk.hit_size.x >= 0.85)
+
 func _test_air_clips_distinct() -> void:
 	print("[air clip variety]")
 	var k := CharacterLibrary.create("blaze")
@@ -749,8 +778,8 @@ func _hit_with(button: int) -> int:
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	f1.position.x = -0.6
-	f2.position.x = 0.6
+	f1.position.x = -0.38
+	f2.position.x = 0.38
 	_step(ctx, _mk(0, 0, button), _neutral(), 1)
 	_step(ctx, _neutral(), _neutral(), 10)
 	var s: int = f2.hit_strength
@@ -928,8 +957,8 @@ func _peak_hitstop(button: int) -> Dictionary:
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	f1.position.x = -0.6
-	f2.position.x = 0.6
+	f1.position.x = -0.38
+	f2.position.x = 0.38
 	var vic := [0]
 	var atk := [0]
 	f2.got_hit.connect(func(_b): vic[0] = f2.hitstop)
@@ -945,6 +974,8 @@ func _test_hitstop_tiers() -> void:
 	var heavy := _peak_hitstop(GameConst.Btn.HP)
 	_check("heavy hit freezes longer than light", int(heavy["vic"]) > int(light["vic"]))
 	_check("attacker + victim freeze match (symmetric hitstop)", int(heavy["vic"]) == int(heavy["atk"]))
+	_check("light hits have stronger SF6-like impact freeze", int(light["vic"]) >= 9)
+	_check("heavy hits have a heavier impact freeze", int(heavy["vic"]) >= 15)
 
 func _test_impact_fx_smoke() -> void:
 	print("[impact fx smoke]")
@@ -979,65 +1010,43 @@ func _test_slowmo_director() -> void:
 # --- blaze-sf6-combat-feel: combos, drive gauge, drive rush, rising uppercut ---
 
 func _test_combo() -> void:
-	print("[combo]")
+	print("[combo routes removed]")
+	var kit := CharacterLibrary.create("blaze")
+	var all_empty := true
+	for m in kit.normals:
+		all_empty = all_empty and m.cancel_into.is_empty()
+	_check("Blaze normals have no authored combo routes", all_empty)
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
 	f1.position.x = -0.6
 	f2.position.x = 0.6
-	var hp0: int = f2.health
-	var moves := {}
-	var hit_count := 0
-	var prev_h := f2.health
-	# Feed LP, then mash MP, then mash HP at tuned close range. This regression guards that
-	# the route still chains cleanly after Blaze's standing hitboxes are tightened.
-	var script: Array = []
-	script.append(_mk(0, 0, GameConst.Btn.LP))
-	for i in range(5): script.append(_mk(0, 0))
-	for i in range(8): script.append(_mk(0, 0, GameConst.Btn.MP))
-	for i in range(12): script.append(_mk(0, 0, GameConst.Btn.HP))
-	for i in range(16): script.append(_mk(0, 0))
-	for fr in script:
-		ctx["c1"].frame = fr
-		ctx["c2"].frame = _neutral()
-		ctx["arena"].step(DELTA)
-		if f1.state == Fighter.State.ATTACK and f1.current_move != null:
-			moves[f1.current_move.id] = true
-		if f2.health < prev_h:
-			hit_count += 1
-			prev_h = f2.health
-	_check("combo chained st_lp", moves.has("st_lp"))
-	_check("combo chained st_hp", moves.has("st_hp"))
-	_check("combo dealt cumulative damage", f2.health < hp0)
-	ctx["arena"].queue_free()
-	# Buffer survives the impact hitstop: press MP only during the hit's freeze.
-	var ctx2 := _build()
-	var a: Fighter = ctx2["f1"]
-	var b: Fighter = ctx2["f2"]
-	a.position.x = -0.6
-	b.position.x = 0.6
-	ctx2["c1"].frame = _mk(0, 0, GameConst.Btn.LP)
-	ctx2["c2"].frame = _neutral()
-	ctx2["arena"].step(DELTA)
+	var a: Fighter = f1
+	var b: Fighter = f2
+	var jab := a.character.get_move("st_lp")
+	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.LP)
+	ctx["c2"].frame = _neutral()
+	ctx["arena"].step(DELTA)
 	var bh := b.health
 	for i in range(8):
 		if b.health < bh: break
-		ctx2["c1"].frame = _neutral()
-		ctx2["c2"].frame = _neutral()
-		ctx2["arena"].step(DELTA)
-	# The hit just landed -> attacker is in hitstop; press MP for two frozen ticks then release.
+		ctx["c1"].frame = _neutral()
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+	# Press MP during LP hitstop. It must not chain-cancel before LP's own recovery ends.
+	var saw_mp_before_recovery := false
 	for i in range(2):
-		ctx2["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
-		ctx2["c2"].frame = _neutral()
-		ctx2["arena"].step(DELTA)
-	var saw_mp := false
-	for i in range(14):
-		ctx2["c1"].frame = _neutral()
-		ctx2["c2"].frame = _neutral()
-		ctx2["arena"].step(DELTA)
-		if a.current_move != null and a.current_move.id == "st_mp":
-			saw_mp = true
-	ctx2["arena"].queue_free()
+		ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+	for i in range(jab.total_frames()):
+		ctx["c1"].frame = _neutral()
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		if a.current_move != null and a.current_move.id == "st_mp" and a.state_frame < jab.total_frames():
+			saw_mp_before_recovery = true
+	_check("LP cannot chain-cancel into MP", not saw_mp_before_recovery)
+	ctx["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
 	print("[drive gauge]")
@@ -1066,7 +1075,16 @@ func _drive_rush_dbltap(ctx: Dictionary) -> void:
 
 func _test_drive_rush() -> void:
 	print("[drive rush]")
-	# Forward double-tap is always a normal dash, not a raw Drive Rush.
+	# Any two punch buttons from neutral start a raw green rush.
+	for pair in [GameConst.Btn.LP | GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.HP, GameConst.Btn.MP | GameConst.Btn.HP]:
+		var raw := _build()
+		var r: Fighter = raw["f1"]
+		var d_before: int = r.drive
+		_step(raw, _mk(0, 0, pair), _neutral(), 1)
+		_check("two-punch neutral input starts green rush", r.state == Fighter.State.DRIVE_RUSH)
+		_check("raw green rush spends Drive", r.drive < d_before)
+		raw["arena"].queue_free()
+	# Forward double-tap is still a normal dash, not a raw Drive Rush.
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var d0: int = f1.drive
@@ -1147,6 +1165,35 @@ func _test_drive_rush() -> void:
 	_check("DRC accepts two punches buffered during hitstop", buffered_drc_started_in_hitstop and hitstop_buffered_drc)
 	_check("hitstop-buffered DRC spent ~3 bars", ha.drive <= hda - Fighter.DRC_COST + 60)
 	ctxh["arena"].queue_free()
+	# Heavy punish-counter hitstop exceeds the DRC input buffer window; a two-punch input at
+	# the start of freeze must still survive until the attacker advances again.
+	var ctxp := _build()
+	var pa: Fighter = ctxp["f1"]
+	var pb: Fighter = ctxp["f2"]
+	pa.position.x = -0.38
+	pb.position.x = 0.38
+	# Put the victim in HP recovery so P1's heavy hit becomes a Punish Counter with long freeze.
+	pb.current_move = pb.character.get_move("st_hp")
+	pb._goto(Fighter.State.ATTACK)
+	pb.state_frame = pb.current_move.startup + pb.current_move.active + 1
+	var pdrive: int = pa.drive
+	_step(ctxp, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	var php: int = pb.health
+	for i in range(14):
+		if pb.health < php:
+			break
+		_step(ctxp, _neutral(), _neutral(), 1)
+	var long_hitstop_started := pa.hitstop > Fighter.DRC_INPUT_BUFFER
+	_step(ctxp, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var long_hitstop_drc := false
+	for i in range(40):
+		_step(ctxp, _neutral(), _neutral(), 1)
+		if pa.state == Fighter.State.DRIVE_RUSH:
+			long_hitstop_drc = true
+			break
+	_check("DRC input survives long punish hitstop", long_hitstop_started and long_hitstop_drc)
+	_check("long-hitstop DRC spent ~3 bars", pa.drive <= pdrive - Fighter.DRC_COST + 60)
+	ctxp["arena"].queue_free()
 	# DRC also works off a blocked normal (pressure). Corner the defender so holding back
 	# blocks in place instead of walking out of range (Blaze's MP reach is short).
 	var ctxb := _build()
@@ -1180,31 +1227,12 @@ func _test_drive_rush() -> void:
 	ctxb["arena"].queue_free()
 
 func _test_uppercut_rise() -> void:
-	print("[uppercut rise]")
-	var ctx := _build()
-	var f1: Fighter = ctx["f1"]
-	var f2: Fighter = ctx["f2"]
-	f1.position.x = -0.7
-	f2.position.x = 0.5
-	var bh: int = f2.health
-	var max_y := 0.0
-	var connected := false
-	# Shoryuken motion: forward, down, down-forward + HP (no meter, so the special, not super).
-	for fr in [_mk(1, 0), _mk(0, -1), _mk(1, -1), _mk(1, -1, GameConst.Btn.HP)]:
-		ctx["c1"].frame = fr
-		ctx["c2"].frame = _neutral()
-		ctx["arena"].step(DELTA)
-	for i in range(80):
-		ctx["c1"].frame = _neutral()
-		ctx["c2"].frame = _neutral()
-		ctx["arena"].step(DELTA)
-		max_y = maxf(max_y, f1.position.y)
-		if f2.health < bh:
-			connected = true
-	_check("attacker leapt off the ground during the uppercut", max_y > 0.4)
-	_check("attacker returned to the ground after the uppercut", absf(f1.position.y) < 0.05)
-	_check("rising uppercut connected on a grounded opponent", connected)
-	ctx["arena"].queue_free()
+	print("[rising specials removed]")
+	var b := CharacterLibrary.create("blaze")
+	var any_rising_special := false
+	for m in b.specials:
+		any_rising_special = any_rising_special or m.rises
+	_check("Blaze has no shoryuken/rising special", not any_rising_special and b.get_move("uppercut") == null)
 
 func _test_rise_interruption_lands() -> void:
 	print("[rise interruption]")
@@ -1306,65 +1334,22 @@ func _test_input_buffer() -> void:
 	ctx["arena"].queue_free()
 
 func _test_overdrive() -> void:
-	print("[overdrive]")
+	print("[overdrive removed]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
-	var f2: Fighter = ctx["f2"]
 	var arena: Arena = ctx["arena"]
 	var od := f1.character.get_move("od_fireball")
-	_check("OD fireball exists with a Drive cost", od != null and od.drive_cost == 2000)
-	_check("OD fireball is a two-punch trigger", od != null and od.multi_button != 0)
+	_check("OD fireball removed", od == null)
 	var od_dp := f1.character.get_move("od_uppercut")
-	_check("OD uppercut exists", od_dp != null and od_dp.drive_cost == 2000)
+	_check("OD uppercut removed", od_dp == null)
 	var d0: int = f1.drive
-	var hp0: int = f2.health
-	# QCF + two punches (LP+MP) -> Overdrive fireball, not the LP fireball.
+	# QCF + two punches now means the universal green rush input, not an OD special.
 	_step(ctx, _mk(0, -1), _neutral(), 3)
 	_step(ctx, _mk(1, -1), _neutral(), 3)
 	_step(ctx, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("OD fireball spent ~2 Drive bars", f1.drive <= d0 - 1900)
-	_step(ctx, _neutral(), _neutral(), 14)
-	_check("OD fireball spawned a projectile", arena.projectiles.size() >= 1)
-	_step(ctx, _neutral(), _neutral(), 90)
-	_check("OD fireball dealt damage", f2.health < hp0)
-	# With fewer than 2 bars the Overdrive is unaffordable; the regular (free) LP fireball
-	# comes out instead, so no 2-bar spend happens.
-	f1.drive = 1000
-	var proj0: int = arena.projectiles.size()
-	_step(ctx, _mk(0, -1), _neutral(), 3)
-	_step(ctx, _mk(1, -1), _neutral(), 3)
-	_step(ctx, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("OD unaffordable: no 2-bar Drive spend", f1.drive >= 900)
-	_step(ctx, _neutral(), _neutral(), 14)
-	_check("regular fireball still comes out without Drive", arena.projectiles.size() > proj0)
+	_check("two-punch motion starts green rush, not OD", f1.state == Fighter.State.DRIVE_RUSH and f1.drive < d0)
+	_check("two-punch motion spawns no OD projectile", arena.projectiles.is_empty())
 	ctx["arena"].queue_free()
-
-	var ctxc := _build()
-	var ca: Fighter = ctxc["f1"]
-	var cb: Fighter = ctxc["f2"]
-	ca.position.x = -0.7
-	cb.position.x = 0.6
-	var cd0: int = ca.drive
-	ctxc["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
-	ctxc["c2"].frame = _neutral()
-	ctxc["arena"].step(DELTA)
-	var chp: int = cb.health
-	for i in range(8):
-		if cb.health < chp:
-			break
-		ctxc["c1"].frame = _neutral()
-		ctxc["c2"].frame = _neutral()
-		ctxc["arena"].step(DELTA)
-	while ca.hitstop > 0:
-		ctxc["c1"].frame = _neutral()
-		ctxc["c2"].frame = _neutral()
-		ctxc["arena"].step(DELTA)
-	_step(ctxc, _mk(0, -1), _neutral(), 2)
-	_step(ctxc, _mk(1, -1), _neutral(), 2)
-	_step(ctxc, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("OD cancel takes priority over two-punch DRC", ca.current_move != null and ca.current_move.id == "od_fireball")
-	_check("OD cancel spent 2 bars, not DRC cost", ca.drive > cd0 - Fighter.DRC_COST)
-	ctxc["arena"].queue_free()
 
 func _test_combo_scaling() -> void:
 	print("[combo scaling]")
@@ -1376,15 +1361,20 @@ func _test_combo_scaling() -> void:
 	_check("hit 3 unscaled", f2._scaled_damage(100, 3) == 100)
 	_check("hit 5 scaled to 80%", f2._scaled_damage(100, 5) == 80)
 	_check("deep combo floored at 60%", f2._scaled_damage(100, 20) == 60)
-	# Combo counter tracks consecutive hits and resets after recovery. Start point-blank so
-	# Blaze's tightened light/medium normals actually chain into a true combo.
-	f1.position.x = -0.35
-	f2.position.x = 0.35
+	# Combo counter still tracks true multi-hit attacks, even though authored normal routes
+	# have been removed.
+	f1.meter = f1.character.max_meter
+	f1.position.x = 5.2
+	f2.position.x = 6.2
 	var max_combo := 0
-	var script: Array = [_mk(0, 0, GameConst.Btn.LP)]
-	for i in range(4): script.append(_mk(0, 0))
-	for i in range(8): script.append(_mk(0, 0, GameConst.Btn.MP))
-	for i in range(12): script.append(_mk(0, 0, GameConst.Btn.HP))
+	var script: Array = []
+	for i in range(2): script.append(_mk(0, -1))
+	for i in range(2): script.append(_mk(1, -1))
+	for i in range(2): script.append(_mk(1, 0))
+	for i in range(2): script.append(_mk(0, -1))
+	for i in range(2): script.append(_mk(1, -1))
+	script.append(_mk(1, 0, GameConst.Btn.HP))
+	for i in range(90): script.append(_neutral())
 	for fr in script:
 		ctx["c1"].frame = fr
 		ctx["c2"].frame = _neutral()

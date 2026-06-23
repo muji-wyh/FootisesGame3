@@ -3,8 +3,8 @@ extends InputController
 
 ## AI opponent. Implemented as an InputController so the simulation treats it exactly
 ## like a human: it emits one InputFrame per tick. Decisions are range-based (approach,
-## poke, special, reactive block) and a small action queue lets it perform multi-frame
-## motion inputs (fireballs, etc.) just like a player rolling the stick.
+## poke, optional motion moves, reactive block) and a small action queue lets it perform
+## multi-frame motions just like a player rolling the stick.
 
 var difficulty: int = 1
 var _queue: Array[InputFrame] = []
@@ -47,7 +47,7 @@ func poll(self_fighter: Object, opponent: Object) -> InputFrame:
 func _decide(me: Fighter, opp: Fighter, dist: float, facing: int) -> void:
 	var roll := randf()
 	if dist < 1.35:
-		# In range: poke, occasionally special / super.
+		# In range: poke, occasionally optional motion move / super.
 		if me.meter >= me.character.max_meter and roll < 0.35 and not me.character.supers.is_empty():
 			_motion(MotionParser.QCF_QCF, me.character.supers[0].button, facing)
 		elif roll < _special_chance() and not me.character.specials.is_empty():
@@ -56,7 +56,7 @@ func _decide(me: Fighter, opp: Fighter, dist: float, facing: int) -> void:
 		else:
 			_poke(roll)
 	elif dist < 3.2:
-		# Mid range: close in, sometimes hop or zone with a projectile.
+		# Mid range: close in, sometimes hop or use an optional projectile.
 		if roll < 0.3 and _has_projectile(me):
 			_motion(MotionParser.QCF, _projectile_button(me), facing)
 		elif roll < 0.45:

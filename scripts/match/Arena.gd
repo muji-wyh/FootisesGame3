@@ -106,6 +106,8 @@ func _resolve_pushboxes() -> void:
 		return
 	var a := fighters[0]
 	var b := fighters[1]
+	if not _should_resolve_pushbox(a, b):
+		return
 	var min_dist := Fighter.PUSHBOX_HALF * 2.0
 	var dx := b.position.x - a.position.x
 	if absf(dx) < min_dist:
@@ -121,6 +123,9 @@ func _resolve_bounds() -> void:
 	# Corner correction: if clamping forced an overlap, shove the non-cornered fighter.
 	var a := fighters[0]
 	var b := fighters[1]
+	if not _should_resolve_pushbox(a, b):
+		_resolve_visible_spacing()
+		return
 	var min_dist := Fighter.PUSHBOX_HALF * 2.0
 	var dx := b.position.x - a.position.x
 	if absf(dx) < min_dist:
@@ -136,6 +141,9 @@ func _resolve_bounds() -> void:
 		a.position.x = clampf(a.position.x, -lim, lim)
 		b.position.x = clampf(b.position.x, -lim, lim)
 	_resolve_visible_spacing()
+
+func _should_resolve_pushbox(a: Fighter, b: Fighter) -> bool:
+	return a.on_ground and b.on_ground
 
 func _resolve_visible_spacing() -> void:
 	if fighters.size() < 2:

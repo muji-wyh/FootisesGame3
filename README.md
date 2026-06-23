@@ -44,12 +44,14 @@ A six-bar **Drive gauge** (separate from the Super meter) powers the modern mech
 | Mechanic | Input | Cost |
 |---|---|---|
 | **Dash** | double-tap forward / back | - |
+| **Green Rush** (绿冲) | any two punch buttons from neutral | 1 bar |
 | **Drive Rush Cancel** (DRC / 绿冲) | any two punch buttons during a *connected* normal | 3 bars |
-| **Overdrive (EX) special** | special motion + **two punches** or **two kicks** | 2 bars |
 
 A Drive Rush trails a cyan **afterimage** streak and lets the first normal out of it slide
 in and link (a built-in advantage). DRC two-punch inputs entered during hitstop are
-buffered into the first actionable frame. Empty the gauge and you enter brief **Burnout** (the
+buffered into the first actionable frame. Blaze currently has no special moves or authored
+combo cancel routes, so neutral feel is focused on normals, jump-ins, Green Rush and DRC.
+Empty the gauge and you enter brief **Burnout** (the
 gauge flashes red and stops regenerating). Combos are tracked by an on-screen **hit
 counter** and use **damage scaling** so long routes taper instead of deleting the bar.
 There's also a small **input buffer**, so a slightly-early attack still comes out. The HUD
@@ -90,7 +92,7 @@ state. The CPU is "just another controller", so combat code never special-cases 
 
 ```
 scripts/
-  core/        Constants, InputBuffer, MotionParser (special-move detection)
+  core/        Constants, InputBuffer, MotionParser (super/input motion detection)
   input/       InputFrame, InputController, PlayerController
   ai/          CpuController                      (range-based AI, emits inputs)
   combat/      MoveData, CharacterData, RigConfig, CharacterKit, HitResolver, Projectile

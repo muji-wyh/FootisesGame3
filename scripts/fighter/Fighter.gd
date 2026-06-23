@@ -42,6 +42,7 @@ const DRIVE_RUSH_SPEED := 11.5      # forward speed while in a Drive Rush
 const DRIVE_RUSH_ATTACK_SPEED := 6.5 # carried momentum for the first normal out of Drive Rush
 const DRIVE_RUSH_DURATION := 24     # ticks a Drive Rush advances before returning to neutral
 const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
+const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green rush (1 bar)
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
@@ -149,10 +150,11 @@ func advance(delta: float) -> void:
 		_cancel_age = 0
 	_tick += 1
 	_update_dash_taps(input_buffer.latest())
-	_update_drc_input_buffer(input_buffer.latest())
 	if hitstop > 0:
+		_update_drc_input_buffer(input_buffer.latest(), false)
 		hitstop -= 1
 		return
+	_update_drc_input_buffer(input_buffer.latest(), true)
 	if not pressed_now:
 		_cancel_age += 1
 	_regen_drive()
@@ -201,12 +203,14 @@ func _update_dash_taps(inp: InputFrame) -> void:
 	_prev_fwd = fwd
 	_prev_back = back
 
-func _update_drc_input_buffer(inp: InputFrame) -> void:
+func _update_drc_input_buffer(inp: InputFrame, age_buffer: bool) -> void:
 	if _is_drc_input(inp) and state == State.ATTACK and move_hits_done > 0:
 		_drc_input_buffer = 1
 		_drc_input_buffer_age = 0
 		return
 	if _drc_input_buffer == 0:
+		return
+	if not age_buffer:
 		return
 	_drc_input_buffer_age += 1
 	if _drc_input_buffer_age > DRC_INPUT_BUFFER:
@@ -239,8 +243,11 @@ func update_visual() -> void:
 # --- neutral / movement ----------------------------------------------------
 
 func _step_neutral(inp: InputFrame) -> void:
+	if _is_drc_input(inp) and spend_drive(RAW_DRIVE_RUSH_COST):
+		_start_drive_rush()
+		return
 	# A pressed move (special/super/normal) takes priority over a dash on the same tick,
-	# so motion inputs whose path crosses forward (e.g. shoryuken, double-QCF super) are not
+	# so motion inputs whose path crosses forward (e.g. double-QCF super) are not
 	# eaten by an accidental double-tap. A press buffered a few frames early (INPUT_BUFFER)
 	# still fires on this first actionable frame, for SF6-style responsiveness.
 	var move := _select_move(inp)
@@ -451,20 +458,22 @@ func _step_attack(_inp: InputFrame) -> void:
 	# Spawn a projectile on the first active frame.
 	if m.projectile and state_frame == m.startup:
 		pending_projectiles.append(m)
-	# Once connected (hit or block), the move can be cancelled: special/super/OD cancels,
-	# a two-punch Drive Rush Cancel, or a buffered follow-up normal listed in cancel_into.
-	if move_hits_done > 0 and not m.cancel_into.is_empty():
-		var special_cancel := _select_cancel(m, false)
-		if special_cancel:
-			_start_move(special_cancel)
-			return
+	# Once connected (hit or block), a normal can always DRC on a two-punch input. Authored
+	# cancel routes are optional and live in cancel_into; Blaze currently leaves them empty.
+	if move_hits_done > 0:
+		if not m.cancel_into.is_empty():
+			var special_cancel := _select_cancel(m, false)
+			if special_cancel:
+				_start_move(special_cancel)
+				return
 		if m.kind == GameConst.MoveKind.NORMAL and _consume_drc_input() and spend_drive(DRC_COST):
 			_start_drive_rush()
 			return
-		var nxt := _select_cancel(m)
-		if nxt:
-			_start_move(nxt)
-			return
+		if not m.cancel_into.is_empty():
+			var nxt := _select_cancel(m)
+			if nxt:
+				_start_move(nxt)
+				return
 	if state_frame >= m.total_frames():
 		current_move = null
 		_goto(State.IDLE if on_ground else State.JUMP)
@@ -523,7 +532,12 @@ func receive_attack(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -
 ## Extra impact freeze (frames) for heavier and counter hits, layered on a move's base
 ## hitstop so big / counter blows land harder. Read from this victim's just-set context.
 func _hitstop_bonus() -> int:
-	var b := hit_strength * 2
+	var b := 0
+	match hit_strength:
+		1:
+			b = 1
+		2:
+			b = 3
 	match last_counter:
 		GameConst.Counter.COUNTER:
 			b += 3
@@ -763,11 +777,18 @@ func active_hitbox() -> AABB:
 	if not current_move.is_active(state_frame):
 		return AABB()
 	var off := current_move.hit_offset
-	var center := position + Vector3(off.x * facing, off.y, off.z)
+	var center := position + Vector3(off.x * active_attack_facing(), off.y, off.z)
 	return AABB(center - current_move.hit_size * 0.5, current_move.hit_size)
 
 func has_active_hitbox() -> bool:
 	return active_hitbox().size != Vector3.ZERO
+
+func active_attack_facing(target: Fighter = null) -> int:
+	if current_move != null and current_move.stance == GameConst.Stance.AIR:
+		var t := target if target != null else opponent
+		if t != null and is_instance_valid(t) and absf(t.position.x - position.x) > 0.001:
+			return 1 if t.position.x >= position.x else -1
+	return facing
 
 # --- helpers ---------------------------------------------------------------
 

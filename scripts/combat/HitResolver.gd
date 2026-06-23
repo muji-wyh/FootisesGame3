@@ -18,7 +18,7 @@ static func resolve(fighters: Array, projectiles: Array) -> void:
 			continue
 		if _overlaps(atk.active_hitbox(), vic.hurtboxes()):
 			pending.append({"atk": atk, "vic": vic, "move": atk.current_move,
-				"facing": atk.facing, "proj": null})
+				"facing": atk.active_attack_facing(vic), "proj": null})
 
 	# Projectiles.
 	for p in projectiles:

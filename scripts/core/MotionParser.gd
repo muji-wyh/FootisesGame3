@@ -6,7 +6,7 @@ extends RefCounted
 ## frame-perfect inputs - exactly how real fighting games feel.
 
 ## Common motions, expressed as numpad sequences (forward = toward opponent).
-const QCF: Array[int] = [2, 3, 6]        # quarter-circle forward  (fireball)
+const QCF: Array[int] = [2, 3, 6]        # quarter-circle forward
 const QCB: Array[int] = [2, 1, 4]        # quarter-circle back
 const DP: Array[int] = [6, 2, 3]         # dragon punch / shoryuken
 const QCF_QCF: Array[int] = [2, 3, 6, 2, 3, 6]  # double QCF (super)
