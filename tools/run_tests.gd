@@ -629,6 +629,8 @@ func _test_animated_rig() -> void:
 	_check("grafted idle clip", arig._player != null and arig._player.has_animation("kb/KB_Idle_1"))
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
 	_check("grafted stand MP clip", arig._player != null and arig._player.has_animation("kb/KB_m_Uppercut_R"))
+	_check("grafted Drive Rush startup clip", arig._player != null and arig._player.has_animation("kb/KB_SkipFwd_1"))
+	_check("grafted Drive Rush run clip", arig._player != null and arig._player.has_animation("kb/KB_SkipFwd_2"))
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
 	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
 	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_p_MidKickFront_L", "KB_p_HighKick_R_1"]:
@@ -639,6 +641,11 @@ func _test_animated_rig() -> void:
 	_check("idle clip loops", arig._player.get_animation("kb/KB_Idle_1").loop_mode == Animation.LOOP_LINEAR)
 	var f := Fighter.new()
 	f.setup(blaze, Manual.new(), GameConst.Side.P1, 0.0)
+	f.state = Fighter.State.DRIVE_RUSH
+	f.state_frame = 0
+	_check("Drive Rush startup uses startup clip", arig._state_clip(f) == "KB_SkipFwd_1")
+	f.state_frame = Fighter.DRIVE_RUSH_STARTUP_ANIM_TICKS + 1
+	_check("Drive Rush run uses run clip after startup", arig._state_clip(f) == "KB_SkipFwd_2")
 	f.current_move = blaze.get_move("st_lp")
 	f.state = Fighter.State.ATTACK
 	f.state_frame = 4
@@ -1119,8 +1126,8 @@ func _test_drive_rush() -> void:
 	var sd: int = sr.drive
 	_step(stagger, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
 	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("slightly staggered two-punch input starts green rush", sr.state == Fighter.State.DRIVE_RUSH)
-	_check("staggered green rush spends Drive", sr.drive < sd)
+	_check("green rush cannot start during normal startup", sr.state == Fighter.State.ATTACK)
+	_check("startup green rush input spends no Drive", sr.drive == sd)
 	stagger["arena"].queue_free()
 	var accel := _build()
 	var gr: Fighter = accel["f1"]

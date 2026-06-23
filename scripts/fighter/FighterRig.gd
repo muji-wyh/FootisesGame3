@@ -67,6 +67,8 @@ func pose(f: Fighter) -> void:
 		Fighter.State.JUMP:
 			_leg_l.rotation.z = 0.6
 			_leg_r.rotation.z = -0.6
+		Fighter.State.DRIVE_RUSH:
+			_pose_drive_rush(f)
 		Fighter.State.ATTACK:
 			_pose_attack(f)
 		Fighter.State.BLOCKSTUN:
@@ -108,6 +110,22 @@ func _pose_attack(f: Fighter) -> void:
 			_arm_r.rotation.z = swing
 	# Lean into the strike.
 	_facing_pivot.rotation.x = -0.12 * e
+
+func _pose_drive_rush(f: Fighter) -> void:
+	if f.state_frame <= Fighter.DRIVE_RUSH_STARTUP_ANIM_TICKS:
+		var p := clampf(float(f.state_frame) / float(Fighter.DRIVE_RUSH_STARTUP_ANIM_TICKS), 0.0, 1.0)
+		_facing_pivot.rotation.x = lerpf(0.22, -0.18, p)
+		_arm_l.rotation.z = lerpf(0.7, -0.35, p)
+		_arm_r.rotation.z = lerpf(-0.7, 0.35, p)
+		_leg_l.rotation.z = -0.25
+		_leg_r.rotation.z = 0.25
+		return
+	var s := sin(float(f.state_frame) * 0.55)
+	_facing_pivot.rotation.x = -0.16
+	_leg_r.rotation.z = s * 0.65
+	_leg_l.rotation.z = -s * 0.65
+	_arm_r.rotation.z = -0.25 - s * 0.4
+	_arm_l.rotation.z = 0.25 + s * 0.4
 
 func _attack_envelope(m: MoveData, sf: int) -> float:
 	if sf < m.startup:

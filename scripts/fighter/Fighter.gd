@@ -42,6 +42,7 @@ const GREEN_RUSH_CHORD_BUFFER := 5  # ticks to complete a slightly staggered two
 const DRIVE_RUSH_SPEED := 11.5      # forward speed while in a Drive Rush
 const DRIVE_RUSH_START_SPEED := 0.55 # initial crawl before the rush fully engages
 const DRIVE_RUSH_STARTUP_TICKS := 3 # startup frames before normals can be cancelled from rush
+const DRIVE_RUSH_STARTUP_ANIM_TICKS := 8 # visual startup/wind-up before the run clip takes over
 const DRIVE_RUSH_ACCEL_TICKS := 18  # acceleration frames from startup speed to full speed
 const DRIVE_RUSH_ATTACK_SPEED := 6.5 # carried momentum for the first normal out of Drive Rush
 const DRIVE_RUSH_DURATION := 36     # ticks a Drive Rush advances before returning to neutral
@@ -467,10 +468,6 @@ func _step_attack(_inp: InputFrame) -> void:
 	var m := current_move
 	if m == null:
 		_goto(State.IDLE)
-		return
-	if m.kind == GameConst.MoveKind.NORMAL and move_hits_done == 0 and state_frame <= GREEN_RUSH_CHORD_BUFFER \
-			and _is_green_rush_chord(_inp) and spend_drive(RAW_DRIVE_RUSH_COST):
-		_start_drive_rush()
 		return
 	if move_hit_cooldown > 0:
 		move_hit_cooldown -= 1

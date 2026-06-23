@@ -21,6 +21,7 @@ extends Resource
 @export var state_clips: Dictionary = {}
 @export var looped_clips: Array[String] = []
 @export var default_move_clip: String = ""
+@export var drive_rush_startup_clips: Array[String] = []   # first few DRIVE_RUSH frames
 @export var drive_rush_clips: Array[String] = []   # fallback chain for the DRIVE_RUSH state
 
 ## Materials: a mesh-surface-name substring -> texture base name, loaded from tex_dir/<name>.png.

@@ -122,7 +122,7 @@ func _state_clip(f: Fighter) -> String:
 		Fighter.State.DASH_B:
 			return _state("dash_b")
 		Fighter.State.DRIVE_RUSH:
-			return _first_existing(_cfg.drive_rush_clips, _state("dash_f"))
+			return _drive_rush_clip(f)
 		Fighter.State.BLOCKSTUN:
 			return _state("block")
 		Fighter.State.HITSTUN:
@@ -136,6 +136,11 @@ func _state_clip(f: Fighter) -> String:
 		Fighter.State.WIN:
 			return _state("win")
 	return _state("idle")
+
+func _drive_rush_clip(f: Fighter) -> String:
+	if f.state_frame <= Fighter.DRIVE_RUSH_STARTUP_ANIM_TICKS:
+		return _first_existing(_cfg.drive_rush_startup_clips, _first_existing(_cfg.drive_rush_clips, _state("dash_f")))
+	return _first_existing(_cfg.drive_rush_clips, _state("dash_f"))
 
 ## --- directional hit-reaction resolution ----------------------------------
 

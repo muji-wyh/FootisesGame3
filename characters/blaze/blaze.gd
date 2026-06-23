@@ -111,6 +111,7 @@ static func _rig() -> RigConfig:
 	}
 	r.looped_clips = ["KB_Idle_1", "KB_Idle_3", "KB_WalkFwd1", "KB_WalkBwd", "KB_crouch_Idle"]
 	r.default_move_clip = "KB_p_Jab_R_1"
+	r.drive_rush_startup_clips = ["KB_SkipFwd_1", "KB_Dodge_R", "KB_WalkFwd1"]
 	r.drive_rush_clips = ["KB_SkipFwd_2", "KB_SkipFwd_1", "KB_WalkFwd1"]
 	r.surface_textures = {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
 	r.tex_dir = ASSETS + "tex/"
