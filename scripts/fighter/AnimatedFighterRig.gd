@@ -60,6 +60,7 @@ func _state(key: String) -> String:
 func pose(f: Fighter) -> void:
 	if not ok:
 		return
+	_player.speed_scale = 0.0 if f.hitstop > 0 else 1.0
 	# Ground using the real (animated) idle pose - but only once the rig is in the tree and
 	# the AnimationPlayer has actually posed the skeleton (not during the early build call).
 	if not _grounded and is_inside_tree() and f.state == Fighter.State.IDLE:

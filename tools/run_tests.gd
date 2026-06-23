@@ -640,6 +640,12 @@ func _test_animated_rig() -> void:
 	arig.pose(f)
 	arig._player.advance(0.18)
 	var before_restart: float = arig._player.current_animation_position
+	f.hitstop = 6
+	arig.pose(f)
+	_check("animated rig freezes playback during hitstop", arig._player.speed_scale == 0.0)
+	f.hitstop = 0
+	arig.pose(f)
+	_check("animated rig resumes playback after hitstop", arig._player.speed_scale == 1.0)
 	f.state_frame = 0
 	arig.pose(f)
 	arig._player.advance(0.03)
