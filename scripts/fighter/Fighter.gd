@@ -91,6 +91,7 @@ var hit_crouch: bool = false       # victim was crouching when struck
 var hit_air: bool = false          # victim was airborne when struck
 var hit_from_back: bool = false    # victim was struck from behind (cross-up)
 var hit_reaction_clip: String = "" # per-move victim reaction override, if the move authored one
+var last_hit_point := Vector3.ZERO # world-space contact point used by impact FX
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
 var knockdown_kind: int = GameConst.Knockdown.NONE  # how the current knockdown was caused
 var input_buffer := InputBuffer.new()
@@ -990,6 +991,7 @@ func reset_for_round() -> void:
 	hit_air = false
 	hit_from_back = false
 	hit_reaction_clip = ""
+	last_hit_point = Vector3.ZERO
 	last_counter = GameConst.Counter.NONE
 	knockdown_kind = GameConst.Knockdown.NONE
 	drive = character.max_drive

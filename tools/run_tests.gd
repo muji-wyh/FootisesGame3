@@ -1214,8 +1214,11 @@ func _test_impact_fx_smoke() -> void:
 	victim.hit_height = GameConst.HitHeight.MID
 	scene.camera = FightCamera.new()
 	scene.add_child(scene.camera)
+	victim.last_hit_point = Vector3(1.2, 1.35, 0.0)
 	scene._on_struck(victim, false)
 	_check("hit visual updates before spark spawn", rig.pose_count == 1 and scene.get_child_count() >= 2)
+	var impact_spark := scene.get_child(scene.get_child_count() - 1) as HitSpark
+	_check("hit spark spawns at the recorded contact point", impact_spark != null and impact_spark.position.distance_to(victim.last_hit_point) < 0.001)
 	scene.free()
 
 func _test_slowmo_director() -> void:

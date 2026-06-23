@@ -16,9 +16,10 @@ static func resolve(fighters: Array, projectiles: Array) -> void:
 		var vic = atk.opponent
 		if vic == null or not is_instance_valid(vic):
 			continue
-		if _overlaps(atk.active_hitbox(), vic.hurtboxes()):
+		var contact: Variant = _contact_point(atk.active_hitbox(), vic.hurtboxes())
+		if contact != null:
 			pending.append({"atk": atk, "vic": vic, "move": atk.current_move,
-				"facing": atk.active_attack_facing(vic), "proj": null})
+				"facing": atk.active_attack_facing(vic), "proj": null, "point": contact})
 
 	# Projectiles.
 	for p in projectiles:
@@ -27,9 +28,10 @@ static func resolve(fighters: Array, projectiles: Array) -> void:
 		var vic = _fighter_for_side(fighters, 1 - p.owner_side)
 		if vic == null:
 			continue
-		if _overlaps(p.aabb(), vic.hurtboxes()):
+		var p_contact: Variant = _contact_point(p.aabb(), vic.hurtboxes())
+		if p_contact != null:
 			pending.append({"atk": _fighter_for_side(fighters, p.owner_side), "vic": vic,
-				"move": p.move, "facing": p.facing, "proj": p})
+				"move": p.move, "facing": p.facing, "proj": p, "point": p_contact})
 
 	# Apply, one hit per victim this tick.
 	var hit_victims := {}
@@ -37,6 +39,7 @@ static func resolve(fighters: Array, projectiles: Array) -> void:
 		if hit_victims.has(h["vic"]):
 			continue
 		hit_victims[h["vic"]] = true
+		h["vic"].last_hit_point = h["point"]
 		var bonus: int = 0
 		if h["proj"] == null and h["atk"] != null and is_instance_valid(h["atk"]):
 			bonus = h["atk"].drive_rush_hit_bonus()
@@ -53,6 +56,23 @@ static func _overlaps(box: AABB, boxes: Array[AABB]) -> bool:
 		if box.intersects(b):
 			return true
 	return false
+
+static func _contact_point(box: AABB, boxes: Array[AABB]):
+	for b in boxes:
+		if not box.intersects(b):
+			continue
+		var min_v := Vector3(
+			maxf(box.position.x, b.position.x),
+			maxf(box.position.y, b.position.y),
+			maxf(box.position.z, b.position.z)
+		)
+		var max_v := Vector3(
+			minf(box.position.x + box.size.x, b.position.x + b.size.x),
+			minf(box.position.y + box.size.y, b.position.y + b.size.y),
+			minf(box.position.z + box.size.z, b.position.z + b.size.z)
+		)
+		return (min_v + max_v) * 0.5
+	return null
 
 static func _fighter_for_side(fighters: Array, side: int):
 	for f in fighters:

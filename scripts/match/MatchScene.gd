@@ -128,9 +128,6 @@ func _on_struck(victim: Fighter, blocked: bool) -> void:
 	victim.update_visual()
 	if atk != null and is_instance_valid(atk):
 		atk.update_visual()
-	var cx: float = victim.position.x
-	if atk != null and is_instance_valid(atk):
-		cx = (victim.position.x + atk.position.x) * 0.5
 	var p := _spark_params(victim, blocked)
 	var col: Color = p["color"]
 	var sc: float = p["scale"]
@@ -139,9 +136,17 @@ func _on_struck(victim: Fighter, blocked: bool) -> void:
 	var y: float = p["y"]
 	var spark := HitSpark.new()
 	add_child(spark)
-	spark.position = Vector3(cx, y, 0.0)
+	spark.position = _spark_position(victim, atk, y)
 	spark.setup(col, sc)
 	camera.shake(amp, fr)
+
+func _spark_position(victim: Fighter, atk: Fighter, fallback_y: float) -> Vector3:
+	if victim.last_hit_point != Vector3.ZERO:
+		return victim.last_hit_point
+	var cx: float = victim.position.x
+	if atk != null and is_instance_valid(atk):
+		cx = (victim.position.x + atk.position.x) * 0.5
+	return Vector3(cx, fallback_y, 0.0)
 
 func _spark_params(victim: Fighter, blocked: bool) -> Dictionary:
 	if blocked:
