@@ -20,6 +20,8 @@ var _slowmo := SlowMoDirector.new()
 var _dr_was := [false, false]   # per-fighter "was drive-rushing last frame" edge tracker
 var _dr_tint_level: float = 0.0
 
+const DRIVE_RUSH_TINT_TARGET := 0.07
+
 func _ready() -> void:
 	var stage := Stage.new()
 	stage.build()
@@ -188,7 +190,7 @@ func _update_drive_rush(delta: float) -> void:
 				audio.play("spin", -4.0)
 		_dr_was[i] = rushing
 		hud.set_burnout(i, f.is_burnout())
-	var target: float = 0.12 if any_rush else 0.0
+	var target: float = DRIVE_RUSH_TINT_TARGET if any_rush else 0.0
 	_dr_tint_level = lerpf(_dr_tint_level, target, 0.25)
 	hud.set_dr_tint(_dr_tint_level, Color(0.35, 1.0, 0.7))
 

@@ -177,6 +177,7 @@ func set_combo(side: int, hits: int, damage: int) -> void:
 	if hits >= 2:
 		lbl.text = "%d HITS\n%d DMG" % [hits, damage]
 		_combo_show[side] = 1.1
+		lbl.modulate.a = 1.0
 
 ## Toggle this side's Drive-gauge Burnout flash (empty gauge, recovering).
 func set_burnout(side: int, burnout: bool) -> void:

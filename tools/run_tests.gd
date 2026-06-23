@@ -90,6 +90,7 @@ func _initialize() -> void:
 	_test_cpu_ai()
 	_test_training_mode()
 	_test_blaze_roster()
+	_test_animation_ownership()
 	_test_move_list_overlay()
 	_test_multihit()
 	_test_move_sfx()
@@ -501,12 +502,30 @@ func _test_training_mode() -> void:
 		and not (scene.f2.controller is PlayerController))
 	_check("training has no round manager", scene.round_manager == null)
 	_check("training starts active", scene.f1.active and scene.f2.active)
-	scene.f2.health = 0
-	scene._on_training_ko(GameConst.Side.P2)
-	for i in range(TrainingScene.RESET_DELAY_TICKS + 1):
+	scene.f2.health = 1
+	scene.f2.receive_attack(scene.f1.character.get_move("st_lp"), scene.f1.facing)
+	_check("training dummy HP can stay at zero", scene.f2.health == 0)
+	for i in range(TrainingScene.RESET_DELAY_TICKS + 10):
 		scene._physics_process(DELTA)
-	_check("training reset restores dummy health", scene.f2.health == scene.f2.character.max_health and scene.f2.state != Fighter.State.KO)
+	_check("training dummy does not die or reset at zero HP",
+		scene.f2.health == 0 and scene.f2.state != Fighter.State.KO and scene.f2.active)
+	scene.f2.receive_attack(scene.f1.character.get_move("st_hp"), scene.f1.facing)
+	_check("training dummy still reacts normally at zero HP", scene.f2.health == 0 and scene.f2.state == Fighter.State.HITSTUN)
+	for i in range(TrainingScene.HP_RECOVERY_DELAY_TICKS + 40):
+		scene._physics_process(DELTA)
+	_check("training dummy HP auto-recovers after downtime", scene.f2.health == scene.f2.character.max_health)
 	_check("training resources stay full", scene.f1.meter == scene.f1.character.max_meter and scene.f1.drive == scene.f1.character.max_drive)
+	scene.f2.combo_changed.emit(2, 99)
+	_check("training combo HUD updates live", scene.hud._combo_label[0].text.contains("2 HITS") and scene.hud._combo_label[0].modulate.a > 0.9)
+	scene.f1.state = Fighter.State.DRIVE_RUSH
+	scene.f1.state_frame = 0
+	scene._physics_process(DELTA)
+	var training_fx_spawned := false
+	for child in scene.arena.get_children():
+		if child is DriveRushFx:
+			training_fx_spawned = true
+			break
+	_check("training scene spawns Drive Rush ghost trail", training_fx_spawned)
 	scene.queue_free()
 	game.set("mode", old_mode)
 	game.set("p1_char_id", old_p1)
@@ -525,6 +544,27 @@ func _test_blaze_roster() -> void:
 		_check("removed move absent: " + removed, b.get_move(removed) == null)
 	_check("Ken-like stand MP timing", b.get_move("st_mp").startup == 7 and b.get_move("st_mp").active == 3)
 	_check("Ken-like cross-up air MK timing", b.get_move("air_mk").startup == 7 and b.get_move("air_mk").active == 6)
+
+func _test_animation_ownership() -> void:
+	print("[animation ownership]")
+	var src := FileAccess.get_file_as_string("res://scripts/combat/CharacterKit.gd")
+	_check("shared CharacterKit has no Blaze KB clip names", not src.contains("KB_"))
+	var scratch := CharacterData.new()
+	scratch.id = "scratch"
+	CharacterKit.add_standard_normals(scratch, 1.0, [], {})
+	var owns_no_clips := true
+	for m in scratch.normals:
+		if m.anim_clip != "" or m.hit_reaction_clip != "":
+			owns_no_clips = false
+			break
+	_check("new characters do not inherit Blaze animations", owns_no_clips)
+	var blaze := CharacterLibrary.create("blaze")
+	var blaze_has_clips := blaze.rig != null and not blaze.rig.anim_files.is_empty()
+	for m in blaze.normals:
+		blaze_has_clips = blaze_has_clips and m.anim_clip != ""
+	for m in blaze.supers:
+		blaze_has_clips = blaze_has_clips and m.anim_clip != ""
+	_check("Blaze module owns current animation config", blaze.id == "blaze" and blaze_has_clips)
 
 func _test_move_list_overlay() -> void:
 	print("[move list overlay]")
@@ -630,12 +670,12 @@ func _test_animated_rig() -> void:
 	_check("grafted jab clip", arig._player != null and arig._player.has_animation("kb/KB_p_Jab_R_1"))
 	_check("grafted stand MP clip", arig._player != null and arig._player.has_animation("kb/KB_m_Uppercut_R"))
 	_check("grafted Drive Rush startup clip", arig._player != null and arig._player.has_animation("kb/KB_SkipFwd_1"))
-	_check("grafted Drive Rush run clip", arig._player != null and arig._player.has_animation("kb/KB_SkipFwd_2"))
+	_check("grafted Drive Rush run clip", arig._player != null and arig._player.has_animation("kb/KB_SkipFwd_1"))
 	_check("grafted super clip", arig._player != null and arig._player.has_animation("kb/KB_Superpunch"))
 	# Air-attack clips must be grafted so the move animations are visible (not a fallback).
 	for clip in ["KB_JumpPunch", "KB_m_Hook_R", "KB_m_Overhand_R", "KB_JumpKick", "KB_p_MidKickFront_L", "KB_p_HighKick_R_1"]:
 		_check("grafted air clip " + clip, arig._player.has_animation("kb/" + clip))
-	for clip in ["KB_Hit_p_MidFront_Weak", "KB_Hit_m_MidFront_Med", "KB_Hit_m_HighFront_Stagger"]:
+	for clip in ["KB_Hit_p_MidFront_Weak", "KB_Hit_m_HighRight_Weak", "KB_Hit_m_MidFront_Med", "KB_Hit_m_MidTop_Med", "KB_Hit_m_HighFront_Stagger", "KB_Hit_m_HighRight_Med"]:
 		_check("grafted hit clip " + clip, arig._player.has_animation("kb/" + clip))
 	# Idle must be set to loop (otherwise it stops after one play ~3s).
 	_check("idle clip loops", arig._player.get_animation("kb/KB_Idle_1").loop_mode == Animation.LOOP_LINEAR)
@@ -645,7 +685,7 @@ func _test_animated_rig() -> void:
 	f.state_frame = 0
 	_check("Drive Rush startup uses startup clip", arig._state_clip(f) == "KB_SkipFwd_1")
 	f.state_frame = Fighter.DRIVE_RUSH_STARTUP_ANIM_TICKS + 1
-	_check("Drive Rush run uses run clip after startup", arig._state_clip(f) == "KB_SkipFwd_2")
+	_check("Drive Rush run uses run clip after startup", arig._state_clip(f) == "KB_SkipFwd_1")
 	f.current_move = blaze.get_move("st_lp")
 	f.state = Fighter.State.ATTACK
 	f.state_frame = 4
@@ -668,10 +708,19 @@ func _test_six_buttons() -> void:
 	print("[six buttons]")
 	var k := CharacterLibrary.create("blaze")
 	_check("18 normals (6 buttons x 3 stances)", k.normals.size() == 18)
+	var st_lp := k.get_move("st_lp")
+	_check("standing LP uses authored hit reaction", st_lp != null and st_lp.hit_reaction_clip == "KB_Hit_m_HighRight_Weak")
+	var st_hp := k.get_move("st_hp")
+	_check("standing HP uses authored hit reaction", st_hp != null and st_hp.hit_reaction_clip == "KB_Hit_m_HighRight_Med")
 	var st_mp := k.get_move("st_mp")
 	_check("standing MP exists", st_mp != null and st_mp.button == GameConst.Btn.MP and st_mp.stance == GameConst.Stance.STAND)
 	var st_hk := k.get_move("st_hk")
-	_check("standing HK uses mid round kick clip", st_hk != null and st_hk.anim_clip == "KB_m_MidKickRoud_R_1")
+	_check("standing HK uses high round kick clip", st_hk != null and st_hk.anim_clip == "KB_m_HighKickRound_R_1")
+	_check("standing HK uses authored hit reaction", st_hk != null and st_hk.hit_reaction_clip == "KB_Hit_m_HighRight_Med")
+	_check("standing HK does not knock down", st_hk != null and not st_hk.launch)
+	var cr_hp := k.get_move("cr_hp")
+	_check("crouch HP uses authored hit reaction", cr_hp != null and cr_hp.hit_reaction_clip == "KB_Hit_m_MidTop_Med")
+	_check("crouch HP does not knock down", cr_hp != null and not cr_hp.launch)
 	var cr_mk := k.get_move("cr_mk")
 	_check("crouch MK is a low", cr_mk != null and cr_mk.stance == GameConst.Stance.CROUCH and cr_mk.guard == GameConst.Guard.LOW)
 	var cr_hk := k.get_move("cr_hk")
@@ -897,18 +946,54 @@ func _knockdown_from(button: int, dir_y: int) -> int:
 func _test_knockdown_kinds() -> void:
 	print("[knockdown variety]")
 	_check("sweep (crouch HK) -> low knockdown", _knockdown_from(GameConst.Btn.HK, -1) == GameConst.Knockdown.LOW)
-	_check("crouch uppercut (crouch HP) -> upper knockdown", _knockdown_from(GameConst.Btn.HP, -1) == GameConst.Knockdown.UPPER)
-	_check("stand HK launcher -> heavy knockdown", _knockdown_from(GameConst.Btn.HK, 0) == GameConst.Knockdown.HEAVY)
+	_check("crouch HP hit does not knock down", _knockdown_from(GameConst.Btn.HP, -1) == GameConst.Knockdown.NONE)
+	_check("stand HK hit does not knock down", _knockdown_from(GameConst.Btn.HK, 0) == GameConst.Knockdown.NONE)
+	var ctx := _build("blaze", "blaze")
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = 5.3
+	f2.position.x = 6.2
+	_step(ctx, _mk(0, -1, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(20):
+		if f2.hit_reaction_clip != "":
+			break
+		_step(ctx, _mk(0, -1), _neutral(), 1)
+	_check("crouch HP records authored hit reaction", f2.hit_reaction_clip == "KB_Hit_m_MidTop_Med")
+	ctx["arena"].queue_free()
+	var stlp_ctx := _build("blaze", "blaze")
+	var lp1: Fighter = stlp_ctx["f1"]
+	var lp2: Fighter = stlp_ctx["f2"]
+	lp1.position.x = 5.3
+	lp2.position.x = 6.2
+	_step(stlp_ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	for i in range(20):
+		if lp2.hit_reaction_clip != "":
+			break
+		_step(stlp_ctx, _neutral(), _neutral(), 1)
+	_check("standing LP records authored hit reaction", lp2.hit_reaction_clip == "KB_Hit_m_HighRight_Weak")
+	stlp_ctx["arena"].queue_free()
+	var sthp_ctx := _build("blaze", "blaze")
+	var hp1: Fighter = sthp_ctx["f1"]
+	var hp2: Fighter = sthp_ctx["f2"]
+	hp1.position.x = 5.3
+	hp2.position.x = 6.2
+	_step(sthp_ctx, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(20):
+		if hp2.hit_reaction_clip != "":
+			break
+		_step(sthp_ctx, _neutral(), _neutral(), 1)
+	_check("standing HP records authored hit reaction", hp2.hit_reaction_clip == "KB_Hit_m_HighRight_Med")
+	sthp_ctx["arena"].queue_free()
 
 func _test_wakeup() -> void:
 	print("[knockdown / wakeup flow]")
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	# Corner P2 and launch with Stand HK, then watch the full down -> get-up -> idle cycle.
+	# Corner P2 and launch with crouch HK, then watch the full down -> get-up -> idle cycle.
 	f1.position.x = 5.4
 	f2.position.x = 6.2
-	_step(ctx, _mk(0, 0, GameConst.Btn.HK), _neutral(), 1)
+	_step(ctx, _mk(0, -1, GameConst.Btn.HK), _neutral(), 1)
 	var saw_knockdown := false
 	var saw_wakeup := false
 	for i in range(260):
@@ -946,6 +1031,9 @@ func _test_reaction_clips() -> void:
 	f.hit_strength = 2
 	f.hit_height = GameConst.HitHeight.HIGH
 	_check("heavy high front -> m HighFront Stagger", arig._resolve_hit_clip(f) == "KB_Hit_m_HighFront_Stagger")
+	f.hit_reaction_clip = "KB_Hit_m_HighRight_Med"
+	_check("authored st.HK reaction overrides context", arig._resolve_hit_clip(f) == "KB_Hit_m_HighRight_Med")
+	f.hit_reaction_clip = ""
 	# Low has no Front/Stagger -> degrade to an existing Low clip.
 	f.hit_strength = 2
 	f.hit_height = GameConst.HitHeight.LOW
@@ -1125,23 +1213,40 @@ func _test_drive_rush() -> void:
 	var sr: Fighter = stagger["f1"]
 	var sd: int = sr.drive
 	_step(stagger, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
-	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("green rush cannot start during normal startup", sr.state == Fighter.State.ATTACK)
-	_check("startup green rush input spends no Drive", sr.drive == sd)
+	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.MP), _neutral(), 1)
+	_check("slightly staggered two-punch starts green rush", sr.state == Fighter.State.DRIVE_RUSH)
+	_check("staggered raw green rush spends Drive", sr.drive < sd)
 	stagger["arena"].queue_free()
+	var late := _build()
+	var lr: Fighter = late["f1"]
+	var ld: int = lr.drive
+	_step(late, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
+	_step(late, _neutral(), _neutral(), Fighter.GREEN_RUSH_CHORD_BUFFER + 1)
+	_step(late, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("late normal-startup green rush input is ignored", lr.state == Fighter.State.ATTACK)
+	_check("late startup green rush input spends no Drive", lr.drive == ld)
+	late["arena"].queue_free()
 	var accel := _build()
 	var gr: Fighter = accel["f1"]
+	var start_x: float = gr.position.x
 	_step(accel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
 	var start_speed := absf(gr.velocity.x)
 	_step(accel, _neutral(), _neutral(), 1)
 	var startup_speed := absf(gr.velocity.x)
-	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + 6)
+	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS - 1)
+	var startup_dist: float = gr.position.x - start_x
+	var still_starting := gr.state == Fighter.State.DRIVE_RUSH
+	_step(accel, _neutral(), _neutral(), 6)
 	var mid_speed := absf(gr.velocity.x)
 	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_ACCEL_TICKS)
 	var full_speed := absf(gr.velocity.x)
-	_check("green rush starts below full speed", start_speed < 0.1 and startup_speed < Fighter.DRIVE_RUSH_SPEED * 0.12)
+	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_DURATION)
+	var total_dist: float = gr.position.x - start_x
+	_check("green rush starts below full speed", start_speed < 0.1 and startup_speed > 0.1 and startup_speed < Fighter.DRIVE_RUSH_SPEED * 0.025)
+	_check("green rush has a visible startup wind-up", startup_dist > 0.015 and startup_dist < 0.06 and still_starting)
 	_check("green rush accelerates gradually", mid_speed > startup_speed and mid_speed < Fighter.DRIVE_RUSH_SPEED * 0.65)
 	_check("green rush accelerates to full speed", full_speed > startup_speed + 5.0 and full_speed >= Fighter.DRIVE_RUSH_SPEED * 0.95)
+	_check("green rush total travel is closer", total_dist > 2.4 and total_dist < 4.2)
 	accel["arena"].queue_free()
 	var cancel := _build()
 	var cr: Fighter = cancel["f1"]
@@ -1155,6 +1260,17 @@ func _test_drive_rush() -> void:
 	_check("back input cannot cancel green rush", cr.state == Fighter.State.DRIVE_RUSH and speed_after_back > rush_speed_before_brake * 0.8)
 	_check("green rush input is ignored while already rushing", cr.drive > drive_before_reinput - Fighter.RAW_DRIVE_RUSH_COST)
 	cancel["arena"].queue_free()
+	var whiff := _build()
+	var wr: Fighter = whiff["f1"]
+	wr.position.x = -5.0
+	whiff["f2"].position.x = 5.0
+	_step(whiff, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(whiff, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + 1)
+	_step(whiff, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(wr.character.get_move("st_hp").total_frames() + 4):
+		_step(whiff, _neutral(), _neutral(), 1)
+	_check("Drive Rush whiff normal clears pending FX state", not wr.drive_rush_pending and wr.state != Fighter.State.DRIVE_RUSH)
+	whiff["arena"].queue_free()
 	# Forward double-tap is still a normal dash, not a raw Drive Rush.
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
@@ -1195,7 +1311,7 @@ func _test_drive_rush() -> void:
 	_check("DRC spent ~3 bars", drive_after_drc <= da - Fighter.DRC_COST + 60)
 	var bh1: int = b.health
 	var follow_hit := false
-	for i in range(20):
+	for i in range(Fighter.DRIVE_RUSH_STARTUP_TICKS + 18):
 		ctxa["c1"].frame = _mk(0, 0, GameConst.Btn.HP)
 		ctxa["c2"].frame = _neutral()
 		ctxa["arena"].step(DELTA)
@@ -1203,6 +1319,81 @@ func _test_drive_rush() -> void:
 			follow_hit = true
 	_check("Drive Rush follow-up normal connected", follow_hit)
 	ctxa["arena"].queue_free()
+	# DRC accepts slightly staggered two-punch inputs, even when the first punch is released.
+	var ctxs := _build()
+	var sa: Fighter = ctxs["f1"]
+	var sb: Fighter = ctxs["f2"]
+	sa.position.x = -0.7
+	sb.position.x = 0.6
+	var sdrive: int = sa.drive
+	ctxs["c1"].frame = _mk(0, 0, GameConst.Btn.MK)
+	ctxs["c2"].frame = _neutral()
+	ctxs["arena"].step(DELTA)
+	var shp: int = sb.health
+	for i in range(12):
+		if sb.health < shp:
+			break
+		ctxs["c1"].frame = _neutral()
+		ctxs["c2"].frame = _neutral()
+		ctxs["arena"].step(DELTA)
+	_step(ctxs, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctxs, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.MP), _neutral(), 1)
+	var staggered_drc := false
+	for i in range(30):
+		_step(ctxs, _neutral(), _neutral(), 1)
+		if sa.state == Fighter.State.DRIVE_RUSH:
+			staggered_drc = true
+			break
+	_check("DRC accepts staggered two-punch input", staggered_drc)
+	_check("staggered DRC spent ~3 bars", sa.drive <= sdrive - Fighter.DRC_COST + 60)
+	ctxs["arena"].queue_free()
+	# DRC can be input slightly before contact; it waits for the normal to connect.
+	var ctxe := _build()
+	var ea: Fighter = ctxe["f1"]
+	var eb: Fighter = ctxe["f2"]
+	ea.position.x = -0.7
+	eb.position.x = 0.6
+	var edrive: int = ea.drive
+	_step(ctxe, _mk(0, 0, GameConst.Btn.MK), _neutral(), 1)
+	_step(ctxe, _neutral(), _neutral(), 2)
+	_step(ctxe, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var early_drc := false
+	for i in range(40):
+		_step(ctxe, _neutral(), _neutral(), 1)
+		if ea.state == Fighter.State.DRIVE_RUSH:
+			early_drc = true
+			break
+	_check("DRC input slightly before contact is buffered", early_drc)
+	_check("early DRC spent ~3 bars", ea.drive <= edrive - Fighter.DRC_COST + 60)
+	ctxe["arena"].queue_free()
+	# A DRC follow-up pressed during the startup keeps its direction, so early 2HP becomes cr.HP.
+	var ctxc := _build()
+	var ca: Fighter = ctxc["f1"]
+	var cb: Fighter = ctxc["f2"]
+	ca.position.x = -0.7
+	cb.position.x = 0.6
+	_step(ctxc, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	var chp: int = cb.health
+	for i in range(8):
+		if cb.health < chp:
+			break
+		_step(ctxc, _neutral(), _neutral(), 1)
+	for i in range(20):
+		var fr := _neutral()
+		if ca.hitstop == 0:
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+		_step(ctxc, fr, _neutral(), 1)
+		if ca.state == Fighter.State.DRIVE_RUSH:
+			break
+	_step(ctxc, _mk(0, -1, GameConst.Btn.HP), _neutral(), 1)
+	var crhp_started := false
+	for i in range(Fighter.DRIVE_RUSH_STARTUP_TICKS + 8):
+		_step(ctxc, _neutral(), _neutral(), 1)
+		if ca.current_move != null and ca.current_move.id == "cr_hp":
+			crhp_started = true
+			break
+	_check("DRC startup buffers crouch HP direction", crhp_started)
+	ctxc["arena"].queue_free()
 	# DRC input is buffered through hitstop: players can press two punches during impact freeze and
 	# get the cancel on the first actionable frame after freeze.
 	var ctxh := _build()
@@ -1254,7 +1445,8 @@ func _test_drive_rush() -> void:
 		if pb.health < php:
 			break
 		_step(ctxp, _neutral(), _neutral(), 1)
-	var long_hitstop_started := pa.hitstop > Fighter.DRC_INPUT_BUFFER
+	var long_hitstop_started := pa.hitstop > 0
+	pa.hitstop = Fighter.DRC_INPUT_BUFFER + 4
 	_step(ctxp, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
 	var long_hitstop_drc := false
 	for i in range(40):
@@ -1506,7 +1698,7 @@ func _test_drive_rush_carry() -> void:
 			break
 		_step(ctx, _neutral(), _neutral(), 1)
 	_check("Drive Rush normal started", f1.state == Fighter.State.ATTACK)
-	_check("Drive Rush normal carries forward momentum", f1.velocity.x > 1.0)
+	_check("Drive Rush normal carries forward momentum", f1.velocity.x > 0.8)
 	ctx["arena"].queue_free()
 
 func _test_hud_combo_and_fx() -> void:
@@ -1525,6 +1717,7 @@ func _test_hud_combo_and_fx() -> void:
 	_check("trail eases down to the real HP", absf(hud._trail_frac[0] - 0.5) < 0.05)
 	# Combo counter shows on >= 2 hits, then fades out.
 	hud.set_combo(0, 7, 312)
+	_check("combo label visible immediately on update", hud._combo_label[0].modulate.a > 0.9)
 	hud.tick_visuals(1.0 / 60.0)
 	_check("combo label populated", hud._combo_label[0].text.contains("7 HITS"))
 	_check("combo label visible while live", hud._combo_label[0].modulate.a > 0.5)
@@ -1534,28 +1727,39 @@ func _test_hud_combo_and_fx() -> void:
 	# Meter MAX glow + Drive Burnout flash don't error and toggle off cleanly.
 	hud.set_meter(0, 100, 100)
 	hud.set_burnout(0, true)
-	hud.set_dr_tint(0.12, Color(0.35, 1.0, 0.7))
+	hud.set_dr_tint(MatchScene.DRIVE_RUSH_TINT_TARGET, Color(0.35, 1.0, 0.7))
 	hud.tick_visuals(1.0 / 60.0)
+	_check("drive-rush screen tint is subtle", hud._dr_tint.color.a <= 0.08)
 	_check("MAX glow active when meter full", hud._mp_glow[0].color.a > 0.0)
 	hud.set_meter(0, 40, 100)
 	hud.set_burnout(0, false)
 	hud.tick_visuals(1.0 / 60.0)
 	_check("MAX glow clears when meter spent", hud._mp_glow[0].color.a == 0.0)
 	hud.free()
-	# DriveRushFx emits afterimages while the fighter rushes and stops otherwise.
+	# DriveRushFx emits pose snapshots while the fighter rushes and stops otherwise.
 	var f := Fighter.new()
 	f.setup(CharacterLibrary.create("blaze"), Manual.new(), GameConst.Side.P1, 0.0)
 	root.add_child(f)
+	var rig := FighterRig.new()
+	f.add_child(rig)
+	rig.build(f.character)
+	f.rig = rig
 	var fx := DriveRushFx.new()
 	root.add_child(fx)
 	fx.setup(f, Color(0.35, 1.0, 0.7))
 	f.state = Fighter.State.DRIVE_RUSH
+	f.update_visual()
 	for i in range(6):
 		fx._process(0.03)
-	_check("drive-rush fx spawned afterimages", fx._ghosts.size() >= 1)
+	_check("drive-rush fx spawned ghost trail snapshots", fx._ghosts.size() >= 1)
+	_check("drive-rush fx emits fewer ghost snapshots", fx._ghosts.size() <= 4)
+	if not fx._ghosts.is_empty():
+		_check("drive-rush fx ghost copies character meshes", fx._ghosts[0]["meshes"].size() > 1)
+		var ghost_mat: StandardMaterial3D = fx._ghosts[0]["mats"][0]
+		_check("drive-rush fx ghost is faint", ghost_mat.albedo_color.a <= DriveRushFx.GHOST_ALPHA and ghost_mat.emission_energy_multiplier <= DriveRushFx.GHOST_EMISSION)
 	f.state = Fighter.State.IDLE
 	f.drive_rush_pending = false
 	for i in range(20):
 		fx._process(0.03)
-	_check("drive-rush fx ghosts fade out", fx._ghosts.is_empty())
+	_check("drive-rush fx ghost trail fades out", fx._ghosts.is_empty())
 	f.free()

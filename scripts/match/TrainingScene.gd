@@ -5,8 +5,10 @@ extends MatchScene
 ## RoundManager so training never times out, awards rounds, or transitions to results.
 
 const RESET_DELAY_TICKS := 45
+const HP_RECOVERY_DELAY_TICKS := 90
 
 var _reset_timer: int = 0
+var _hp_recovery_timers := [0, 0]
 var _training_overlay: CanvasLayer
 var _built: bool = false
 
@@ -28,17 +30,18 @@ func _build_training(game_override: Node = null) -> void:
 	f1 = Fighter.new()
 	f1.name = "P1"
 	f1.setup(c1, PlayerController.new("p1"), GameConst.Side.P1, -Arena.START_DISTANCE)
+	f1.allow_zero_health_hit_reactions = true
 	_attach_rig(f1, c1)
 
 	f2 = Fighter.new()
 	f2.name = "Dummy"
 	f2.setup(c2, InputController.new(), GameConst.Side.P2, Arena.START_DISTANCE)
+	f2.allow_zero_health_hit_reactions = true
 	_attach_rig(f2, c2)
 
 	arena = Arena.new()
 	add_child(arena)
 	arena.setup_fighters(f1, f2)
-	arena.ko.connect(_on_training_ko)
 	arena.set_active(true)
 
 	camera = FightCamera.new()
@@ -73,21 +76,16 @@ func _physics_process(delta: float) -> void:
 	f1.update_visual()
 	f2.update_visual()
 	hud.tick_counter()
+	hud.tick_visuals(delta)
+	_update_drive_rush(delta)
 	camera.track(f1.position, f2.position)
 	_slowmo.tick()
 	Engine.time_scale = _slowmo.scale
 	_refill_training_resources()
+	_recover_training_hp()
 
 func _on_training_ko(_loser_side: int) -> void:
-	if _reset_timer > 0:
-		return
-	arena.set_active(false)
-	for f in arena.fighters:
-		if f.is_dead():
-			f.set_ko()
-	_reset_timer = RESET_DELAY_TICKS
-	hud.show_banner("RESET")
-	_slowmo.request(0.3, 24, true)
+	pass
 
 func _reset_training_state() -> void:
 	_slowmo.reset()
@@ -95,6 +93,7 @@ func _reset_training_state() -> void:
 	for f in arena.fighters:
 		f.reset_for_round()
 	arena.set_active(true)
+	_hp_recovery_timers = [0, 0]
 	hud.set_rounds(0, 0)
 	hud.set_timer_text("TRAIN")
 	hud.show_banner("TRAINING MODE")
@@ -110,6 +109,24 @@ func _refill_training_resources() -> void:
 		if f.drive != f.character.max_drive:
 			f.drive = f.character.max_drive
 			f.drive_changed.emit(f.drive, f.character.max_drive)
+
+func _recover_training_hp() -> void:
+	var fs := [f1, f2]
+	for i in range(2):
+		var f: Fighter = fs[i]
+		if f == null:
+			continue
+		if f.health > 0:
+			_hp_recovery_timers[i] = 0
+			continue
+		if f.state in [Fighter.State.HITSTUN, Fighter.State.BLOCKSTUN, Fighter.State.KNOCKDOWN, Fighter.State.WAKEUP] or f.hitstop > 0:
+			_hp_recovery_timers[i] = 0
+			continue
+		_hp_recovery_timers[i] += 1
+		if _hp_recovery_timers[i] >= HP_RECOVERY_DELAY_TICKS:
+			f.health = f.character.max_health
+			f.health_changed.emit(f.health, f.character.max_health)
+			_hp_recovery_timers[i] = 0
 
 func _build_training_overlay() -> void:
 	_training_overlay = CanvasLayer.new()

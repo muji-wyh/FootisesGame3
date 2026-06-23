@@ -149,6 +149,8 @@ func _drive_rush_clip(f: Fighter) -> String:
 ## that was actually grafted, degrading gracefully where the Kubold set has gaps (e.g. Low
 ## has no Front or Stagger variant).
 func _resolve_hit_clip(f: Fighter) -> String:
+	if f.hit_reaction_clip != "" and _player.has_animation(_cfg.lib_name + "/" + f.hit_reaction_clip):
+		return f.hit_reaction_clip
 	var tier: int = clampi(f.hit_strength, 0, 2)
 	# Crouching victims use the dedicated (light, mid-height) crouch-hit set.
 	if f.hit_crouch and f.on_ground:

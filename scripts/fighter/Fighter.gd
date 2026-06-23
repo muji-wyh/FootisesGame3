@@ -37,22 +37,23 @@ const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo w
 const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knockdown
 const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
-const DRC_INPUT_BUFFER := 18        # real ticks a two-punch DRC input can wait after contact/hitstop
+const DRC_INPUT_BUFFER := 30        # real ticks a two-punch DRC input can wait before/after contact
+const DRC_CHORD_BUFFER := 8         # ticks to complete a slightly staggered two-punch DRC input
 const GREEN_RUSH_CHORD_BUFFER := 5  # ticks to complete a slightly staggered two-punch input
-const DRIVE_RUSH_SPEED := 11.5      # forward speed while in a Drive Rush
-const DRIVE_RUSH_START_SPEED := 0.55 # initial crawl before the rush fully engages
-const DRIVE_RUSH_STARTUP_TICKS := 3 # startup frames before normals can be cancelled from rush
-const DRIVE_RUSH_STARTUP_ANIM_TICKS := 8 # visual startup/wind-up before the run clip takes over
-const DRIVE_RUSH_ACCEL_TICKS := 18  # acceleration frames from startup speed to full speed
-const DRIVE_RUSH_ATTACK_SPEED := 6.5 # carried momentum for the first normal out of Drive Rush
-const DRIVE_RUSH_DURATION := 36     # ticks a Drive Rush advances before returning to neutral
+const DRIVE_RUSH_SPEED := 9.8       # forward speed while in a Drive Rush
+const DRIVE_RUSH_START_SPEED := 0.22 # initial crawl before the rush fully engages
+const DRIVE_RUSH_STARTUP_TICKS := 12 # startup frames before normals can be cancelled from rush
+const DRIVE_RUSH_STARTUP_ANIM_TICKS := 14 # visual startup/wind-up before the run clip takes over
+const DRIVE_RUSH_ACCEL_TICKS := 20  # acceleration frames from startup speed to full speed
+const DRIVE_RUSH_ATTACK_SPEED := 8.4 # carried momentum for the first normal out of Drive Rush
+const DRIVE_RUSH_DURATION := 42     # ticks a Drive Rush advances before returning to neutral
 const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
 const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green rush (1 bar)
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
-const DRIVE_RUSH_CARRY := 6.5       # forward slide speed granted to the first normal out of a Drive Rush
-const DRIVE_RUSH_CARRY_TICKS := 12  # ticks that carry momentum lasts
+const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
+const DRIVE_RUSH_CARRY_TICKS := 10  # ticks that carry momentum lasts
 const BURNOUT_TICKS := 90           # ticks Drive regen is suspended after the gauge empties (SF6 Burnout)
 const DRC_PUNCH_MASK := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
 
@@ -75,6 +76,7 @@ var meter: int = 0
 var velocity := Vector3.ZERO
 var on_ground: bool = true
 var active: bool = false            # round running? set by RoundManager
+var allow_zero_health_hit_reactions: bool = false
 
 # Combat bookkeeping
 var current_move: MoveData = null
@@ -88,6 +90,7 @@ var hit_height: int = GameConst.HitHeight.MID  # vertical zone struck (reaction 
 var hit_crouch: bool = false       # victim was crouching when struck
 var hit_air: bool = false          # victim was airborne when struck
 var hit_from_back: bool = false    # victim was struck from behind (cross-up)
+var hit_reaction_clip: String = "" # per-move victim reaction override, if the move authored one
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
 var knockdown_kind: int = GameConst.Knockdown.NONE  # how the current knockdown was caused
 var input_buffer := InputBuffer.new()
@@ -105,6 +108,7 @@ var combo_damage: int = 0              # cumulative (post-scaling) damage of the
 # Cancel buffer: most-recent attack press, ageing only on advancing ticks (survives hitstop).
 var _cancel_btn: int = 0
 var _cancel_age: int = 999
+var _cancel_frame := InputFrame.new()
 
 # Dash double-tap tracking
 var _tick: int = 0
@@ -151,8 +155,7 @@ func advance(delta: float) -> void:
 	var lf := input_buffer.latest()
 	var pressed_now := lf.pressed != 0
 	if pressed_now:
-		_cancel_btn = lf.pressed
-		_cancel_age = 0
+		_remember_cancel_input(lf)
 	_tick += 1
 	_update_dash_taps(input_buffer.latest())
 	if hitstop > 0:
@@ -208,8 +211,18 @@ func _update_dash_taps(inp: InputFrame) -> void:
 	_prev_fwd = fwd
 	_prev_back = back
 
+func _remember_cancel_input(inp: InputFrame) -> void:
+	_cancel_btn = inp.pressed
+	_cancel_frame = inp.duplicate_frame()
+	_cancel_age = 0
+
+func _clear_cancel_buffer() -> void:
+	_cancel_btn = 0
+	_cancel_age = 999
+	_cancel_frame = InputFrame.new()
+
 func _update_drc_input_buffer(inp: InputFrame, age_buffer: bool) -> void:
-	if _is_drc_input(inp) and state == State.ATTACK and move_hits_done > 0:
+	if _is_drc_input(inp) and state == State.ATTACK:
 		_drc_input_buffer = 1
 		_drc_input_buffer_age = 0
 		return
@@ -222,19 +235,45 @@ func _update_drc_input_buffer(inp: InputFrame, age_buffer: bool) -> void:
 		_clear_drc_input_buffer()
 
 func _is_drc_input(inp: InputFrame) -> bool:
+	var held_punches := inp.held & DRC_PUNCH_MASK
+	var pressed_punches := inp.pressed & DRC_PUNCH_MASK
+	if _is_live_two_punch_chord(inp):
+		return true
+	return pressed_punches != 0 and _bit_count(_recent_punch_mask(DRC_CHORD_BUFFER)) >= 2
+
+func _is_live_two_punch_chord(inp: InputFrame) -> bool:
 	return (inp.pressed & DRC_PUNCH_MASK) != 0 and _bit_count(inp.held & DRC_PUNCH_MASK) >= 2
 
-func _recent_punch_count(window: int) -> int:
-	var count := 0
+func _recent_punch_mask(window: int) -> int:
+	var mask := 0
 	for button in [GameConst.Btn.LP, GameConst.Btn.MP, GameConst.Btn.HP]:
 		if input_buffer.pressed_within(button, window):
-			count += 1
-	return count
+			mask |= button
+	return mask
+
+func _recent_punch_count(window: int) -> int:
+	return _bit_count(_recent_punch_mask(window))
 
 func _is_green_rush_chord(inp: InputFrame) -> bool:
 	if _is_drc_input(inp):
 		return true
-	return _bit_count(inp.held & DRC_PUNCH_MASK) >= 2 and _recent_punch_count(GREEN_RUSH_CHORD_BUFFER) >= 2
+	var held_punches := inp.held & DRC_PUNCH_MASK
+	var pressed_punches := inp.pressed & DRC_PUNCH_MASK
+	var recent_punches := _recent_punch_mask(GREEN_RUSH_CHORD_BUFFER)
+	if _bit_count(held_punches) >= 2 and _bit_count(recent_punches) >= 2:
+		return true
+	return pressed_punches != 0 and _bit_count(recent_punches) >= 2
+
+func _can_confirm_raw_green_rush_from_attack(inp: InputFrame) -> bool:
+	if drive_rush_pending or current_move == null:
+		return false
+	if current_move.kind != GameConst.MoveKind.NORMAL:
+		return false
+	if (current_move.button & DRC_PUNCH_MASK) == 0:
+		return false
+	if move_hits_done > 0 or state_frame > GREEN_RUSH_CHORD_BUFFER:
+		return false
+	return _is_green_rush_chord(inp)
 
 func _consume_drc_input() -> bool:
 	if _drc_input_buffer > 0 and _drc_input_buffer_age <= DRC_INPUT_BUFFER:
@@ -338,8 +377,8 @@ func _start_drive_rush() -> void:
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
-	_cancel_btn = 0
-	_cancel_age = 999
+	_clear_cancel_buffer()
+	_clear_drc_input_buffer()
 	velocity.x = 0.0
 
 func _drive_rush_speed() -> float:
@@ -350,15 +389,16 @@ func _drive_rush_speed() -> float:
 
 func _step_drive_rush(inp: InputFrame) -> void:
 	if inp.dir_x * facing < 0:
-		_cancel_btn = 0
-		_cancel_age = 999
+		_clear_cancel_buffer()
 		velocity.x = facing * _drive_rush_speed()
 		return
-	if _is_green_rush_chord(inp):
-		_cancel_btn = 0
-		_cancel_age = 999
+	if _is_live_two_punch_chord(inp):
+		_clear_cancel_buffer()
 		velocity.x = facing * _drive_rush_speed()
 		return
+	# Keep a pre-pressed follow-up alive through the wind-up; the visible startup shouldn't eat inputs.
+	if state_frame <= DRIVE_RUSH_STARTUP_TICKS and _cancel_btn != 0:
+		_cancel_age = 0
 	if state_frame > DRIVE_RUSH_STARTUP_TICKS:
 		var move := _select_move(inp)
 		if move == null:
@@ -434,7 +474,11 @@ func _select_overdrive(pressed: int) -> MoveData:
 func _buffered_move(inp: InputFrame) -> MoveData:
 	if _cancel_btn == 0 or _cancel_age > INPUT_BUFFER:
 		return null
-	return _select_move_for(_cancel_btn, inp)
+	var buffered := _cancel_frame.duplicate_frame()
+	if buffered.pressed == 0:
+		buffered = inp.duplicate_frame()
+	buffered.pressed = _cancel_btn
+	return _select_move_for(_cancel_btn, buffered)
 
 func _motion_ok(m: MoveData) -> bool:
 	if m.motion.is_empty():
@@ -468,6 +512,9 @@ func _step_attack(_inp: InputFrame) -> void:
 	var m := current_move
 	if m == null:
 		_goto(State.IDLE)
+		return
+	if _can_confirm_raw_green_rush_from_attack(_inp) and spend_drive(RAW_DRIVE_RUSH_COST):
+		_start_drive_rush()
 		return
 	if move_hit_cooldown > 0:
 		move_hit_cooldown -= 1
@@ -514,6 +561,7 @@ func _step_attack(_inp: InputFrame) -> void:
 				return
 	if state_frame >= m.total_frames():
 		current_move = null
+		drive_rush_pending = false
 		_goto(State.IDLE if on_ground else State.JUMP)
 
 ## Choose a buffered cancel target. Uses the hitstop-aware cancel buffer (a press within the
@@ -540,7 +588,7 @@ func _select_cancel(from_move: MoveData, allow_normals: bool = true) -> MoveData
 				return m
 	if not allow_normals:
 		return null
-	var stance := _current_stance(input_buffer.latest())
+	var stance := _current_stance(_cancel_frame)
 	var fallback: MoveData = null
 	for m in character.normals:
 		if (btn & m.button) and from_move.cancel_into.has(m.id):
@@ -651,7 +699,7 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 	combo_damage += dealt
 	combo_changed.emit(combo_count, combo_damage)
 	_damage(dealt)
-	if health <= 0:
+	if health <= 0 and not allow_zero_health_hit_reactions:
 		return   # KO handled by RoundManager observing health
 	if m.launch:
 		launched = true
@@ -722,6 +770,7 @@ func _record_hit_context(m: MoveData, attacker_facing: int) -> void:
 	hit_height = m.effective_hit_height()
 	hit_air = not on_ground
 	hit_crouch = on_ground and (state == State.CROUCH or input_buffer.latest().dir_y < 0)
+	hit_reaction_clip = m.hit_reaction_clip
 	# attacker_facing points from the attacker toward this fighter; if we face the same
 	# way, our back is to the attacker -> struck from behind (a cross-up).
 	hit_from_back = facing == attacker_facing
@@ -940,6 +989,7 @@ func reset_for_round() -> void:
 	hit_crouch = false
 	hit_air = false
 	hit_from_back = false
+	hit_reaction_clip = ""
 	last_counter = GameConst.Counter.NONE
 	knockdown_kind = GameConst.Knockdown.NONE
 	drive = character.max_drive
@@ -948,8 +998,7 @@ func reset_for_round() -> void:
 	_burnout_timer = 0
 	combo_count = 0
 	combo_damage = 0
-	_cancel_btn = 0
-	_cancel_age = 999
+	_clear_cancel_buffer()
 	_clear_drc_input_buffer()
 	on_ground = true
 	position.y = 0
