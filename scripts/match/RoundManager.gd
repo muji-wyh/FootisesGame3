@@ -25,6 +25,7 @@ var p1_wins: int = 0
 var p2_wins: int = 0
 var time_left_ticks: int = GameConst.ROUND_TIME_SECONDS * GameConst.TICK_RATE
 var _round_winner: int = -1
+var _deferred_winner_side: int = -1
 
 func start() -> void:
 	arena.ko.connect(_on_ko)
@@ -35,6 +36,7 @@ func _begin_intro() -> void:
 	phase_timer = INTRO_TICKS
 	time_left_ticks = GameConst.ROUND_TIME_SECONDS * GameConst.TICK_RATE
 	_round_winner = -1
+	_deferred_winner_side = -1
 	arena.set_active(false)
 	for f in arena.fighters:
 		f.set_intro()
@@ -75,8 +77,10 @@ func _tick_fight(delta: float) -> void:
 
 func _tick_round_over(delta: float) -> void:
 	arena.step_inactive(delta)
+	_finish_deferred_win_if_ready()
 	phase_timer -= 1
 	if phase_timer <= 0:
+		_finish_deferred_win_if_ready(true)
 		_advance_after_round()
 
 func _on_ko(loser_side: int) -> void:
@@ -112,7 +116,10 @@ func _end_round() -> void:
 	if _round_winner == GameConst.Side.P1 or _round_winner == GameConst.Side.P2:
 		var winner: Fighter = arena.fighters[_round_winner]
 		var loser: Fighter = arena.fighters[1 - _round_winner]
-		winner.set_win()
+		if _is_finishing_super(winner):
+			_deferred_winner_side = _round_winner
+		else:
+			winner.set_win()
 		loser.set_ko()
 	else:
 		for f in arena.fighters:
@@ -127,6 +134,17 @@ func _end_round() -> void:
 		announce.emit("%s wins the round" % winner.character.display_name)
 	else:
 		announce.emit("Draw")
+
+func _is_finishing_super(f: Fighter) -> bool:
+	return f.state == Fighter.State.ATTACK and f.current_move != null and f.current_move.kind == GameConst.MoveKind.SUPER
+
+func _finish_deferred_win_if_ready(force: bool = false) -> void:
+	if _deferred_winner_side < 0:
+		return
+	var winner: Fighter = arena.fighters[_deferred_winner_side]
+	if force or not _is_finishing_super(winner):
+		winner.set_win()
+		_deferred_winner_side = -1
 
 func _advance_after_round() -> void:
 	if p1_wins >= GameConst.ROUNDS_TO_WIN or p2_wins >= GameConst.ROUNDS_TO_WIN:

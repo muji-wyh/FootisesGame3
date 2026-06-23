@@ -52,6 +52,12 @@ func _step(ctx: Dictionary, p1: InputFrame, p2: InputFrame, n: int) -> void:
 		ctx["c2"].frame = p2
 		ctx["arena"].step(DELTA)
 
+func _step_round(ctx: Dictionary, rm: RoundManager, p1: InputFrame, p2: InputFrame, n: int) -> void:
+	for i in range(n):
+		ctx["c1"].frame = p1
+		ctx["c2"].frame = p2
+		rm.tick(DELTA)
+
 func _neutral() -> InputFrame:
 	return _mk(0, 0)
 
@@ -307,13 +313,16 @@ func _test_super() -> void:
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
 	var inferno := f1.character.get_move("super_inferno")
-	_check("Inferno Rush hitbox matches model scale", inferno.hit_size.x <= 0.7 and inferno.hit_size.y <= 0.95 and inferno.hit_size.z <= 0.7)
-	_check("Inferno Rush reach is not oversized", inferno.hit_offset.x + inferno.hit_size.x * 0.5 <= 1.1)
+	_check("Inferno Rush hitbox matches model scale", inferno.hit_size.x <= 0.45 and inferno.hit_size.y <= 0.75 and inferno.hit_size.z <= 0.5)
+	_check("Inferno Rush reach is not oversized", inferno.hit_offset.x + inferno.hit_size.x * 0.5 <= 0.8)
+	_check("Inferno Rush has visible hit knockback", inferno.knockback >= 5.5)
 	f1.meter = f1.character.max_meter   # grant full meter
 	# Corner P2 so Blaze's advancing multi-hit super connects in full.
 	f1.position.x = 5.4
 	f2.position.x = 6.3
 	var hp_before: int = f2.health
+	var victim_hit_velocity := [0.0]
+	f2.got_hit.connect(func(_blocked): victim_hit_velocity[0] = f2.velocity.x)
 	# QCF QCF + HP as P1.
 	_step(ctx, _mk(0, -1), _neutral(), 2)
 	_step(ctx, _mk(1, -1), _neutral(), 2)
@@ -323,8 +332,29 @@ func _test_super() -> void:
 	_step(ctx, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
 	_check("super consumed meter", f1.meter < f1.character.max_meter)
 	_step(ctx, _neutral(), _neutral(), 90)
+	_check("Inferno Rush visibly knocks the victim back", victim_hit_velocity[0] > 5.0)
 	_check("super dealt heavy damage", hp_before - f2.health >= 200)
 	ctx["arena"].queue_free()
+	var recoil := _build()
+	var ra: Fighter = recoil["f1"]
+	var rb: Fighter = recoil["f2"]
+	ra.meter = ra.character.max_meter
+	ra.position.x = -0.8
+	rb.position.x = 0.1
+	var recoil_v := [0.0]
+	rb.got_hit.connect(func(_blocked): recoil_v[0] = rb.velocity.x)
+	_step(recoil, _mk(0, -1), _neutral(), 2)
+	_step(recoil, _mk(1, -1), _neutral(), 2)
+	_step(recoil, _mk(1, 0), _neutral(), 2)
+	_step(recoil, _mk(0, -1), _neutral(), 2)
+	_step(recoil, _mk(1, -1), _neutral(), 2)
+	_step(recoil, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(20):
+		if recoil_v[0] > 0.0:
+			break
+		_step(recoil, _neutral(), _neutral(), 1)
+	_check("Inferno Rush non-corner hit has obvious recoil", recoil_v[0] > 5.0)
+	recoil["arena"].queue_free()
 	var slow := _build()
 	var sf1: Fighter = slow["f1"]
 	var sf2: Fighter = slow["f2"]
@@ -343,6 +373,43 @@ func _test_super() -> void:
 	_check("human-paced Inferno Rush input starts super", sf1.current_move != null and sf1.current_move.id == "super_inferno")
 	_check("human-paced Inferno Rush consumes meter", sf1.meter < sf1.character.max_meter)
 	slow["arena"].queue_free()
+	var finish := _build()
+	var fa: Fighter = finish["f1"]
+	var fb: Fighter = finish["f2"]
+	var finish_rm := RoundManager.new()
+	root.add_child(finish_rm)
+	finish_rm.arena = finish["arena"]
+	finish_rm.start()
+	finish_rm.phase = RoundManager.Phase.FIGHT
+	finish["arena"].set_active(true)
+	for f in finish["arena"].fighters:
+		f._goto(Fighter.State.IDLE)
+	fa.meter = fa.character.max_meter
+	fa.position.x = 5.4
+	fb.position.x = 6.3
+	fb.health = 10
+	var super_move := fa.character.get_move("super_inferno")
+	_step_round(finish, finish_rm, _mk(0, -1), _neutral(), 2)
+	_step_round(finish, finish_rm, _mk(1, -1), _neutral(), 2)
+	_step_round(finish, finish_rm, _mk(1, 0), _neutral(), 2)
+	_step_round(finish, finish_rm, _mk(0, -1), _neutral(), 2)
+	_step_round(finish, finish_rm, _mk(1, -1), _neutral(), 2)
+	_step_round(finish, finish_rm, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
+	var ko_during_super := false
+	for i in range(super_move.startup + 2):
+		_step_round(finish, finish_rm, _neutral(), _neutral(), 1)
+		if finish_rm.phase == RoundManager.Phase.ROUND_OVER:
+			ko_during_super = true
+			break
+	_check("KO during Inferno Rush enters round over", ko_during_super)
+	_check("Inferno Rush animation is not interrupted by KO", fa.state == Fighter.State.ATTACK and fa.current_move == super_move)
+	for i in range(super_move.total_frames() + 8):
+		_step_round(finish, finish_rm, _neutral(), _neutral(), 1)
+		if fa.state == Fighter.State.WIN:
+			break
+	_check("winner pose waits until Inferno Rush finishes", fa.state == Fighter.State.WIN)
+	finish_rm.queue_free()
+	finish["arena"].queue_free()
 
 func _test_ko() -> void:
 	print("[ko]")

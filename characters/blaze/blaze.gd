@@ -67,9 +67,9 @@ static func build() -> CharacterData:
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF_QCF, "meter_cost": 100,
 		"startup": 8, "active": 22, "recovery": 44, "damage": 52, "hits": 5, "hit_gap": 4,
 		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 12, "guard": GameConst.Guard.MID,
-		"knockback": 1.8, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
+		"knockback": 6.0, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
-		"hit_offset": Vector3(0.72, 1.05, 0.0), "hit_size": Vector3(0.68, 0.90, 0.65)}))
+		"hit_offset": Vector3(0.54, 1.05, 0.0), "hit_size": Vector3(0.42, 0.72, 0.48)}))
 
 	return c
 
