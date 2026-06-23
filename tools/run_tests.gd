@@ -252,10 +252,12 @@ func _test_pushback_scaling() -> void:
 	_check("stand medium pushes farther than jab", b.get_move("st_mp").knockback > b.get_move("st_lp").knockback)
 	_check("stand heavy pushes farther than medium", b.get_move("st_hp").knockback > b.get_move("st_mp").knockback)
 	_check("crouch medium pushes farther than crouch jab", b.get_move("cr_mk").knockback > b.get_move("cr_lp").knockback)
-	var all_empty := true
-	for m in b.normals:
-		all_empty = all_empty and m.cancel_into.is_empty()
-	_check("normals no longer contain authored combo cancel routes", all_empty)
+	_check("stand MP routes into Ken-like target combo", b.get_move("st_mp").cancel_into.has("st_hp"))
+	_check("lights route into Flame Step L", b.get_move("st_lp").cancel_into.has("flame_step_l") and b.get_move("cr_lp").cancel_into.has("flame_step_l"))
+	_check("kick lights route into Flame Step L", b.get_move("st_lk").cancel_into.has("flame_step_l") and b.get_move("cr_lk").cancel_into.has("flame_step_l"))
+	_check("heavies route into corner carry specials", b.get_move("st_hp").cancel_into.has("ember_wheel") and b.get_move("st_hp").cancel_into.has("cinder_lash"))
+	_check("kick heavies route into corner carry specials", b.get_move("st_hk").cancel_into.has("flame_step_h") and b.get_move("st_hk").cancel_into.has("ember_wheel"))
+	_check("crouch heavies route into combo enders", b.get_move("cr_hp").cancel_into.has("ember_wheel") and b.get_move("cr_hk").cancel_into.has("super_inferno"))
 
 func _test_lp_pushout() -> void:
 	print("[lp pushout]")
@@ -639,10 +641,12 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
-	_check("blaze has no specials", b.specials.is_empty())
+	_check("blaze has combo specials", b.specials.size() >= 5)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	for removed in ["fireball", "uppercut", "hurricane", "od_fireball", "od_uppercut", "od_hurricane"]:
 		_check("removed move absent: " + removed, b.get_move(removed) == null)
+	for added in ["flame_step_l", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel"]:
+		_check("combo move exists: " + added, b.get_move(added) != null)
 	_check("Ken-like stand MP timing", b.get_move("st_mp").startup == 7 and b.get_move("st_mp").active == 3)
 	_check("Ken-like cross-up air MK timing", b.get_move("air_mk").startup == 7 and b.get_move("air_mk").active == 6)
 
@@ -678,6 +682,7 @@ func _test_move_list_overlay() -> void:
 	_check("move list opens on toggle", hud.is_move_list_visible())
 	var left: Label = hud._move_list_labels[0]
 	_check("move list hides removed specials", not left.text.contains("Flare Bolt") and not left.text.contains("Blaze Rise") and not left.text.contains("Cyclone Kick"))
+	_check("move list shows Blaze combo tools", left.text.contains("Flame Step") and left.text.contains("Cinder Lash") and left.text.contains("Ember Wheel"))
 	_check("move list still shows super", left.text.contains("Inferno Rush"))
 	_check("move list uses numpad super notation", left.text.contains("236236") and left.text.contains("(100% Super)"))
 	hud.toggle_move_list()
@@ -1240,43 +1245,105 @@ func _test_slowmo_director() -> void:
 # --- blaze-sf6-combat-feel: combos, drive gauge, drive rush, rising uppercut ---
 
 func _test_combo() -> void:
-	print("[combo routes removed]")
+	print("[combo system]")
 	var kit := CharacterLibrary.create("blaze")
-	var all_empty := true
-	for m in kit.normals:
-		all_empty = all_empty and m.cancel_into.is_empty()
-	_check("Blaze normals have no authored combo routes", all_empty)
+	_check("Blaze has authored combo routes", kit.get_move("st_mp").cancel_into.has("st_hp") and kit.get_move("st_hp").cancel_into.has("flame_step_m"))
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
-	f1.position.x = -0.6
-	f2.position.x = 0.6
-	var a: Fighter = f1
-	var b: Fighter = f2
-	var jab := a.character.get_move("st_lp")
-	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.LP)
-	ctx["c2"].frame = _neutral()
-	ctx["arena"].step(DELTA)
-	var bh := b.health
-	for i in range(8):
-		if b.health < bh: break
-		ctx["c1"].frame = _neutral()
-		ctx["c2"].frame = _neutral()
-		ctx["arena"].step(DELTA)
-	# Press MP during LP hitstop. It must not chain-cancel before LP's own recovery ends.
-	var saw_mp_before_recovery := false
-	for i in range(2):
-		ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
-		ctx["c2"].frame = _neutral()
-		ctx["arena"].step(DELTA)
-	for i in range(jab.total_frames()):
-		ctx["c1"].frame = _neutral()
-		ctx["c2"].frame = _neutral()
-		ctx["arena"].step(DELTA)
-		if a.current_move != null and a.current_move.id == "st_mp" and a.state_frame < jab.total_frames():
-			saw_mp_before_recovery = true
-	_check("LP cannot chain-cancel into MP", not saw_mp_before_recovery)
+	f1.position.x = -0.38
+	f2.position.x = 0.38
+	var hp0: int = f2.health
+	var saw_target := false
+	_step(ctx, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	for i in range(12):
+		if f2.health < hp0:
+			break
+		_step(ctx, _neutral(), _neutral(), 1)
+	_step(ctx, _mk(0, 0, GameConst.Btn.HP), _neutral(), 2)
+	for i in range(18):
+		_step(ctx, _neutral(), _neutral(), 1)
+		if f1.current_move != null and f1.current_move.id == "st_hp":
+			saw_target = true
+			break
+	for i in range(24):
+		if f2.health < hp0 - 90:
+			break
+		_step(ctx, _neutral(), _neutral(), 1)
+	_check("st.MP target-combos into st.HP", saw_target)
+	_check("target route dealt multiple hits", f2.combo_count >= 2 and f2.health < hp0 - 90)
 	ctx["arena"].queue_free()
+	var heavy := _build()
+	var ha: Fighter = heavy["f1"]
+	var hb: Fighter = heavy["f2"]
+	ha.position.x = -0.38
+	hb.position.x = 0.38
+	var hhp: int = hb.health
+	_step(heavy, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(14):
+		if hb.health < hhp:
+			break
+		_step(heavy, _neutral(), _neutral(), 1)
+	_step(heavy, _mk(0, -1), _neutral(), 2)
+	_step(heavy, _mk(1, -1), _neutral(), 2)
+	_step(heavy, _mk(1, 0, GameConst.Btn.MK), _neutral(), 1)
+	var saw_flame := false
+	for i in range(24):
+		_step(heavy, _neutral(), _neutral(), 1)
+		if ha.current_move != null and ha.current_move.id == "flame_step_m":
+			saw_flame = true
+			break
+	_check("st.HP cancels into Flame Step M", saw_flame)
+	heavy["arena"].queue_free()
+	var light := _build()
+	var la: Fighter = light["f1"]
+	var lb: Fighter = light["f2"]
+	la.position.x = -0.38
+	lb.position.x = 0.38
+	var lhp: int = lb.health
+	_step(light, _mk(0, -1, GameConst.Btn.LP), _neutral(), 1)
+	for i in range(12):
+		if lb.health < lhp:
+			break
+		_step(light, _mk(0, -1), _neutral(), 1)
+	_step(light, _mk(0, -1), _neutral(), 2)
+	_step(light, _mk(1, -1), _neutral(), 2)
+	_step(light, _mk(1, 0, GameConst.Btn.LK), _neutral(), 1)
+	var saw_light_step := false
+	for i in range(18):
+		_step(light, _neutral(), _neutral(), 1)
+		if la.current_move != null and la.current_move.id == "flame_step_l":
+			saw_light_step = true
+			break
+	_check("cr.LP confirms into Flame Step L", saw_light_step)
+	light["arena"].queue_free()
+	var drc := _build()
+	var da: Fighter = drc["f1"]
+	var db: Fighter = drc["f2"]
+	da.position.x = -0.5
+	db.position.x = 0.5
+	_step(drc, _mk(0, -1, GameConst.Btn.MK), _neutral(), 1)
+	var dhp: int = db.health
+	for i in range(14):
+		if db.health < dhp:
+			break
+		_step(drc, _neutral(), _neutral(), 1)
+	_step(drc, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var entered_drc := false
+	for i in range(36):
+		_step(drc, _neutral(), _neutral(), 1)
+		if da.state == Fighter.State.DRIVE_RUSH:
+			entered_drc = true
+			break
+	_step(drc, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	var dr_target := false
+	for i in range(24):
+		_step(drc, _neutral(), _neutral(), 1)
+		if da.current_move != null and da.current_move.id == "st_mp":
+			dr_target = true
+			break
+	_check("cr.MK can DRC into combo starter", entered_drc and dr_target)
+	drc["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
 	print("[drive gauge]")
@@ -1601,6 +1668,7 @@ func _test_uppercut_rise() -> void:
 	for m in b.specials:
 		any_rising_special = any_rising_special or m.rises
 	_check("Blaze has no shoryuken/rising special", not any_rising_special and b.get_move("uppercut") == null)
+	_check("new combo specials are grounded route tools", b.get_move("flame_step_m") != null and b.get_move("ember_wheel") != null)
 
 func _test_rise_interruption_lands() -> void:
 	print("[rise interruption]")

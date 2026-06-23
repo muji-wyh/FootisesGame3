@@ -486,6 +486,11 @@ func _motion_ok(m: MoveData) -> bool:
 		return true
 	return MotionParser.completed(input_buffer, facing, m.motion)
 
+func _cancel_motion_ok(m: MoveData) -> bool:
+	if m.motion.is_empty():
+		return true
+	return MotionParser.completed(input_buffer, facing, m.motion, InputBuffer.SIZE, DRC_INPUT_BUFFER)
+
 func _start_move(m: MoveData) -> void:
 	_clear_drc_input_buffer()
 	# Arm the one-time Drive Rush advantage when a normal is performed out of a Drive Rush,
@@ -577,15 +582,15 @@ func _select_cancel(from_move: MoveData, allow_normals: bool = true) -> MoveData
 		for m in character.specials:
 			if m.drive_cost > 0 and from_move.cancel_into.has(m.id) \
 					and m.multi_button != 0 and _bit_count(btn & m.multi_button) >= 2 \
-					and drive >= m.drive_cost and _motion_ok(m):
+					and drive >= m.drive_cost and _cancel_motion_ok(m):
 				return m
 		for m in character.supers:
-			if (btn & m.button) and from_move.cancel_into.has(m.id) and meter >= m.meter_cost and _motion_ok(m):
+			if (btn & m.button) and from_move.cancel_into.has(m.id) and meter >= m.meter_cost and _cancel_motion_ok(m):
 				return m
 		for m in character.specials:
 			if m.drive_cost > 0:
 				continue
-			if (btn & m.button) and from_move.cancel_into.has(m.id) and _motion_ok(m):
+			if (btn & m.button) and from_move.cancel_into.has(m.id) and _cancel_motion_ok(m):
 				return m
 	if not allow_normals:
 		return null

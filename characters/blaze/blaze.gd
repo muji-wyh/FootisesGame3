@@ -1,8 +1,9 @@
 extends RefCounted
 
 ## Blaze - fiery rushdown fighter (Ken-inspired normals): grounded pressure, jump-ins,
-## Drive Rush, and a multi-hit super. Self-contained character module: stats, moves,
-## frame data and rig config live here; registered in CharacterLibrary.REGISTRY.
+## target combos, Flame Step route choices, Drive Rush, and a multi-hit super. Self-contained
+## character module: stats, moves, frame data and rig config live here; registered in
+## CharacterLibrary.REGISTRY.
 ## Each move is a small data dictionary, so this file reads like a tuning sheet.
 
 const ID := "blaze"
@@ -23,18 +24,18 @@ const NORMAL_CLIPS := {
 	"air_lk": "KB_JumpKick", "air_mk": "KB_p_MidKickFront_L", "air_hk": "KB_p_HighKick_R_1",
 }
 const NORMAL_TUNING := {
-	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.57, 1.0, 0.0), "hit_size": Vector3(0.37, 0.36, 0.55), "cancel_into": [], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak"},
-	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": []},
-	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.02, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": [], "hit_reaction_clip": "KB_Hit_m_HighRight_Med"},
-	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.0, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": []},
+	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.57, 1.0, 0.0), "hit_size": Vector3(0.37, 0.36, 0.55), "cancel_into": ["cr_lp", "flame_step_l"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak"},
+	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_step_m", "cinder_lash", "super_inferno"]},
+	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.02, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med"},
+	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.0, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": ["flame_step_l"]},
 	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.2, "hit_offset": Vector3(0.74, 0.86, 0.0), "hit_size": Vector3(0.54, 0.40, 0.68), "cancel_into": []},
-	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "hit_offset": Vector3(0.82, 0.98, 0.0), "hit_size": Vector3(0.62, 0.46, 0.72), "launch": false, "launch_velocity": 0.0, "hit_reaction_clip": "KB_Hit_m_HighRight_Med"},
-	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.1, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": []},
-	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.5, "cancel_into": []},
-	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 3.8, "launch": false, "launch_velocity": 0.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7), "hit_reaction_clip": "KB_Hit_m_MidTop_Med"},
-	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 2.7, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": []},
-	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.0, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": []},
-	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.LOW, "knockback": 4.8, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5},
+	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "hit_offset": Vector3(0.82, 0.98, 0.0), "hit_size": Vector3(0.62, 0.46, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med"},
+	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.1, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": ["cr_lp", "flame_step_l"]},
+	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.5, "cancel_into": ["st_mp", "flame_step_m", "super_inferno"]},
+	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 3.8, "launch": false, "launch_velocity": 0.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7), "cancel_into": ["flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_MidTop_Med"},
+	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 2.7, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": ["flame_step_l"]},
+	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.0, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": ["flame_step_m", "super_inferno"]},
+	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.LOW, "knockback": 4.8, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5, "cancel_into": ["super_inferno"]},
 	"air_lp": {"startup": 3, "active": 10, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.8, "hit_offset": Vector3(0.45, 0.35, 0.0), "hit_size": Vector3(0.55, 0.45, 0.65)},
 	"air_mp": {"startup": 5, "active": 8, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.8, "hit_offset": Vector3(0.52, 0.38, 0.0), "hit_size": Vector3(0.65, 0.50, 0.65)},
 	"air_hp": {"startup": 7, "active": 8, "recovery": 6, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.0, "hit_offset": Vector3(0.58, 0.42, 0.0), "hit_size": Vector3(0.75, 0.55, 0.7)},
@@ -61,6 +62,45 @@ static func build() -> CharacterData:
 
 	CharacterKit.add_standard_normals(c, 0.95, [], NORMAL_CLIPS)
 	_apply_move_overrides(c)
+
+	# Flame Step: Blaze's Jinrai-like rekka role. Light confirms from jabs, medium is the
+	# target-combo route, heavy gives more carry and knockdown.
+	c.add_move(CharacterKit.make_move({"id": "flame_step_l", "display_name": "Flame Step L", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.LK, "motion": MotionParser.QCF, "startup": 5, "active": 8, "recovery": 14,
+		"damage": 34, "hits": 2, "hit_gap": 5, "hitstun": 18, "blockstun": 11, "hitstop": 9,
+		"guard": GameConst.Guard.MID, "knockback": 1.6, "advance": 3.6, "meter_gain": 8,
+		"sfx": "lk", "anim_limb": "leg_r", "anim_extend": 0.75, "anim_clip": "KB_p_MidKickFront_L",
+		"hit_offset": Vector3(0.72, 0.72, 0.0), "hit_size": Vector3(0.70, 0.52, 0.68)}))
+	c.add_move(CharacterKit.make_move({"id": "flame_step_m", "display_name": "Flame Step M", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.MK, "motion": MotionParser.QCF, "startup": 7, "active": 10, "recovery": 17,
+		"damage": 42, "hits": 2, "hit_gap": 5, "hitstun": 20, "blockstun": 12, "hitstop": 10,
+		"guard": GameConst.Guard.MID, "knockback": 2.0, "advance": 5.2, "meter_gain": 10,
+		"sfx": "mk", "anim_limb": "leg_r", "anim_extend": 0.85, "anim_clip": "KB_m_MidKick_R",
+		"hit_offset": Vector3(0.82, 0.82, 0.0), "hit_size": Vector3(0.82, 0.62, 0.70)}))
+	c.add_move(CharacterKit.make_move({"id": "flame_step_h", "display_name": "Flame Step H", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.HK, "motion": MotionParser.QCF, "startup": 9, "active": 12, "recovery": 22,
+		"damage": 55, "hits": 2, "hit_gap": 6, "hitstun": 22, "blockstun": 13, "hitstop": 12,
+		"guard": GameConst.Guard.MID, "knockback": 3.2, "advance": 5.8, "launch": true, "launch_velocity": 6.0,
+		"meter_gain": 10, "sfx": "hk", "anim_limb": "leg_r", "anim_extend": 0.95,
+		"anim_clip": "KB_p_HighKick_R_1", "hit_offset": Vector3(0.90, 0.92, 0.0),
+		"hit_size": Vector3(0.90, 0.70, 0.72)}))
+
+	# Cinder Lash: Dragonlash-like forward kick for heavy confirms, DRC pressure and corner carry.
+	c.add_move(CharacterKit.make_move({"id": "cinder_lash", "display_name": "Cinder Lash", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.HP, "motion": MotionParser.QCF, "startup": 10, "active": 6, "recovery": 24,
+		"damage": 70, "hitstun": 24, "blockstun": 14, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD,
+		"knockback": 5.8, "advance": 6.4, "launch": true, "launch_velocity": 6.8, "meter_gain": 12,
+		"sfx": "hp", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_p_HighKick_R_1",
+		"hit_offset": Vector3(0.95, 1.12, 0.0), "hit_size": Vector3(0.82, 0.78, 0.72)}))
+
+	# Ember Wheel: original corner-carry spin role, replacing the old generic tatsu.
+	c.add_move(CharacterKit.make_move({"id": "ember_wheel", "display_name": "Ember Wheel", "kind": GameConst.MoveKind.SPECIAL,
+		"button": GameConst.Btn.HK, "motion": MotionParser.QCB, "startup": 8, "active": 24, "recovery": 20,
+		"damage": 30, "hits": 4, "hit_gap": 5, "hitstun": 17, "blockstun": 12, "hitstop": 9,
+		"guard": GameConst.Guard.MID, "knockback": 1.8, "advance": 6.8, "launch": true,
+		"launch_velocity": 6.5, "meter_gain": 9, "sfx": "spin", "anim_limb": "leg_r",
+		"anim_extend": 1.0, "anim_clip": "KB_m_HighKickRound_R_1",
+		"hit_offset": Vector3(0.86, 0.88, 0.0), "hit_size": Vector3(0.96, 0.85, 0.72)}))
 
 	# Super: advancing 5-hit flaming rush.
 	c.add_move(CharacterKit.make_move({"id": "super_inferno", "display_name": "Inferno Rush", "kind": GameConst.MoveKind.SUPER,
