@@ -4,6 +4,11 @@ Each playable fighter is a **self-contained module** in its own directory, so ad
 character never touches the shared engine. The combat simulation (`scripts/`) is
 character-agnostic; a character only supplies *data*.
 
+> **Tune to the design contract.** This is a footsies-first game: grounded normals are defined
+> by *role* (close check / mid-range ruler / mid-range variation / read-punish), not only by
+> damage. Before changing Blaze's normals, read [`../docs/footsies-design.md`](../docs/footsies-design.md)
+> and keep `_test_blaze_button_roles()` (in `tools/run_tests.gd`) green.
+
 ```
 characters/
   blaze/

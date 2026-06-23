@@ -23,6 +23,21 @@ const NORMAL_CLIPS := {
 	"air_lp": "KB_JumpPunch", "air_mp": "KB_m_Hook_R", "air_hp": "KB_m_Overhand_R",
 	"air_lk": "KB_JumpKick", "air_mk": "KB_p_MidKickFront_L", "air_hk": "KB_p_HighKick_R_1",
 }
+## Grounded-normal role map (footsies-first design contract; see docs/footsies-design.md).
+## Each grounded normal has one explicit neutral job, not just a damage number:
+##   Close checks ...... st.LP / st.LK / cr.LK : fast, short, low-risk stop signs.
+##   Mid-range RULER ... st.MK ................. the default poke; longest-reaching medium,
+##                                               stable recovery, no cancels (a pure footsie).
+##   Mid variations .... st.MP / cr.MK ......... st.MP is a closer step-in pressure variation
+##                                               (shorter than st.MK, walks in via advance,
+##                                               cancels into routes); cr.MK is the low-threat
+##                                               variation (hits low, cancels) but is kept
+##                                               SHORTER than st.MK so it never replaces it.
+##   Read / punish ..... st.HP / st.HK / cr.HK : more damage bought with more recovery and
+##                                               whiff-punish risk -- deliberate reads, not
+##                                               default buttons. st.HK is the longest callout.
+## These relationships are locked in by _test_blaze_button_roles() in tools/run_tests.gd;
+## retune the data and that test together if a button's role changes.
 const NORMAL_TUNING := {
 	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.57, 1.0, 0.0), "hit_size": Vector3(0.37, 0.36, 0.55), "cancel_into": ["cr_lp", "flame_step_l"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak"},
 	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_step_m", "cinder_lash", "super_inferno"]},

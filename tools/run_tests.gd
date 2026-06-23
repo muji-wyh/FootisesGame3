@@ -73,6 +73,26 @@ func _find_move(ch: CharacterData, id: String) -> MoveData:
 			return m
 	return null
 
+## Tip reach of a grounded normal (button identity tests). Uses the same metric as the
+## existing range tests: hitbox centre offset plus half its width.
+func _reach(m: MoveData) -> float:
+	return m.hit_offset.x + m.hit_size.x * 0.5
+
+## True if P1 pressing `button` (with optional `dy` for crouch/jump) connects on an idle,
+## non-blocking P2 standing `separation` apart. Builds and tears down its own arena.
+func _hits_at(button: int, dy: int, separation: float) -> bool:
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -separation * 0.5
+	f2.position.x = separation * 0.5
+	var hp_before: int = f2.health
+	_step(ctx, _mk(0, dy, button), _neutral(), 1)
+	_step(ctx, _neutral(), _neutral(), 24)
+	var hit := f2.health < hp_before
+	ctx["arena"].queue_free()
+	return hit
+
 func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	_test_walk()
@@ -82,6 +102,8 @@ func _initialize() -> void:
 	_test_normal_hit()
 	_test_lp_whiff_range()
 	_test_blaze_mp_hp_range()
+	_test_blaze_button_roles()
+	_test_footsies_scenarios()
 	_test_block()
 	_test_lp_pushout()
 	_test_corner_hit_pushback()
@@ -129,6 +151,7 @@ func _initialize() -> void:
 	_test_combo_scaling()
 	_test_burnout()
 	_test_drive_rush_carry()
+	_test_system_amplifies_neutral()
 	_test_hud_combo_and_fx()
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
@@ -221,6 +244,117 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("crouch LK/MK/HK ranges scale up light -> medium -> heavy",
 		cr_lk.hit_offset.x + cr_lk.hit_size.x * 0.5 < cr_mk.hit_offset.x + cr_mk.hit_size.x * 0.5
 		and cr_mk.hit_offset.x + cr_mk.hit_size.x * 0.5 < cr_hk.hit_offset.x + cr_hk.hit_size.x * 0.5)
+
+## Footsies-first button identity (see docs/footsies-design.md). Asserts the *role*
+## relationships between Blaze's grounded normals, not only raw frame/range numbers, so a
+## tuning pass that quietly erases a button's job fails here. Roles:
+##   st.MK = mid-range ruler; st.MP / cr.MK = variations; st.HP / st.HK / cr.HK = commit reads.
+func _test_blaze_button_roles() -> void:
+	print("[blaze button roles]")
+	var blaze := CharacterLibrary.create("blaze")
+	var st_mp := blaze.get_move("st_mp")
+	var st_mk := blaze.get_move("st_mk")
+	var cr_mk := blaze.get_move("cr_mk")
+	var st_hp := blaze.get_move("st_hp")
+	var st_hk := blaze.get_move("st_hk")
+	var cr_hk := blaze.get_move("cr_hk")
+	# Ruler: st.MK out-reaches every other medium grounded normal.
+	_check("st.MK is the longest-reaching medium (the spacing ruler)",
+		_reach(st_mk) > _reach(st_mp) and _reach(st_mk) > _reach(cr_mk))
+	# st.MK is a pure neutral poke: other buttons are tuned around it, so it has no cancels.
+	_check("st.MK has no cancel routes (a pure neutral poke)", st_mk.cancel_into.is_empty())
+	# st.MP is a closer, forward-pressure variation, kept distinct from the ruler.
+	_check("st.MP is closer than st.MK (step-in variation)", _reach(st_mp) < _reach(st_mk))
+	_check("st.MP walks forward (advance) where st.MK holds its ground",
+		st_mp.advance > st_mk.advance)
+	_check("st.MP feeds pressure/combo routes that st.MK does not",
+		not st_mp.cancel_into.is_empty())
+	# cr.MK is a low-threat variation, not a second ruler: it must not out-range st.MK.
+	_check("cr.MK is a low", cr_mk.guard == GameConst.Guard.LOW)
+	_check("cr.MK does not out-range st.MK (variation, not ruler)", _reach(cr_mk) < _reach(st_mk))
+	# Heavies: more reward, but clearly more committal than the medium pokes.
+	var max_medium_recovery: int = maxi(st_mk.recovery, maxi(st_mp.recovery, cr_mk.recovery))
+	var min_medium_damage: int = mini(st_mk.damage, mini(st_mp.damage, cr_mk.damage))
+	for heavy in [st_hp, st_hk, cr_hk]:
+		_check("%s hits harder than the medium pokes" % heavy.id, heavy.damage > min_medium_damage)
+		_check("%s is more committal (longer recovery) than the mediums" % heavy.id,
+			heavy.recovery > max_medium_recovery)
+	# st.HK is the longest grounded callout / whiff-punish button.
+	_check("st.HK is the longest-reaching grounded read button",
+		_reach(st_hk) > _reach(st_hp) and _reach(st_hk) > _reach(cr_hk) and _reach(st_hk) > _reach(st_mk))
+
+## Live footsies scenarios (the automatable part of the targeted playtest pass): the ruler
+## out-spaces its variation, the low variation beats a standing guard, and a committal heavy
+## is whiff-punishable. The subjective "feel" pass is a manual checklist in docs/footsies-design.md.
+func _test_footsies_scenarios() -> void:
+	print("[footsies scenarios]")
+	# 1. st.MK-led neutral: there is a spacing where st.MK connects but st.MP whiffs.
+	var ruler_out_spaces := false
+	var step := 8
+	while step <= 24:
+		var sep := step * 0.1
+		if _hits_at(GameConst.Btn.MK, 0, sep) and not _hits_at(GameConst.Btn.MP, 0, sep):
+			ruler_out_spaces = true
+			break
+		step += 1
+	_check("st.MK reaches a spacing where st.MP whiffs (ruler out-spaces the closer variation)",
+		ruler_out_spaces)
+
+	# 2. cr.MK low threat: it beats a STANDING guard where the mid ruler st.MK is blocked.
+	var low := _build()
+	var la: Fighter = low["f1"]
+	var lb: Fighter = low["f2"]
+	la.position.x = -0.45
+	lb.position.x = 0.45
+	var lb_hp0: int = lb.health
+	var low_hit := false
+	for i in range(24):
+		# P1 throws cr.MK (down + MK) on frame 0; P2 holds back while STANDING (dir_y 0).
+		low["c1"].frame = _mk(0, -1, GameConst.Btn.MK) if i == 0 else _mk(0, -1)
+		low["c2"].frame = _mk(1, 0)
+		low["arena"].step(DELTA)
+		if lb.state == Fighter.State.HITSTUN:
+			low_hit = true
+	_check("cr.MK (low) beats a standing guard", low_hit and lb.health < lb_hp0)
+	low["arena"].queue_free()
+
+	var mid := _build()
+	var ma: Fighter = mid["f1"]
+	var mb: Fighter = mid["f2"]
+	ma.position.x = -0.45
+	mb.position.x = 0.45
+	var mb_hp0: int = mb.health
+	var mid_blocked := false
+	for i in range(24):
+		# Same standing guard stops st.MK because it is a mid, not a low.
+		mid["c1"].frame = _mk(0, 0, GameConst.Btn.MK) if i == 0 else _neutral()
+		mid["c2"].frame = _mk(1, 0)
+		mid["arena"].step(DELTA)
+		if mb.state == Fighter.State.BLOCKSTUN:
+			mid_blocked = true
+	_check("st.MK (mid) is stopped by the same standing guard", mid_blocked and mb.health == mb_hp0)
+	mid["arena"].queue_free()
+
+	# 3. Heavy whiff punishability: a whiffed st.HK is stuck long enough to be jab-punished.
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var kinds := [GameConst.Counter.NONE]
+	f2.countered.connect(func(k): kinds[0] = k)
+	f1.position.x = -3.0
+	f2.position.x = 0.0
+	var f2_hp0: int = f2.health
+	_step(ctx, _neutral(), _mk(0, 0, GameConst.Btn.HK), 1)
+	_step(ctx, _neutral(), _neutral(), 16)
+	_check("whiffed heavy (st.HK) is stuck in recovery",
+		f2.state == Fighter.State.ATTACK and f2.current_move != null and f2.current_move.is_recovering(f2.state_frame))
+	f1.position.x = -0.84
+	f2.position.x = 0.0
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 7)
+	_check("a fast normal whiff-punishes the committal heavy", f2.health < f2_hp0)
+	_check("the heavy whiff punish registers as a punish counter", kinds[0] == GameConst.Counter.PUNISH)
+	ctx["arena"].queue_free()
+
 
 func _test_block() -> void:
 	print("[block]")
@@ -1873,6 +2007,75 @@ func _test_drive_rush_carry() -> void:
 	_check("Drive Rush normal started", f1.state == Fighter.State.ATTACK)
 	_check("Drive Rush normal carries forward momentum", f1.velocity.x > 0.8)
 	ctx["arena"].queue_free()
+
+## System guardrails (see docs/footsies-design.md): Green Rush / DRC must AMPLIFY a spacing
+## win, not replace neutral. The cheap, powerful extending cancel (DRC) is gated behind a
+## CONNECTED normal; a whiffed poke cannot be cancelled into a rush to skip neutral.
+func _test_system_amplifies_neutral() -> void:
+	print("[system amplifies neutral]")
+	# Invariants: the post-contact rush is dearer than the raw neutral rush, and the raw rush
+	# has a real wind-up, so it cannot instantly teleport past mid-range.
+	_check("DRC (post-contact rush) costs more than a raw neutral green rush",
+		Fighter.DRC_COST > Fighter.RAW_DRIVE_RUSH_COST)
+	_check("raw green rush has a startup wind-up (not an instant neutral skip)",
+		Fighter.DRIVE_RUSH_STARTUP_TICKS > 0 and Fighter.DRIVE_RUSH_START_SPEED < Fighter.DRIVE_RUSH_SPEED)
+
+	# A) "Starts after a spacing win": a CONNECTED normal can DRC into a rush, spending ~3 bars.
+	var ctx := _build()
+	var a: Fighter = ctx["f1"]
+	var b: Fighter = ctx["f2"]
+	a.position.x = -0.7
+	b.position.x = 0.6
+	var drive0: int = a.drive
+	ctx["c1"].frame = _mk(0, 0, GameConst.Btn.MP)
+	ctx["c2"].frame = _neutral()
+	ctx["arena"].step(DELTA)
+	var bh0: int = b.health
+	for i in range(8):
+		if b.health < bh0:
+			break
+		_step(ctx, _neutral(), _neutral(), 1)
+	var drc_entered := false
+	for i in range(20):
+		var fr := _neutral()
+		if a.hitstop == 0:
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+		ctx["c1"].frame = fr
+		ctx["c2"].frame = _neutral()
+		ctx["arena"].step(DELTA)
+		if a.state == Fighter.State.DRIVE_RUSH:
+			drc_entered = true
+			break
+	_check("a connected poke can DRC into a rush (cash out a spacing win)", drc_entered)
+	_check("DRC off a connected normal spent ~3 bars", a.drive <= drive0 - Fighter.DRC_COST + 100)
+	ctx["arena"].queue_free()
+
+	# B) "Does not skip neutral too easily": a WHIFFED poke cannot be cancelled into a rush
+	# during its recovery (after the brief from-startup green-rush window has passed).
+	var miss := _build()
+	var m1: Fighter = miss["f1"]
+	var m2: Fighter = miss["f2"]
+	m1.position.x = -5.0
+	m2.position.x = 5.0
+	var miss_drive0: int = m1.drive
+	var st_mp := m1.character.get_move("st_mp")
+	_step(miss, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	# Advance past the early from-startup green-rush window into the whiff's recovery.
+	_step(miss, _neutral(), _neutral(), Fighter.GREEN_RUSH_CHORD_BUFFER + 2)
+	var poke_whiffed := m1.move_hits_done == 0
+	var rushed_off_whiff := false
+	for i in range(st_mp.active + st_mp.recovery):
+		if m1.state != Fighter.State.ATTACK:
+			break
+		_step(miss, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+		if m1.state == Fighter.State.DRIVE_RUSH:
+			rushed_off_whiff = true
+			break
+	_check("the test poke actually whiffed (no contact)", poke_whiffed)
+	_check("a whiffed poke cannot be cancelled into a rush (no free skip past neutral)",
+		not rushed_off_whiff)
+	_check("a whiffed-poke two-punch input spends no Drive", m1.drive == miss_drive0)
+	miss["arena"].queue_free()
 
 func _test_hud_combo_and_fx() -> void:
 	print("[hud combo + drive-rush fx]")

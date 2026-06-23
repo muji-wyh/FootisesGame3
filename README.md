@@ -178,6 +178,12 @@ blockstun, guard level, knockback, meter, hitbox geometry, cancel routes) plus i
 visuals. The engine is character-agnostic — no engine changes needed to rebalance or add a
 character. See `characters/README.md`.
 
+**Design direction:** this is a **footsies-first** fighting game — grounded neutral, spacing,
+whiff punishes, and clear per-button jobs come before system-led offense. Before proposing
+balance, system, or training changes, read the design contract in
+[`docs/footsies-design.md`](docs/footsies-design.md) (button roles, system guardrails,
+terminology, and tuning heuristics).
+
 ## Real 3D characters (FBX / Mixamo / Kubold)
 
 The blockout fighters are swappable — the rig only *reads* `Fighter` state, it never
