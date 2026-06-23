@@ -313,8 +313,8 @@ func _test_super() -> void:
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
 	var inferno := f1.character.get_move("super_inferno")
-	_check("Inferno Rush hitbox matches model scale", inferno.hit_size.x <= 0.45 and inferno.hit_size.y <= 0.75 and inferno.hit_size.z <= 0.5)
-	_check("Inferno Rush reach is not oversized", inferno.hit_offset.x + inferno.hit_size.x * 0.5 <= 0.8)
+	_check("Inferno Rush hitbox matches model scale", inferno.hit_size.x <= 0.3 and inferno.hit_size.y <= 0.6 and inferno.hit_size.z <= 0.4)
+	_check("Inferno Rush reach is not oversized", inferno.hit_offset.x + inferno.hit_size.x * 0.5 <= 0.55)
 	_check("Inferno Rush has visible hit knockback", inferno.knockback >= 5.5)
 	f1.meter = f1.character.max_meter   # grant full meter
 	# Corner P2 so Blaze's advancing multi-hit super connects in full.
