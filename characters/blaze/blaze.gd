@@ -69,7 +69,7 @@ static func build() -> CharacterData:
 		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 12, "guard": GameConst.Guard.MID,
 		"knockback": 1.8, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
 		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
-		"hit_offset": Vector3(1.0, 1.1, 0.0), "hit_size": Vector3(1.1, 1.3, 0.8)}))
+		"hit_offset": Vector3(0.72, 1.05, 0.0), "hit_size": Vector3(0.68, 0.90, 0.65)}))
 
 	return c
 

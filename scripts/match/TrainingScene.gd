@@ -6,6 +6,7 @@ extends MatchScene
 
 const RESET_DELAY_TICKS := 45
 const HP_RECOVERY_DELAY_TICKS := 90
+const HP_RECOVERY_PER_TICK := 12
 
 var _reset_timer: int = 0
 var _hp_recovery_timers := [0, 0]
@@ -116,7 +117,7 @@ func _recover_training_hp() -> void:
 		var f: Fighter = fs[i]
 		if f == null:
 			continue
-		if f.health > 0:
+		if f.health >= f.character.max_health:
 			_hp_recovery_timers[i] = 0
 			continue
 		if f.state in [Fighter.State.HITSTUN, Fighter.State.BLOCKSTUN, Fighter.State.KNOCKDOWN, Fighter.State.WAKEUP] or f.hitstop > 0:
@@ -124,9 +125,8 @@ func _recover_training_hp() -> void:
 			continue
 		_hp_recovery_timers[i] += 1
 		if _hp_recovery_timers[i] >= HP_RECOVERY_DELAY_TICKS:
-			f.health = f.character.max_health
+			f.health = mini(f.character.max_health, f.health + HP_RECOVERY_PER_TICK)
 			f.health_changed.emit(f.health, f.character.max_health)
-			_hp_recovery_timers[i] = 0
 
 func _build_training_overlay() -> void:
 	_training_overlay = CanvasLayer.new()

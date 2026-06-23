@@ -25,7 +25,9 @@ static func completed(buffer: InputBuffer, facing: int, seq: Array[int],
 		window: int = 16, recent: int = 8) -> bool:
 	if seq.is_empty():
 		return false
-	var d: Array[int] = digits(buffer, facing, window)
+	var effective_window: int = maxi(window, seq.size() * 6)
+	var effective_recent: int = maxi(recent, 10)
+	var d: Array[int] = digits(buffer, facing, effective_window)
 	var si: int = 0
 	var last_match: int = -1
 	for i in range(d.size()):
@@ -34,4 +36,4 @@ static func completed(buffer: InputBuffer, facing: int, seq: Array[int],
 			last_match = i
 	if si < seq.size():
 		return false
-	return (d.size() - 1 - last_match) <= recent
+	return (d.size() - 1 - last_match) <= effective_recent

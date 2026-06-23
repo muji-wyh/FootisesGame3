@@ -307,7 +307,7 @@ func _input_text(m: MoveData) -> String:
 	else:
 		parts.append(_button_text(m.button))
 	if m.meter_cost > 0:
-		parts.append("(%d meter)" % m.meter_cost)
+		parts.append("(%d%% Super)" % m.meter_cost)
 	if m.drive_cost > 0:
 		parts.append("(EX)")
 	return " + ".join(parts)

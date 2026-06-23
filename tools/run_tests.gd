@@ -306,6 +306,9 @@ func _test_super() -> void:
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
+	var inferno := f1.character.get_move("super_inferno")
+	_check("Inferno Rush hitbox matches model scale", inferno.hit_size.x <= 0.7 and inferno.hit_size.y <= 0.95 and inferno.hit_size.z <= 0.7)
+	_check("Inferno Rush reach is not oversized", inferno.hit_offset.x + inferno.hit_size.x * 0.5 <= 1.1)
 	f1.meter = f1.character.max_meter   # grant full meter
 	# Corner P2 so Blaze's advancing multi-hit super connects in full.
 	f1.position.x = 5.4
@@ -322,6 +325,24 @@ func _test_super() -> void:
 	_step(ctx, _neutral(), _neutral(), 90)
 	_check("super dealt heavy damage", hp_before - f2.health >= 200)
 	ctx["arena"].queue_free()
+	var slow := _build()
+	var sf1: Fighter = slow["f1"]
+	var sf2: Fighter = slow["f2"]
+	sf1.meter = sf1.character.max_meter
+	sf1.position.x = 5.4
+	sf2.position.x = 6.3
+	# Human-paced QCF QCF: longer directional holds and the HP press a few frames after 6.
+	_step(slow, _mk(0, -1), _neutral(), 4)
+	_step(slow, _mk(1, -1), _neutral(), 4)
+	_step(slow, _mk(1, 0), _neutral(), 4)
+	_step(slow, _mk(0, -1), _neutral(), 4)
+	_step(slow, _mk(1, -1), _neutral(), 4)
+	_step(slow, _mk(1, 0), _neutral(), 4)
+	_step(slow, _neutral(), _neutral(), 5)
+	_step(slow, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_check("human-paced Inferno Rush input starts super", sf1.current_move != null and sf1.current_move.id == "super_inferno")
+	_check("human-paced Inferno Rush consumes meter", sf1.meter < sf1.character.max_meter)
+	slow["arena"].queue_free()
 
 func _test_ko() -> void:
 	print("[ko]")
@@ -513,7 +534,20 @@ func _test_training_mode() -> void:
 	_check("training dummy still reacts normally at zero HP", scene.f2.health == 0 and scene.f2.state == Fighter.State.HITSTUN)
 	for i in range(TrainingScene.HP_RECOVERY_DELAY_TICKS + 40):
 		scene._physics_process(DELTA)
-	_check("training dummy HP auto-recovers after downtime", scene.f2.health == scene.f2.character.max_health)
+	_check("training dummy HP starts recovering gradually after downtime",
+		scene.f2.health > 0 and scene.f2.health < scene.f2.character.max_health)
+	for i in range(100):
+		scene._physics_process(DELTA)
+	_check("training dummy HP eventually recovers to full", scene.f2.health == scene.f2.character.max_health)
+	scene.f2.health = scene.f2.character.max_health - 100
+	scene.f2.health_changed.emit(scene.f2.health, scene.f2.character.max_health)
+	for i in range(TrainingScene.HP_RECOVERY_DELAY_TICKS + 1):
+		scene._physics_process(DELTA)
+	_check("training damaged HP recovers gradually before zero",
+		scene.f2.health > scene.f2.character.max_health - 100 and scene.f2.health < scene.f2.character.max_health)
+	for i in range(20):
+		scene._physics_process(DELTA)
+	_check("training damaged HP eventually recovers to full", scene.f2.health == scene.f2.character.max_health)
 	_check("training resources stay full", scene.f1.meter == scene.f1.character.max_meter and scene.f1.drive == scene.f1.character.max_drive)
 	scene.f2.combo_changed.emit(2, 99)
 	_check("training combo HUD updates live", scene.hud._combo_label[0].text.contains("2 HITS") and scene.hud._combo_label[0].modulate.a > 0.9)
@@ -578,6 +612,7 @@ func _test_move_list_overlay() -> void:
 	var left: Label = hud._move_list_labels[0]
 	_check("move list hides removed specials", not left.text.contains("Flare Bolt") and not left.text.contains("Blaze Rise") and not left.text.contains("Cyclone Kick"))
 	_check("move list still shows super", left.text.contains("Inferno Rush"))
+	_check("move list uses numpad super notation", left.text.contains("236236") and left.text.contains("(100% Super)"))
 	hud.toggle_move_list()
 	_check("move list closes on second toggle", not hud.is_move_list_visible())
 	hud.queue_free()
