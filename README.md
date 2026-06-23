@@ -53,8 +53,10 @@ and link (a built-in advantage). Press the two punch buttons together from neutr
 Green Rush; pressing them again during Green Rush startup does nothing. Pressing back during
 the rush does not cancel it, and DRC two-punch inputs entered during hitstop are buffered into
 the first actionable frame. Blaze uses a Ken-inspired combo toolkit: `st.MP > st.HP`
-target routes, Flame Step confirms, Cinder Lash pressure, Ember Wheel corner carry,
-jump-ins, Green Rush and DRC.
+target routes, a `cr.LK > cr.MK` low confirm, **Flame Surge** (236+MP) — a launcher that
+pops the opponent up for a **Rising Inferno** juggle into the super (e.g.
+`cr.MK > Flame Surge > Inferno Rush`), Flame Step confirms, Cinder Lash pressure, Ember
+Wheel corner carry, jump-ins, Green Rush and DRC.
 Empty the gauge and you enter brief **Burnout** (the
 gauge flashes red and stops regenerating). Combos are tracked by an on-screen **hit
 counter** and use **damage scaling** so long routes taper instead of deleting the bar.
