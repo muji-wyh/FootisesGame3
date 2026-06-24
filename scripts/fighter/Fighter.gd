@@ -38,8 +38,7 @@ const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knoc
 const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
 const DRC_INPUT_BUFFER := 30        # real ticks a two-punch DRC input can wait before/after contact
-const DRC_CHORD_BUFFER := 8         # ticks to complete a slightly staggered two-punch DRC input
-const GREEN_RUSH_CHORD_BUFFER := 5  # ticks to complete a slightly staggered two-punch input
+const GREEN_RUSH_CHORD_BUFFER := 5  # ticks after a normal starts that a two-punch chord can still confirm a rush
 const DRIVE_RUSH_SPEED := 9.8       # forward speed while in a Drive Rush
 const DRIVE_RUSH_START_SPEED := 0.22 # initial crawl before the rush fully engages
 const DRIVE_RUSH_STARTUP_TICKS := 12 # startup frames before normals can be cancelled from rush
@@ -239,25 +238,15 @@ func _update_drc_input_buffer(inp: InputFrame, age_buffer: bool) -> void:
 	if _drc_input_buffer_age > DRC_INPUT_BUFFER:
 		_clear_drc_input_buffer()
 
+## A DRC (cancelling a connected normal into a rush) requires the same genuine two-punch CHORD as
+## a neutral Green Rush: at least two punch buttons held at once when one is pressed. The presses
+## may be a frame staggered, but must OVERLAP -- a sequential string (press LP, release, press MP)
+## is a normal combo, not a DRC, so it no longer false-triggers a cancel.
 func _is_drc_input(inp: InputFrame) -> bool:
-	var held_punches := inp.held & DRC_PUNCH_MASK
-	var pressed_punches := inp.pressed & DRC_PUNCH_MASK
-	if _is_live_two_punch_chord(inp):
-		return true
-	return pressed_punches != 0 and _bit_count(_recent_punch_mask(DRC_CHORD_BUFFER)) >= 2
+	return _is_live_two_punch_chord(inp)
 
 func _is_live_two_punch_chord(inp: InputFrame) -> bool:
 	return (inp.pressed & DRC_PUNCH_MASK) != 0 and _bit_count(inp.held & DRC_PUNCH_MASK) >= 2
-
-func _recent_punch_mask(window: int) -> int:
-	var mask := 0
-	for button in [GameConst.Btn.LP, GameConst.Btn.MP, GameConst.Btn.HP]:
-		if input_buffer.pressed_within(button, window):
-			mask |= button
-	return mask
-
-func _recent_punch_count(window: int) -> int:
-	return _bit_count(_recent_punch_mask(window))
 
 ## A neutral Green Rush requires a genuine two-punch CHORD: at least two punch buttons held at
 ## once when a punch is pressed. The presses may be a frame or two staggered, but must OVERLAP --

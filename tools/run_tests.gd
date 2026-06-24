@@ -246,6 +246,10 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("stand MP hitbox is tighter than the stock default", st_mp.hit_offset.x < 0.9 and st_mp.hit_size.x < 0.9)
 	_check("stand HP hitbox is tighter than the stock default", st_hp.hit_size.x < 0.9)
 	_check("stand HP still reaches farther than stand MP", st_hp.hit_offset.x + st_hp.hit_size.x * 0.5 > st_mp.hit_offset.x + st_mp.hit_size.x * 0.5)
+	# Flame Step H (236+HK) hitbox must stay proportionate to the model: not wider/taller than the
+	# character hurtbox (~0.84 wide). Regression: it used to be 0.90 wide -- bigger than the model.
+	var flame_step_h := blaze.get_move("flame_step_h")
+	_check("Flame Step H (236+HK) hitbox fits the model", flame_step_h.hit_size.x < 0.8 and flame_step_h.hit_size.y < 0.65)
 	_check("stand LK/MK/HK ranges scale up light -> medium -> heavy",
 		st_lk.hit_offset.x + st_lk.hit_size.x * 0.5 < st_mk.hit_offset.x + st_mk.hit_size.x * 0.5
 		and st_mk.hit_offset.x + st_mk.hit_size.x * 0.5 < st_hk.hit_offset.x + st_hk.hit_size.x * 0.5)
@@ -1795,7 +1799,8 @@ func _test_drive_rush() -> void:
 			follow_hit = true
 	_check("Drive Rush follow-up normal connected", follow_hit)
 	ctxa["arena"].queue_free()
-	# DRC accepts slightly staggered two-punch inputs, even when the first punch is released.
+	# DRC accepts a slightly staggered two-punch chord as long as the buttons OVERLAP (hold LP,
+	# then press MP while LP is still down).
 	var ctxs := _build()
 	var sa: Fighter = ctxs["f1"]
 	var sb: Fighter = ctxs["f2"]
@@ -1813,16 +1818,45 @@ func _test_drive_rush() -> void:
 		ctxs["c2"].frame = _neutral()
 		ctxs["arena"].step(DELTA)
 	_step(ctxs, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
-	_step(ctxs, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.MP), _neutral(), 1)
+	_step(ctxs, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
 	var staggered_drc := false
 	for i in range(30):
 		_step(ctxs, _neutral(), _neutral(), 1)
 		if sa.state == Fighter.State.DRIVE_RUSH:
 			staggered_drc = true
 			break
-	_check("DRC accepts staggered two-punch input", staggered_drc)
+	_check("DRC accepts overlapping staggered two-punch input", staggered_drc)
 	_check("staggered DRC spent ~3 bars", sa.drive <= sdrive - Fighter.DRC_COST + 60)
 	ctxs["arena"].queue_free()
+	# A sequential string (press LP, release, press MP -- no overlap) during a connected normal
+	# must NOT DRC; it is just a combo attempt. Regression: LP-then-MP used to false-trigger a DRC.
+	var ctxq := _build()
+	var qa: Fighter = ctxq["f1"]
+	var qb: Fighter = ctxq["f2"]
+	qa.position.x = -0.7
+	qb.position.x = 0.6
+	var qdrive: int = qa.drive
+	ctxq["c1"].frame = _mk(0, 0, GameConst.Btn.MK)
+	ctxq["c2"].frame = _neutral()
+	ctxq["arena"].step(DELTA)
+	var qhp: int = qb.health
+	for i in range(12):
+		if qb.health < qhp:
+			break
+		ctxq["c1"].frame = _neutral()
+		ctxq["c2"].frame = _neutral()
+		ctxq["arena"].step(DELTA)
+	_step(ctxq, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
+	_step(ctxq, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.MP), _neutral(), 1)  # LP released
+	var seq_drc := false
+	for i in range(30):
+		_step(ctxq, _neutral(), _neutral(), 1)
+		if qa.state == Fighter.State.DRIVE_RUSH:
+			seq_drc = true
+			break
+	_check("sequential LP then MP does not DRC", not seq_drc)
+	_check("sequential LP then MP spends no Drive on DRC", qa.drive >= qdrive - Fighter.DRC_COST + 1)
+	ctxq["arena"].queue_free()
 	# DRC can be input slightly before contact; it waits for the normal to connect.
 	var ctxe := _build()
 	var ea: Fighter = ctxe["f1"]

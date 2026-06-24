@@ -110,7 +110,7 @@ static func build() -> CharacterData:
 		"guard": GameConst.Guard.MID, "knockback": 3.2, "advance": 5.8, "launch": true, "launch_velocity": 6.0,
 		"meter_gain": 10, "sfx": "hk", "anim_limb": "leg_r", "anim_extend": 0.95,
 		"anim_clip": "KB_p_HighKick_R_1", "hit_offset": Vector3(0.90, 0.92, 0.0),
-		"hit_size": Vector3(0.90, 0.70, 0.72)}))
+		"hit_size": Vector3(0.46, 0.40, 0.50)}))
 
 	# Cinder Lash: heavy overhand lunge punch for heavy confirms, DRC pressure and corner carry.
 	# It launches, so it now cancels into the super for an aerial "Rising Inferno" finisher.
