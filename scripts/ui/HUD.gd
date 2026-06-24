@@ -35,6 +35,7 @@ var _banner: Label
 var _timer_label: Label
 var _counter_label: Label
 var _move_list_panel: Panel
+var _move_list_scroll: ScrollContainer
 var _move_list_labels := [null, null]
 var _counter_timer: int = 0
 var _dr_tint: ColorRect
@@ -257,6 +258,8 @@ func tick_counter() -> void:
 func toggle_move_list() -> void:
 	if _move_list_panel:
 		_move_list_panel.visible = not _move_list_panel.visible
+		if _move_list_panel.visible and _move_list_scroll:
+			_move_list_scroll.scroll_vertical = 0
 
 func is_move_list_visible() -> bool:
 	return _move_list_panel != null and _move_list_panel.visible
@@ -274,14 +277,33 @@ func _build_move_list(p1: CharacterData, p2: CharacterData) -> void:
 	title.add_theme_color_override("font_color", Color(0.98, 0.9, 0.4))
 
 	var hint := _label(_move_list_panel, Vector2(24, 52), Vector2(MOVE_LIST_W - 48.0, 24), 16)
-	hint.text = "TAB: close"
+	hint.text = "TAB: close  |  wheel / drag: scroll"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	var left := _label(_move_list_panel, Vector2(26, 94), Vector2(240, MOVE_LIST_H - 118.0), 18)
+	# Scrollable body so long move lists no longer overflow the panel. ScrollContainer
+	# handles the wheel, drag, scrollbar and clipping; we only feed it the content height.
+	_move_list_scroll = ScrollContainer.new()
+	_move_list_scroll.position = Vector2(24, 88)
+	_move_list_scroll.size = Vector2(MOVE_LIST_W - 48.0, MOVE_LIST_H - 104.0)
+	_move_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_move_list_panel.add_child(_move_list_scroll)
+
+	var body := Control.new()
+	_move_list_scroll.add_child(body)
+
+	var col_w := 240.0
+	var usable_w := _move_list_scroll.size.x - 18.0  # leave room for the vertical scrollbar
+	var left := _label(body, Vector2(2, 0), Vector2(col_w, 0), 18)
 	left.text = _move_list_text(p1)
-	var right := _label(_move_list_panel, Vector2(MOVE_LIST_W - 266.0, 94), Vector2(240, MOVE_LIST_H - 118.0), 18)
+	var right := _label(body, Vector2(usable_w - col_w - 2.0, 0), Vector2(col_w, 0), 18)
 	right.text = _move_list_text(p2)
 	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+	var body_h := maxf(left.get_minimum_size().y, right.get_minimum_size().y)
+	left.size = Vector2(col_w, body_h)
+	right.size = Vector2(col_w, body_h)
+	body.custom_minimum_size = Vector2(0, body_h)  # x=0 so horizontal never scrolls
+
 	_move_list_labels[0] = left
 	_move_list_labels[1] = right
 
