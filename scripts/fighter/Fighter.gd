@@ -54,6 +54,9 @@ const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil 
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
 const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
 const DRIVE_RUSH_CARRY_TICKS := 10  # ticks that carry momentum lasts
+const DRIVE_RUSH_BRAKE_TICKS := 10     # max skid frames after a back-back interrupt (safety cap)
+const DRIVE_RUSH_BRAKE_FRICTION := 0.6 # per-tick forward-momentum decay during the interrupt skid
+const DRIVE_RUSH_BRAKE_STOP := 0.2     # speed below which the skid ends early and control returns
 const BURNOUT_TICKS := 90           # ticks Drive regen is suspended after the gauge empties (SF6 Burnout)
 const DRC_PUNCH_MASK := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
 
@@ -100,6 +103,7 @@ var input_buffer := InputBuffer.new()
 var drive: int = 0
 var drive_rush_pending: bool = false   # first normal out of a Drive Rush gets a one-time advantage
 var _dr_carry: int = 0                  # ticks of forward slide momentum left on a Drive Rush normal
+var _dr_brake: int = 0                  # ticks of Green Rush interrupt-skid left (back-back cancel)
 var _burnout_timer: int = 0             # ticks Drive regen stays suspended after the gauge empties
 
 # Combo state (tracked on the victim; the attacker is this fighter's opponent). Used for
@@ -255,15 +259,12 @@ func _recent_punch_mask(window: int) -> int:
 func _recent_punch_count(window: int) -> int:
 	return _bit_count(_recent_punch_mask(window))
 
+## A neutral Green Rush requires a genuine two-punch CHORD: at least two punch buttons held at
+## once when a punch is pressed. The presses may be a frame or two staggered, but must OVERLAP --
+## a sequential string (press LP, release, then press MP) is a combo attempt, not a chord, so it
+## no longer false-triggers a rush.
 func _is_green_rush_chord(inp: InputFrame) -> bool:
-	if _is_drc_input(inp):
-		return true
-	var held_punches := inp.held & DRC_PUNCH_MASK
-	var pressed_punches := inp.pressed & DRC_PUNCH_MASK
-	var recent_punches := _recent_punch_mask(GREEN_RUSH_CHORD_BUFFER)
-	if _bit_count(held_punches) >= 2 and _bit_count(recent_punches) >= 2:
-		return true
-	return pressed_punches != 0 and _bit_count(recent_punches) >= 2
+	return _is_live_two_punch_chord(inp)
 
 func _can_confirm_raw_green_rush_from_attack(inp: InputFrame) -> bool:
 	if drive_rush_pending or current_move == null:
@@ -381,6 +382,7 @@ func _start_drive_rush() -> void:
 	_clear_cancel_buffer()
 	_clear_drc_input_buffer()
 	velocity.x = 0.0
+	_dr_brake = 0
 
 func _drive_rush_speed() -> float:
 	if state_frame <= DRIVE_RUSH_STARTUP_TICKS:
@@ -389,11 +391,21 @@ func _drive_rush_speed() -> float:
 	return lerpf(DRIVE_RUSH_START_SPEED, DRIVE_RUSH_SPEED, t)
 
 func _step_drive_rush(inp: InputFrame) -> void:
+	# Back-back (<-<-) interrupts Green Rush. The forward momentum is not killed instantly: it
+	# bleeds off over a short skid (see _drive_rush_brake) before control returns to neutral.
+	# Checked before the hold-back branch so the second tap (back held) triggers the brake.
+	if _dr_brake > 0 or _dash_req < 0:
+		_drive_rush_brake()
+		return
 	if inp.dir_x * facing < 0:
 		_clear_cancel_buffer()
 		velocity.x = facing * _drive_rush_speed()
 		return
-	if _is_live_two_punch_chord(inp):
+	# A fresh two-punch chord pressed mid-rush is ignored (it would otherwise re-trigger a rush
+	# or leak a stray normal). A SINGLE attack press still fires the enhanced normal -- even
+	# while the punch buttons that launched the rush are still held -- so attacking out of
+	# Green Rush stays responsive instead of being swallowed by the leftover held buttons.
+	if _bit_count(inp.pressed & DRC_PUNCH_MASK) >= 2:
 		_clear_cancel_buffer()
 		velocity.x = facing * _drive_rush_speed()
 		return
@@ -410,6 +422,21 @@ func _step_drive_rush(inp: InputFrame) -> void:
 	velocity.x = facing * _drive_rush_speed()
 	if state_frame >= DRIVE_RUSH_DURATION:
 		velocity.x = 0
+		drive_rush_pending = false
+		_goto(State.IDLE)
+
+## Interrupt skid: a back-back during the rush bleeds the forward momentum off over a few ticks
+## instead of halting instantly, then hands control back to neutral. ponytail: reuses the run
+## clip with a decaying velocity -- no dedicated brake animation. Tune friction/ticks for feel.
+func _drive_rush_brake() -> void:
+	if _dr_brake == 0:
+		_dr_brake = DRIVE_RUSH_BRAKE_TICKS
+	_clear_cancel_buffer()
+	_dr_brake -= 1
+	velocity.x *= DRIVE_RUSH_BRAKE_FRICTION
+	if _dr_brake <= 0 or absf(velocity.x) < DRIVE_RUSH_BRAKE_STOP:
+		velocity.x = 0
+		_dr_brake = 0
 		drive_rush_pending = false
 		_goto(State.IDLE)
 
@@ -1002,6 +1029,7 @@ func reset_for_round() -> void:
 	drive = character.max_drive
 	drive_rush_pending = false
 	_dr_carry = 0
+	_dr_brake = 0
 	_burnout_timer = 0
 	combo_count = 0
 	combo_damage = 0

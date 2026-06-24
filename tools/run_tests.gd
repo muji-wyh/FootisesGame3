@@ -1636,14 +1636,26 @@ func _test_drive_rush() -> void:
 		_check("two-punch neutral input starts green rush", r.state == Fighter.State.DRIVE_RUSH)
 		_check("raw green rush spends Drive", r.drive < d_before)
 		raw["arena"].queue_free()
+	# A genuine two-punch chord may be a frame staggered, but the buttons must OVERLAP (both held
+	# at once). Press LP, then MP while still holding LP -> green rush.
 	var stagger := _build()
 	var sr: Fighter = stagger["f1"]
 	var sd: int = sr.drive
 	_step(stagger, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
-	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.MP), _neutral(), 1)
-	_check("slightly staggered two-punch starts green rush", sr.state == Fighter.State.DRIVE_RUSH)
+	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("overlapping staggered two-punch starts green rush", sr.state == Fighter.State.DRIVE_RUSH)
 	_check("staggered raw green rush spends Drive", sr.drive < sd)
 	stagger["arena"].queue_free()
+	# A sequential string (press LP, release, then press MP -- no overlap) must NOT green rush;
+	# it is a normal combo attempt. Regression: LP-then-MP used to false-trigger a raw rush.
+	var seq := _build()
+	var qr: Fighter = seq["f1"]
+	var qd: int = qr.drive
+	_step(seq, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
+	_step(seq, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.MP), _neutral(), 1)
+	_check("sequential LP then MP does not green rush", qr.state != Fighter.State.DRIVE_RUSH)
+	_check("sequential LP then MP spends no Drive", qr.drive == qd)
+	seq["arena"].queue_free()
 	var late := _build()
 	var lr: Fighter = late["f1"]
 	var ld: int = lr.drive
@@ -1698,6 +1710,43 @@ func _test_drive_rush() -> void:
 		_step(whiff, _neutral(), _neutral(), 1)
 	_check("Drive Rush whiff normal clears pending FX state", not wr.drive_rush_pending and wr.state != Fighter.State.DRIVE_RUSH)
 	whiff["arena"].queue_free()
+	# Attacking out of Green Rush stays responsive even while the two punch buttons that
+	# launched the rush are still held (regression: leftover held punches must not swallow the
+	# attack), and the normal still gets the enhanced Drive Rush bonus.
+	var heldatk := _build()
+	var grf: Fighter = heldatk["f1"]
+	_step(heldatk, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(heldatk, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + 1)
+	_step(heldatk, _mk(0, 0, GameConst.Btn.HP, GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP), _neutral(), 1)
+	_check("Green Rush attack fires while rush punches still held", grf.state == Fighter.State.ATTACK and grf.current_move != null)
+	_check("held-button Green Rush attack keeps the enhanced bonus", grf.drive_rush_pending)
+	heldatk["arena"].queue_free()
+	# Back-back (<-<-) interrupts Green Rush, but the momentum brakes over a short skid instead
+	# of stopping dead, then control returns to neutral. A single back must NOT cancel.
+	var brk := _build()
+	var bf: Fighter = brk["f1"]
+	_step(brk, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(brk, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + Fighter.DRIVE_RUSH_ACCEL_TICKS)
+	var full_rush := absf(bf.velocity.x)
+	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)            # first back tap: still rushing
+	var rushing_on_first_back := bf.state == Fighter.State.DRIVE_RUSH and absf(bf.velocity.x) > full_rush * 0.8
+	_step(brk, _neutral(), _neutral(), 1)                    # release
+	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)            # second back tap: interrupt + brake
+	var brake_speed := absf(bf.velocity.x)
+	_step(brk, _neutral(), _neutral(), 1)
+	var brake_speed_2 := absf(bf.velocity.x)
+	var brake_ticks := 0
+	for i in range(30):
+		if bf.state != Fighter.State.DRIVE_RUSH:
+			break
+		_step(brk, _neutral(), _neutral(), 1)
+		brake_ticks += 1
+	_check("single back does not cancel Green Rush", rushing_on_first_back)
+	_check("back-back brakes instead of stopping dead", brake_speed > 0.0 and brake_speed < full_rush)
+	_check("Green Rush brake keeps decelerating", brake_speed_2 < brake_speed)
+	_check("Green Rush brake is a process, not an instant stop", brake_ticks >= 1)
+	_check("Green Rush brake returns to neutral after the skid", bf.state == Fighter.State.IDLE and absf(bf.velocity.x) < 0.001)
+	brk["arena"].queue_free()
 	# Forward double-tap is still a normal dash, not a raw Drive Rush.
 	var ctx := _build()
 	var f1: Fighter = ctx["f1"]

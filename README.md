@@ -50,8 +50,10 @@ A six-bar **Drive gauge** (separate from the Super meter) powers the modern mech
 A Drive Rush trails a cyan **afterimage** streak, starts with a brief wind-up, accelerates
 instead of launching at full speed immediately, and lets the first normal out of it slide in
 and link (a built-in advantage). Press the two punch buttons together from neutral to start
-Green Rush; pressing them again during Green Rush startup does nothing. Pressing back during
-the rush does not cancel it, and DRC two-punch inputs entered during hitstop are buffered into
+Green Rush; pressing them again during Green Rush startup does nothing. Holding back during
+the rush does not cancel it, but a **back-back** (`<-<-`) interrupts it with a short braking
+skid (momentum bleeds off instead of stopping dead), and DRC two-punch inputs entered during
+hitstop are buffered into
 the first actionable frame. Blaze uses a Ken-inspired combo toolkit: `st.MP > st.HP`
 target routes, a `cr.LK > cr.MK` low confirm, **Flame Surge** (236+MP) — a launcher that
 pops the opponent up for a **Rising Inferno** juggle into the super (e.g.
