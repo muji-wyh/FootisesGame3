@@ -93,6 +93,13 @@ func _hits_at(button: int, dy: int, separation: float) -> bool:
 	ctx["arena"].queue_free()
 	return hit
 
+## Feed P1 a quarter-circle-forward then `button` (down, down-forward, forward+button),
+## P2 neutral. `button == 0` performs the motion only (for chaining a double-QCF super).
+func _p1_qcf(ctx: Dictionary, button: int) -> void:
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(1, -1), _neutral(), 2)
+	_step(ctx, _mk(1, 0, button), _neutral(), 1)
+
 func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	_test_walk()
@@ -142,6 +149,7 @@ func _initialize() -> void:
 	_test_impact_fx_smoke()
 	_test_slowmo_director()
 	_test_combo()
+	_test_blaze_combo_expansion()
 	_test_drive_gauge()
 	_test_drive_rush()
 	_test_uppercut_rise()
@@ -1478,6 +1486,119 @@ func _test_combo() -> void:
 			break
 	_check("cr.MK can DRC into combo starter", entered_drc and dr_target)
 	drc["arena"].queue_free()
+
+## New combo routes (see the combo-route comment in characters/blaze/blaze.gd). Verifies the
+## wiring and that the headline combos connect: the light/low confirms, the new Flame Surge
+## launcher, and the launcher -> super "Rising Inferno" juggle. Stays footsies-first:
+## st.MK keeps no cancel routes.
+func _test_blaze_combo_expansion() -> void:
+	print("[blaze combo expansion]")
+	var b := CharacterLibrary.create("blaze")
+	# --- wiring (data) ---
+	_check("st.MK stays a pure poke (no cancels)", b.get_move("st_mk").cancel_into.is_empty())
+	_check("Cinder Low wired: cr.LK -> cr.MK", b.get_move("cr_lk").cancel_into.has("cr_mk"))
+	var fs := b.get_move("flame_surge")
+	_check("Flame Surge exists as a special", fs != null and fs.kind == GameConst.MoveKind.SPECIAL)
+	_check("Flame Surge is 236 + MP", fs != null and fs.button == GameConst.Btn.MP and fs.motion == MotionParser.QCF)
+	_check("Flame Surge is a launcher", fs != null and fs.launch and fs.launch_velocity > 0.0)
+	_check("Flame Surge is committal on whiff (long recovery)", fs != null and fs.recovery >= 20)
+	_check("Flame Surge has no invulnerable rise (route tool, not a reversal)", fs != null and not fs.rises)
+	for starter in ["st_mp", "cr_mp", "cr_mk", "st_hp", "st_hk", "cr_hp"]:
+		_check("%s can cancel into Flame Surge" % starter, b.get_move(starter).cancel_into.has("flame_surge"))
+	for launcher in ["flame_surge", "cinder_lash", "ember_wheel", "cr_hk"]:
+		_check("%s cancels into the super (Rising Inferno)" % launcher, b.get_move(launcher).cancel_into.has("super_inferno"))
+
+	# --- Cinder into the air (headline): cr.MK > Flame Surge > Inferno Rush. A low medium
+	# confirms into the new launcher, which juggles into the super. ---
+	var air := _build()
+	var aa: Fighter = air["f1"]
+	var ab: Fighter = air["f2"]
+	aa.meter = aa.character.max_meter
+	aa.position.x = -0.34
+	ab.position.x = 0.34
+	var ahp: int = ab.health
+	var amax := 0
+	# cr.MK, then wait for it to connect before cancelling.
+	_step(air, _mk(0, -1, GameConst.Btn.MK), _neutral(), 1)
+	var amark: int = ab.health
+	for i in range(12):
+		if ab.health < amark:
+			break
+		_step(air, _mk(0, -1), _neutral(), 1)
+	# Flame Surge (cancel): 236 + MP.
+	_p1_qcf(air, GameConst.Btn.MP)
+	for i in range(12):
+		_step(air, _neutral(), _neutral(), 1)
+		amax = maxi(amax, ab.combo_count)
+		if ab.launched:
+			break
+	# Inferno Rush (cancel): 236236 + HP.
+	_p1_qcf(air, 0)
+	_p1_qcf(air, GameConst.Btn.HP)
+	for i in range(60):
+		_step(air, _neutral(), _neutral(), 1)
+		amax = maxi(amax, ab.combo_count)
+	_check("Cinder-into-the-air links cr.MK > Flame Surge > super (>=4 hits)", amax >= 4)
+	_check("the full launching combo deals heavy damage", ahp - ab.health >= 150)
+	air["arena"].queue_free()
+
+	# --- Cinder Low: cr.LK > cr.MK (low-starting confirm) ---
+	var low := _build()
+	var la: Fighter = low["f1"]
+	var lb: Fighter = low["f2"]
+	la.position.x = -0.34
+	lb.position.x = 0.34
+	var lhp: int = lb.health
+	var lmax := 0
+	_step(low, _mk(0, -1, GameConst.Btn.LK), _neutral(), 1)
+	for i in range(10):
+		if lb.health < lhp:
+			break
+		_step(low, _mk(0, -1), _neutral(), 1)
+	_step(low, _mk(0, -1, GameConst.Btn.MK), _neutral(), 2)
+	for i in range(20):
+		_step(low, _neutral(), _neutral(), 1)
+		lmax = maxi(lmax, lb.combo_count)
+	_check("Cinder Low links cr.LK > cr.MK (>=2 hits)", lmax >= 2)
+	low["arena"].queue_free()
+
+	# --- Flame Surge launcher + Rising Inferno juggle: 236+MP launches, super-cancel juggles ---
+	var jug := _build()
+	var ua: Fighter = jug["f1"]
+	var ub: Fighter = jug["f2"]
+	ua.meter = ua.character.max_meter
+	ua.position.x = -0.4
+	ub.position.x = 0.4
+	var uhp: int = ub.health
+	var umax := 0
+	# Flame Surge (236 + MP).
+	_step(jug, _mk(0, -1), _neutral(), 2)
+	_step(jug, _mk(1, -1), _neutral(), 2)
+	_step(jug, _mk(1, 0, GameConst.Btn.MP), _neutral(), 1)
+	var surge_started := false
+	for i in range(16):
+		_step(jug, _neutral(), _neutral(), 1)
+		umax = maxi(umax, ub.combo_count)
+		if ua.current_move != null and ua.current_move.id == "flame_surge":
+			surge_started = true
+		if ub.launched:
+			break
+	var launched := ub.launched or not ub.on_ground
+	_check("Flame Surge comes out on 236 + MP", surge_started)
+	_check("Flame Surge launches the opponent into the air", launched)
+	# Cancel into Inferno Rush (236236 + HP) while the launcher is connected.
+	_step(jug, _mk(0, -1), _neutral(), 1)
+	_step(jug, _mk(1, -1), _neutral(), 1)
+	_step(jug, _mk(1, 0), _neutral(), 1)
+	_step(jug, _mk(0, -1), _neutral(), 1)
+	_step(jug, _mk(1, -1), _neutral(), 1)
+	_step(jug, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(60):
+		_step(jug, _neutral(), _neutral(), 1)
+		umax = maxi(umax, ub.combo_count)
+	_check("Rising Inferno juggle: Flame Surge > super extends the combo (>=3 hits)", umax >= 3)
+	_check("Rising Inferno juggle deals real damage", uhp - ub.health >= 100)
+	jug["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
 	print("[drive gauge]")
