@@ -112,13 +112,13 @@ static func build() -> CharacterData:
 		"anim_clip": "KB_p_HighKick_R_1", "hit_offset": Vector3(0.90, 0.92, 0.0),
 		"hit_size": Vector3(0.90, 0.70, 0.72)}))
 
-	# Cinder Lash: Dragonlash-like forward kick for heavy confirms, DRC pressure and corner carry.
+	# Cinder Lash: heavy overhand lunge punch for heavy confirms, DRC pressure and corner carry.
 	# It launches, so it now cancels into the super for an aerial "Rising Inferno" finisher.
 	c.add_move(CharacterKit.make_move({"id": "cinder_lash", "display_name": "Cinder Lash", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF, "startup": 10, "active": 6, "recovery": 24,
 		"damage": 70, "hitstun": 24, "blockstun": 14, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD,
 		"knockback": 5.8, "advance": 6.4, "launch": true, "launch_velocity": 6.8, "meter_gain": 12,
-		"sfx": "hp", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_p_HighKick_R_1",
+		"sfx": "hp", "anim_limb": "arm_r", "anim_extend": 1.0, "anim_clip": "KB_m_Overhand_R",
 		"hit_offset": Vector3(0.95, 1.12, 0.0), "hit_size": Vector3(0.82, 0.78, 0.72),
 		"cancel_into": ["super_inferno"]}))
 
