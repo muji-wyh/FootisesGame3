@@ -687,6 +687,7 @@ func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> 
 	move_hit_cooldown = 0
 	_end_combo()   # a block drops any combo this fighter was being hit by
 	stun_timer = m.blockstun + bonus_hitstun
+	hit_strength = _strength_of(m) # ponytail: record block strength for dynamic slide friction
 	_goto(State.BLOCKSTUN)
 	if m.chip > 0:
 		_damage(m.chip)
@@ -708,13 +709,16 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 	_record_hit_context(m, attacker_facing)
 	# Counter hits force a heavier reaction and add hitstun (a combo window on Punish).
 	var bonus_stun := 0
+	var knockback_mult := 1.0
 	match counter:
 		GameConst.Counter.PUNISH:
 			hit_strength = 2
 			bonus_stun = PUNISH_BONUS_HITSTUN
+			knockback_mult = 1.35 # ponytail: Punish Counter adds 35% extra punch/launch push
 		GameConst.Counter.COUNTER:
 			hit_strength = maxi(hit_strength, 1)
 			bonus_stun = COUNTER_BONUS_HITSTUN
+			knockback_mult = 1.15 # ponytail: Counter Hit adds 15% extra punch/launch push
 	if counter != GameConst.Counter.NONE:
 		countered.emit(counter)
 	var dealt := _scaled_damage(m.damage, combo_count)
@@ -726,15 +730,15 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 	if m.launch:
 		launched = true
 		knockdown_kind = _classify_knockdown(m)
-		velocity.y = m.launch_velocity
-		velocity.x = attacker_facing * m.knockback
+		velocity.y = m.launch_velocity * knockback_mult
+		velocity.x = attacker_facing * m.knockback * knockback_mult
 		on_ground = false
 		stun_timer = m.hitstun + bonus_stun + bonus_hitstun
 		_goto(State.HITSTUN)
 	else:
 		launched = false
 		stun_timer = m.hitstun + bonus_stun + bonus_hitstun
-		velocity.x = attacker_facing * m.knockback
+		velocity.x = attacker_facing * m.knockback * knockback_mult
 		_goto(State.HITSTUN)
 
 ## Combo damage scaling: the n-th hit (1-based) of a combo deals COMBO_SCALING[n-1] of its
@@ -776,7 +780,12 @@ func _counter_kind() -> int:
 	return GameConst.Counter.NONE
 
 func _step_stun() -> void:
-	velocity.x *= STUN_FRICTION
+	var friction := STUN_FRICTION
+	match hit_strength:
+		0: friction = 0.86  # ponytail: light attacks decay faster for a short, crisp slide
+		1: friction = 0.90  # ponytail: standard medium slide
+		2: friction = 0.93  # ponytail: heavy/special/supers slide further and feel heavier
+	velocity.x *= friction
 	if not on_ground:
 		return   # airborne: wait until landing (handled in _apply_physics)
 	stun_timer -= 1

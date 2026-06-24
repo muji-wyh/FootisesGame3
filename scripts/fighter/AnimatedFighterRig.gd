@@ -87,6 +87,12 @@ func pose(f: Fighter) -> void:
 			_play_fitted(wu, Fighter.WAKEUP_TICKS, 0.08)
 		return
 
+	if f.state == Fighter.State.HITSTUN and f.on_ground:
+		var hc := _resolve_hit_clip(f)
+		if hc != _cur_clip:
+			_play_fitted(hc, f.stun_timer, 0.05)
+		return
+
 	var target := _state_clip(f)
 	if target != _cur_clip:
 		_play(target, 0.12, 1.0, target in _cfg.looped_clips)

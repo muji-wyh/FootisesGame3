@@ -1112,6 +1112,27 @@ func _test_hit_strength() -> void:
 	_check("medium hit -> strength 1", _hit_with(GameConst.Btn.MP) == 1)
 	_check("heavy hit -> strength 2", _hit_with(GameConst.Btn.HP) == 2)
 
+	# Verify knockback scaling and dynamic slide friction
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	f1.position.x = -0.38
+	f2.position.x = 0.38
+	# Hit with LP (Light attack, base knockback = 3.2, dynamic friction = 0.86)
+	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	for i in range(20):
+		_step(ctx, _neutral(), _neutral(), 1)
+		if f2.state == Fighter.State.HITSTUN and f2.hitstop == 0:
+			break
+	_check("LP hitstun sets correct light hit strength", f2.hit_strength == 0)
+	var initial_vel := absf(f2.velocity.x)
+	_check("LP base knockback applied", initial_vel > 0.0)
+	_step(ctx, _neutral(), _neutral(), 1)
+	var next_vel := absf(f2.velocity.x)
+	# Decays at 0.86 (light friction) rather than the default 0.90
+	_check("light hitstun uses faster friction decay (0.86)", is_equal_approx(next_vel, initial_vel * 0.86))
+	ctx["arena"].queue_free()
+
 func _test_kb_library() -> void:
 	print("[kb library / gallery source]")
 	var blaze := CharacterLibrary.create("blaze")
