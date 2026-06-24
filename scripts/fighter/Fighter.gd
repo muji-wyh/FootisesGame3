@@ -980,13 +980,60 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 	if not blocked and opponent != null and is_instance_valid(opponent):
 		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
 	hitstop = stop
+
+	# Proportional pushback: base pushback scales with move's knockback
+	var base_knockback := m.knockback
+	var k_mult := 1.0
+	if not blocked and opponent != null and is_instance_valid(opponent):
+		# Counter hit multipliers on hit knockback
+		if opponent.last_counter == GameConst.Counter.PUNISH:
+			k_mult = 1.35
+		elif opponent.last_counter == GameConst.Counter.COUNTER:
+			k_mult = 1.15
+
+	var final_knockback := base_knockback * k_mult
 	var self_push := 0.0
+
 	if blocked:
-		self_push = m.pushback_self
-	elif opponent != null and is_instance_valid(opponent):
-		self_push = m.pushback_self * 0.15
-		if absf(opponent.position.x) >= CORNER_PUSHBACK_X:
-			self_push = maxf(self_push, m.pushback_self * 0.65)
+		# Attacker gets 22% of the blocked knockback as standard block recoil
+		self_push = final_knockback * 0.22
+	else:
+		# On normal hit, the attacker gets ZERO base recoil to ensure combos link perfectly in open space.
+		# Corner pushback transfer will handle pushing the attacker away if the victim is in the corner.
+		self_push = 0.0
+
+	# Corner Pushback Transfer: if the victim is blocked by the wall, transfer the untraveled
+	# distance directly to the attacker.
+	if opponent != null and is_instance_valid(opponent):
+		var friction := STUN_FRICTION
+		var str_val := _strength_of(m)
+		match str_val:
+			0: friction = 0.86
+			1: friction = 0.90
+			2: friction = 0.93
+
+		var v_vic_initial := final_knockback
+		if blocked:
+			v_vic_initial *= 0.5
+
+		# Expected victim slide distance in units (60 Hz tick)
+		var s_vic := v_vic_initial * (1.0 / (1.0 - friction)) / 60.0
+		var expected_final_x := opponent.position.x + facing * s_vic
+		var lim := 7.0 - PUSHBOX_HALF # FIGHT_BOUNDS_HALF_WIDTH - PUSHBOX_HALF
+		var blocked_dist := 0.0
+		if expected_final_x > lim:
+			blocked_dist = expected_final_x - lim
+		elif expected_final_x < -lim:
+			blocked_dist = -lim - expected_final_x
+
+		if blocked_dist > 0.0:
+			self_push += blocked_dist
+
+	# Multi-hit scaling: if this is an early hit of a multi-hit move, scale down self-push
+	if opponent != null and is_instance_valid(opponent):
+		if m.hits > 1 and move_hits_done < m.hits:
+			self_push *= 0.1
+
 	position.x -= facing * self_push
 	if not blocked:
 		_add_meter(m.meter_gain)
