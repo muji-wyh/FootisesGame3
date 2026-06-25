@@ -21,6 +21,7 @@ var _dr_was := [false, false]   # per-fighter "was drive-rushing last frame" edg
 var _dr_tint_level: float = 0.0
 
 const DRIVE_RUSH_TINT_TARGET := 0.07
+const MODEL_DEPTH_OFFSET := 0.18   # per-side visual Z stagger so co-planar models don't clip ("穿模")
 
 func _ready() -> void:
 	var stage := Stage.new()
@@ -97,6 +98,9 @@ func _attach_rig(f: Fighter, ch: CharacterData) -> void:
 		brig.build(ch)
 		rig = brig
 	f.rig = rig
+	# Stagger the two models slightly in depth (Z) so their co-planar limbs don't pass through
+	# each other ("穿模"). Presentation only: the sim, hitboxes and bounds all stay on z = 0.
+	(rig as Node3D).position.z = MODEL_DEPTH_OFFSET if f.side == GameConst.Side.P2 else -MODEL_DEPTH_OFFSET
 	f.update_visual()
 
 func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
