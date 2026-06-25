@@ -36,8 +36,8 @@ const DASH_SPEED := 6.0
 const BACKDASH_SPEED := 5.6
 const COUNTER_BONUS_HITSTUN := 6    # extra hitstun on a Counter Hit
 const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo window)
-const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knockdown
-const WAKEUP_TICKS := 34            # get-up duration before returning to idle (final frames are vulnerable: okizeme)
+const KNOCKDOWN_TICKS := 13         # frames lying down before the get-up starts (SF6-style quick rise)
+const WAKEUP_TICKS := 18            # get-up duration; KNOCKDOWN+WAKEUP = 31f ~ SF6 soft knockdown. Final WAKEUP_VULN_FRAMES are vulnerable (okizeme)
 const WAKEUP_VULN_FRAMES := 6       # final frames of the get-up where the riser is hittable/blockable (meaty window)
 const MEATY_BONUS_HITSTUN := 8      # extra hitstun when an attack meaty-hits a rising opponent (a combo window)
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible

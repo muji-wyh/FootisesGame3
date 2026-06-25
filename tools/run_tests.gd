@@ -1287,16 +1287,29 @@ func _test_wakeup() -> void:
 	_step(ctx, _mk(0, -1, GameConst.Btn.HK), _neutral(), 1)
 	var saw_knockdown := false
 	var saw_wakeup := false
+	var kd_start := -1
+	var up_at := -1
 	for i in range(260):
 		_step(ctx, _neutral(), _neutral(), 1)
 		if f2.state == Fighter.State.KNOCKDOWN:
 			saw_knockdown = true
+			if kd_start < 0:
+				kd_start = i
 		if f2.state == Fighter.State.WAKEUP:
 			saw_wakeup = true
+		if kd_start >= 0 and up_at < 0 and f2.state == Fighter.State.IDLE:
+			up_at = i
 	_check("victim was knocked down", saw_knockdown)
 	_check("victim played a get-up (WAKEUP)", saw_wakeup)
 	_check("victim recovered to neutral", f2.state == Fighter.State.IDLE)
 	_check("knockdown kind cleared after wake-up", f2.knockdown_kind == GameConst.Knockdown.NONE)
+	# SF6 reference: a non-teched soft knockdown is ~31 frames from hitting the ground until the
+	# riser is actionable. Keep the down-time (lying + get-up) tuned to that so wake-ups feel quick.
+	# Retune these constants and this check together if the knockdown feel changes.
+	_check("knockdown + get-up tuned to SF6 soft knockdown (31f)",
+		Fighter.KNOCKDOWN_TICKS + Fighter.WAKEUP_TICKS == 31)
+	_check("down-time from knockdown to actionable is SF6-quick (~31f)",
+		kd_start >= 0 and up_at >= 0 and (up_at - kd_start) >= 28 and (up_at - kd_start) <= 34)
 	ctx["arena"].queue_free()
 
 ## 压起身 / okizeme: the get-up's final frames are vulnerable + blockable (the meaty window). A
