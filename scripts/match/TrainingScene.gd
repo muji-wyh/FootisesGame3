@@ -54,7 +54,6 @@ func _build_training(game_override: Node = null) -> void:
 	add_child(hud)
 	_wire_hud(c1, c2)
 	hud.set_timer_text("TRAIN")
-	hud.show_banner("TRAINING MODE")
 
 	audio = AudioManager.new()
 	add_child(audio)
@@ -97,7 +96,6 @@ func _reset_training_state() -> void:
 	_hp_recovery_timers = [0, 0]
 	hud.set_rounds(0, 0)
 	hud.set_timer_text("TRAIN")
-	hud.show_banner("TRAINING MODE")
 	_refill_training_resources()
 
 func _refill_training_resources() -> void:
