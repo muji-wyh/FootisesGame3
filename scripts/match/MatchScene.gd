@@ -112,6 +112,8 @@ func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	f2.drive_changed.connect(func(c, m): hud.set_drive(1, c, m))
 	f1.countered.connect(_on_countered)
 	f2.countered.connect(_on_countered)
+	f1.meaty_hit.connect(func(): _on_meaty(f1))
+	f2.meaty_hit.connect(func(): _on_meaty(f2))
 	f1.got_hit.connect(func(blocked): _on_struck(f1, blocked))
 	f2.got_hit.connect(func(blocked): _on_struck(f2, blocked))
 	# Combo counters: a fighter's own combo (hits it has taken) drives the OTHER side's display.
@@ -156,6 +158,8 @@ func _spark_params(victim: Fighter, blocked: bool) -> Dictionary:
 	if blocked:
 		return {"color": Color(0.6, 0.8, 1.0), "scale": 0.42, "shake": 0.03, "frames": 5, "y": 1.0}
 	var y := _hit_y(victim)
+	if victim.last_meaty:
+		return {"color": Color(1.0, 0.7, 0.1), "scale": 1.0, "shake": 0.16, "frames": 10, "y": y}
 	match victim.last_counter:
 		GameConst.Counter.PUNISH:
 			return {"color": Color(1.0, 0.35, 0.9), "scale": 1.15, "shake": 0.22, "frames": 12, "y": y}
@@ -182,6 +186,12 @@ func _on_countered(kind: int) -> void:
 	hud.show_counter(kind)
 	if kind == GameConst.Counter.PUNISH:
 		_slowmo.request(0.35, 12)
+
+## A fighter landed a meaty on the opponent's wake-up: flash "MEATY!" and a short slow-mo beat
+## so a well-timed okizeme reads as a reward.
+func _on_meaty(_attacker: Fighter) -> void:
+	hud.show_meaty()
+	_slowmo.request(0.4, 10)
 
 ## Drive Rush presentation: spawn an afterimage trail on the frame a fighter starts rushing,
 ## play a whoosh, pulse the screen tint while anyone is rushing, and surface Burnout on the HUD.

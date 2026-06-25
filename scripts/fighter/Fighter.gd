@@ -22,6 +22,7 @@ signal got_hit(blocked: bool)                    # this fighter was hit
 signal countered(kind: int)                      # this fighter was hit as a Counter/Punish
 signal jumped()
 signal combo_changed(hits: int, damage: int)     # this fighter's combo on its opponent changed
+signal meaty_hit()                               # this fighter landed a meaty on the opponent's wake-up
 
 enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP, DRIVE_RUSH }
 
@@ -36,7 +37,9 @@ const BACKDASH_SPEED := 5.6
 const COUNTER_BONUS_HITSTUN := 6    # extra hitstun on a Counter Hit
 const PUNISH_BONUS_HITSTUN := 14    # extra hitstun on a Punish Counter (combo window)
 const KNOCKDOWN_TICKS := 40         # time spent on the ground after a hard knockdown
-const WAKEUP_TICKS := 34            # get-up duration (invulnerable) before returning to idle
+const WAKEUP_TICKS := 34            # get-up duration before returning to idle (final frames are vulnerable: okizeme)
+const WAKEUP_VULN_FRAMES := 6       # final frames of the get-up where the riser is hittable/blockable (meaty window)
+const MEATY_BONUS_HITSTUN := 8      # extra hitstun when an attack meaty-hits a rising opponent (a combo window)
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
 const DRC_INPUT_BUFFER := 30        # real ticks a two-punch DRC input can wait before/after contact
 const GREEN_RUSH_CHORD_BUFFER := 5  # ticks after a normal starts that a two-punch chord can still confirm a rush
@@ -96,6 +99,7 @@ var hit_from_back: bool = false    # victim was struck from behind (cross-up)
 var hit_reaction_clip: String = "" # per-move victim reaction override, if the move authored one
 var last_hit_point := Vector3.ZERO # world-space contact point used by impact FX
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
+var last_meaty: bool = false                     # the most recent hit taken was a meaty (wake-up) hit
 var knockdown_kind: int = GameConst.Knockdown.NONE  # how the current knockdown was caused
 var input_buffer := InputBuffer.new()
 
@@ -153,7 +157,9 @@ func setup(p_character: CharacterData, p_controller: InputController, p_side: in
 
 func poll_input() -> void:
 	var inp: InputFrame
-	if active and not _is_locked_out():
+	# A rising fighter may hold a guard direction through the get-up so they can block a meaty on
+	# wake-up; they still cannot attack (WAKEUP only runs _step_wakeup). Otherwise locked out.
+	if active and (not _is_locked_out() or state == State.WAKEUP):
 		inp = controller.poll(self, opponent)
 	else:
 		inp = InputFrame.new()
@@ -658,6 +664,8 @@ func _hitstop_bonus() -> int:
 			b += 3
 		GameConst.Counter.PUNISH:
 			b += 6
+	if last_meaty:
+		b += 3   # meaty hits land with extra impact freeze
 	return b
 
 func _is_blocking(m: MoveData, attacker_facing: int) -> bool:
@@ -680,16 +688,26 @@ func _is_blocking(m: MoveData, attacker_facing: int) -> bool:
 	return false
 
 func _can_block() -> bool:
+	# A rising fighter can guard during the vulnerable tail of the get-up (block the meaty), but
+	# still cannot attack (WAKEUP stays in _is_locked_out) -- the okizeme defence option.
+	if state == State.WAKEUP:
+		return on_ground and _in_wakeup_vuln()
 	return on_ground and state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH, State.BLOCKSTUN]
 
 func _is_actionable() -> bool:
 	return state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH]
+
+## True during the final WAKEUP_VULN_FRAMES of the get-up: the riser is hittable and can block
+## (the okizeme / meaty window). Earlier wake-up frames stay fully invulnerable.
+func _in_wakeup_vuln() -> bool:
+	return state == State.WAKEUP and state_frame >= WAKEUP_TICKS - WAKEUP_VULN_FRAMES
 
 func _is_locked_out() -> bool:
 	return state in [State.HITSTUN, State.BLOCKSTUN, State.KNOCKDOWN, State.WAKEUP, State.KO, State.INTRO, State.WIN]
 
 func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
 	_recoil_vel = 0.0   # incoming knockback governs now; drop any residual attack recoil
+	last_meaty = false  # a blocked meaty is just a blockstring, no reward
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
@@ -705,6 +723,13 @@ func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> 
 func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
 	_recoil_vel = 0.0   # incoming knockback governs now; drop any residual attack recoil
 	var counter := _counter_kind()   # read before current_move is cleared
+	# Meaty (okizeme): this hit lands during the vulnerable tail of our get-up, and the attacker's
+	# move was already in active frames on a prior tick (it was placed early to "wrap" the wake-up,
+	# not started this frame). A rising fighter isn't attacking, so counter is NONE here.
+	var meaty := _in_wakeup_vuln() and opponent != null and is_instance_valid(opponent) \
+		and opponent.current_move != null \
+		and opponent.current_move.is_active(opponent.state_frame) \
+		and opponent.state_frame > opponent.current_move.startup
 	# Combo bookkeeping: a hit taken while already stunned/airborne extends the combo,
 	# otherwise it starts a fresh one. Damage is then scaled by the combo length (SF6-style).
 	var continuing := state == State.HITSTUN or not on_ground or launched
@@ -715,6 +740,7 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 	move_hits_done = 0
 	move_hit_cooldown = 0
 	last_counter = counter
+	last_meaty = meaty
 	_record_hit_context(m, attacker_facing)
 	# Counter hits force a heavier reaction and add hitstun (a combo window on Punish).
 	var bonus_stun := 0
@@ -728,8 +754,14 @@ func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> vo
 			hit_strength = maxi(hit_strength, 1)
 			bonus_stun = COUNTER_BONUS_HITSTUN
 			knockback_mult = 1.15 # ponytail: Counter Hit adds 15% extra punch/launch push
+	# Meaty reward: a guaranteed combo-window of hitstun and a beefier reaction/spark.
+	if meaty:
+		hit_strength = maxi(hit_strength, 1)
+		bonus_stun = maxi(bonus_stun, MEATY_BONUS_HITSTUN)
 	if counter != GameConst.Counter.NONE:
 		countered.emit(counter)
+	if meaty:
+		meaty_hit.emit()
 	var dealt := _scaled_damage(m.damage, combo_count)
 	combo_damage += dealt
 	combo_changed.emit(combo_count, combo_damage)
@@ -892,8 +924,10 @@ func _on_landed() -> void:
 ## World-space hurtboxes. Empty while knocked down or KO'd (invulnerable).
 func hurtboxes() -> Array[AABB]:
 	var boxes: Array[AABB] = []
-	if state in [State.KNOCKDOWN, State.KO, State.WAKEUP]:
-		return boxes
+	if state in [State.KNOCKDOWN, State.KO]:
+		return boxes   # fully invulnerable while down / KO'd
+	if state == State.WAKEUP and not _in_wakeup_vuln():
+		return boxes   # invulnerable through the rise, except the final meaty-window frames
 	var crouching := state == State.CROUCH or (current_move != null and current_move.stance == GameConst.Stance.CROUCH and state == State.ATTACK)
 	var height := 1.15 if crouching else 1.75
 	var center := position + Vector3(0, height * 0.5, 0)
@@ -1094,6 +1128,7 @@ func reset_for_round() -> void:
 	hit_reaction_clip = ""
 	last_hit_point = Vector3.ZERO
 	last_counter = GameConst.Counter.NONE
+	last_meaty = false
 	knockdown_kind = GameConst.Knockdown.NONE
 	drive = character.max_drive
 	drive_rush_pending = false

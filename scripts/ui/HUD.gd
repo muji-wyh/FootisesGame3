@@ -249,6 +249,13 @@ func show_counter(kind: int) -> void:
 		_counter_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.25))
 	_counter_timer = COUNTER_TICKS
 
+## Flash a "MEATY!" call-out for a well-timed wake-up attack. Reuses the counter-label slot and
+## its auto-clear countdown (tick_counter), in a hot gold to read as a reward.
+func show_meaty() -> void:
+	_counter_label.text = "MEATY!"
+	_counter_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1))
+	_counter_timer = COUNTER_TICKS
+
 func tick_counter() -> void:
 	if _counter_timer > 0:
 		_counter_timer -= 1

@@ -144,6 +144,7 @@ func _initialize() -> void:
 	_test_counter_clean_hit()
 	_test_knockdown_kinds()
 	_test_wakeup()
+	_test_okizeme()
 	_test_reaction_clips()
 	_test_hitstop_tiers()
 	_test_impact_fx_smoke()
@@ -1296,6 +1297,84 @@ func _test_wakeup() -> void:
 	_check("victim played a get-up (WAKEUP)", saw_wakeup)
 	_check("victim recovered to neutral", f2.state == Fighter.State.IDLE)
 	_check("knockdown kind cleared after wake-up", f2.knockdown_kind == GameConst.Knockdown.NONE)
+	ctx["arena"].queue_free()
+
+## 压起身 / okizeme: the get-up's final frames are vulnerable + blockable (the meaty window). A
+## well-timed meaty (attack already active when the riser becomes hittable) is rewarded; the riser
+## can block to escape but cannot mash an attack out.
+func _test_okizeme() -> void:
+	print("[okizeme / meaty wake-up]")
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var jab := _find_move(f1.character, "st_lp")   # startup 4, active 3, hitstun 16
+	var af: int = f1.facing
+
+	# a. Vulnerability window: invulnerable early in the get-up and while down, hittable in the tail.
+	f2.on_ground = true
+	f2.state = Fighter.State.WAKEUP
+	f2.state_frame = 1
+	_check("wake-up is invulnerable early in the get-up", f2.hurtboxes().is_empty())
+	f2.state_frame = Fighter.WAKEUP_TICKS - 1
+	_check("wake-up exposes a hurtbox in the meaty tail", not f2.hurtboxes().is_empty())
+	f2.state = Fighter.State.KNOCKDOWN
+	_check("knockdown stays fully invulnerable", f2.hurtboxes().is_empty())
+
+	# b. A meaty (attack already active before the riser becomes hittable) connects and is rewarded.
+	f2.state = Fighter.State.WAKEUP
+	f2.state_frame = Fighter.WAKEUP_TICKS - 3
+	f2.health = f2.character.max_health
+	f1.current_move = jab
+	f1.state = Fighter.State.ATTACK
+	f1.state_frame = jab.startup + 1   # already active a tick earlier => meaty
+	ctx["c2"].frame = _neutral()
+	f2.poll_input()
+	var blocked_meaty := f2.receive_attack(jab, af)
+	_check("meaty connects (not blocked) on a neutral riser", not blocked_meaty)
+	_check("meaty is flagged on the victim", f2.last_meaty)
+	_check("meaty grants a combo-window of extra hitstun",
+		f2.stun_timer >= jab.hitstun + Fighter.MEATY_BONUS_HITSTUN)
+
+	# c. A same-frame poke (first active frame lands on the riser) is NOT a meaty.
+	f2.state = Fighter.State.WAKEUP
+	f2.state_frame = Fighter.WAKEUP_TICKS - 3
+	f2.health = f2.character.max_health
+	f1.current_move = jab
+	f1.state = Fighter.State.ATTACK
+	f1.state_frame = jab.startup     # first active frame => not a placed meaty
+	ctx["c2"].frame = _neutral()
+	f2.poll_input()
+	f2.receive_attack(jab, af)
+	_check("a same-frame poke on wake-up is not a meaty", not f2.last_meaty)
+
+	# d. Holding back through the tail blocks the meaty (the defence option) -- no damage, no reward.
+	f2.state = Fighter.State.WAKEUP
+	f2.state_frame = Fighter.WAKEUP_TICKS - 3
+	f2.health = f2.character.max_health
+	var hp: int = f2.health
+	f1.current_move = jab
+	f1.state = Fighter.State.ATTACK
+	f1.state_frame = jab.startup + 1
+	ctx["c2"].frame = _mk(af, 0)     # hold away from the attacker = guard
+	f2.poll_input()
+	var blocked := f2.receive_attack(jab, af)
+	_check("a rising fighter can block the meaty", blocked and f2.state == Fighter.State.BLOCKSTUN)
+	_check("a blocked meaty deals no life damage", f2.health == hp)
+	_check("a blocked meaty is not rewarded as a meaty", not f2.last_meaty)
+
+	# e. A rising fighter cannot attack during wake-up (no mash reversal).
+	f2.state = Fighter.State.WAKEUP
+	f2.stun_timer = 6
+	f2.state_frame = Fighter.WAKEUP_TICKS - 6
+	f2.current_move = null
+	var attacked := false
+	for i in range(4):
+		ctx["c2"].frame = _mk(0, 0, GameConst.Btn.LP)
+		f2.poll_input()
+		f2.advance(DELTA)
+		if f2.state == Fighter.State.ATTACK:
+			attacked = true
+	_check("a rising fighter cannot attack during wake-up (no mash reversal)", not attacked)
 	ctx["arena"].queue_free()
 
 func _test_reaction_clips() -> void:
