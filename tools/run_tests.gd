@@ -400,6 +400,8 @@ func _test_pushback_scaling() -> void:
 	_check("crouch medium pushes farther than crouch jab", b.get_move("cr_mk").knockback > b.get_move("cr_lp").knockback)
 	_check("stand MP routes into Ken-like target combo", b.get_move("st_mp").cancel_into.has("st_hp"))
 	_check("lights route into Flame Step L", b.get_move("st_lp").cancel_into.has("flame_step_l") and b.get_move("cr_lp").cancel_into.has("flame_step_l"))
+	# Lights are footsies "stop signs", not chain starters: no light self-chain (st.LP -> cr.LP or cr.LP -> cr.LP).
+	_check("lights do not chain into a light jab", not b.get_move("st_lp").cancel_into.has("cr_lp") and not b.get_move("cr_lp").cancel_into.has("cr_lp"))
 	_check("kick lights route into Flame Step L", b.get_move("st_lk").cancel_into.has("flame_step_l") and b.get_move("cr_lk").cancel_into.has("flame_step_l"))
 	_check("heavies route into corner carry specials", b.get_move("st_hp").cancel_into.has("ember_wheel") and b.get_move("st_hp").cancel_into.has("cinder_lash"))
 	_check("kick heavies route into corner carry specials", b.get_move("st_hk").cancel_into.has("flame_step_h") and b.get_move("st_hk").cancel_into.has("ember_wheel"))
@@ -433,8 +435,22 @@ func _test_corner_hit_pushback() -> void:
 	f2.position.x = 6.45
 	var start_x: float = f1.position.x
 	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
-	_step(ctx, _neutral(), _neutral(), 20)
-	_check("attacker recoils on a cornered hit", f1.position.x < start_x - 0.08)
+	# The attacker's corner recoil must ease back over several frames (a passive slide), not
+	# teleport the whole distance in one frame (regression: it used to snap position instantly).
+	var prev_x: float = f1.position.x
+	var max_step := 0.0
+	var moving_frames := 0
+	for i in range(30):
+		_step(ctx, _neutral(), _neutral(), 1)
+		var d: float = prev_x - f1.position.x   # backward (leftward) movement this frame
+		if d > 0.0001:
+			moving_frames += 1
+			max_step = maxf(max_step, d)
+		prev_x = f1.position.x
+	var total: float = start_x - f1.position.x
+	_check("attacker recoils on a cornered hit", total > 0.08)
+	_check("corner recoil eases back over multiple frames (no teleport)", moving_frames >= 3)
+	_check("corner recoil has no single-frame teleport", max_step < total * 0.6)
 	ctx["arena"].queue_free()
 
 func _test_specials_removed() -> void:

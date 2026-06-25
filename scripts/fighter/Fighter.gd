@@ -28,6 +28,7 @@ enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, 
 const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.35
 const STUN_FRICTION := 0.90
+const RECOIL_STOP := 0.05      # attacker recoil slide ends when its speed drops below this (units/s)
 const DASH_WINDOW := 12      # ticks within which a second tap triggers a dash
 const DASH_DURATION := 12
 const DASH_SPEED := 6.0
@@ -97,6 +98,12 @@ var last_hit_point := Vector3.ZERO # world-space contact point used by impact FX
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
 var knockdown_kind: int = GameConst.Knockdown.NONE  # how the current knockdown was caused
 var input_buffer := InputBuffer.new()
+
+# Passive reaction-force recoil: a self-decaying horizontal slide applied to the ATTACKER
+# (e.g. corner-pushback transfer), integrated in _apply_physics on top of move/walk velocity
+# so the attacker eases backward instead of teleporting.
+var _recoil_vel: float = 0.0
+var _recoil_friction: float = STUN_FRICTION
 
 # Drive (SF6-style gauge, separate from the Super meter).
 var drive: int = 0
@@ -682,6 +689,7 @@ func _is_locked_out() -> bool:
 	return state in [State.HITSTUN, State.BLOCKSTUN, State.KNOCKDOWN, State.WAKEUP, State.KO, State.INTRO, State.WIN]
 
 func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
+	_recoil_vel = 0.0   # incoming knockback governs now; drop any residual attack recoil
 	current_move = null
 	move_hits_done = 0
 	move_hit_cooldown = 0
@@ -695,6 +703,7 @@ func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> 
 	launched = false
 
 func _apply_hit(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> void:
+	_recoil_vel = 0.0   # incoming knockback governs now; drop any residual attack recoil
 	var counter := _counter_kind()   # read before current_move is cleared
 	# Combo bookkeeping: a hit taken while already stunned/airborne extends the combo,
 	# otherwise it starts a fresh one. Damage is then scaled by the combo length (SF6-style).
@@ -843,6 +852,13 @@ func _apply_physics(delta: float) -> void:
 	if not on_ground:
 		velocity.y -= character.gravity * delta
 	position.x += velocity.x * delta
+	# Passive reaction-force recoil: a decaying slide so corner-hit pushback eases the attacker
+	# back over several frames instead of teleporting (seeded in mark_connected).
+	if _recoil_vel != 0.0:
+		position.x += _recoil_vel * delta
+		_recoil_vel *= _recoil_friction
+		if absf(_recoil_vel) < RECOIL_STOP:
+			_recoil_vel = 0.0
 	position.y += velocity.y * delta
 	if position.y <= GROUND_Y:
 		position.y = GROUND_Y
@@ -1002,16 +1018,17 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 		# Corner pushback transfer will handle pushing the attacker away if the victim is in the corner.
 		self_push = 0.0
 
+	# Strength-based slide friction, shared by the victim's corner-distance estimate below and
+	# the attacker's own recoil slide, so heavier hits slide further.
+	var friction := STUN_FRICTION
+	match _strength_of(m):
+		0: friction = 0.86
+		1: friction = 0.90
+		2: friction = 0.93
+
 	# Corner Pushback Transfer: if the victim is blocked by the wall, transfer the untraveled
 	# distance directly to the attacker.
 	if opponent != null and is_instance_valid(opponent):
-		var friction := STUN_FRICTION
-		var str_val := _strength_of(m)
-		match str_val:
-			0: friction = 0.86
-			1: friction = 0.90
-			2: friction = 0.93
-
 		var v_vic_initial := final_knockback
 		if blocked:
 			v_vic_initial *= 0.5
@@ -1034,7 +1051,13 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 		if m.hits > 1 and move_hits_done < m.hits:
 			self_push *= 0.1
 
-	position.x -= facing * self_push
+	# Reaction-force recoil: instead of snapping the attacker back by self_push in a single
+	# frame (a visible "teleport", worst when the victim is cornered), seed a recoil velocity
+	# that decays under the same friction so the attacker slides back passively over several
+	# frames (integrated in _apply_physics). Total slide distance still equals self_push.
+	if self_push > 0.0:
+		_recoil_friction = friction
+		_recoil_vel += -facing * self_push * (1.0 - friction) * 60.0
 	if not blocked:
 		_add_meter(m.meter_gain)
 	contact.emit(blocked, m)
@@ -1062,6 +1085,7 @@ func reset_for_round() -> void:
 	stun_timer = 0
 	launched = false
 	hitstop = 0
+	_recoil_vel = 0.0
 	hit_strength = 0
 	hit_height = GameConst.HitHeight.MID
 	hit_crouch = false
