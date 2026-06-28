@@ -75,7 +75,6 @@ func _physics_process(delta: float) -> void:
 		arena.step(delta)
 	f1.update_visual()
 	f2.update_visual()
-	_update_model_depth()
 	hud.tick_counter()
 	hud.tick_visuals(delta)
 	_update_drive_rush(delta)

@@ -19,15 +19,8 @@ var _post_match_timer: int = 0
 var _slowmo := SlowMoDirector.new()
 var _dr_was := [false, false]   # per-fighter "was drive-rushing last frame" edge tracker
 var _dr_tint_level: float = 0.0
-var _depth_front_p1: bool = true   # which fighter is on the near (toward-camera) depth plane
 
 const DRIVE_RUSH_TINT_TARGET := 0.07
-# Dynamic anti-clip depth: fighters share one line (z=0) at range and only stagger a SMALL amount
-# in depth at point-blank so their limbs don't pass through each other ("穿模"). The attacker is
-# put on the near plane so its strike draws in front, not behind. See _update_model_depth.
-const MODEL_DEPTH_OFFSET := 0.05   # max per-side depth stagger, reached at/under DEPTH_RAMP_NEAR
-const DEPTH_RAMP_NEAR := 0.70      # |dx| at/below which the full stagger applies (bodies overlapping)
-const DEPTH_RAMP_FAR := 1.05       # |dx| at/above which there is no stagger (clearly on one line)
 
 func _ready() -> void:
 	var stage := Stage.new()
@@ -104,40 +97,7 @@ func _attach_rig(f: Fighter, ch: CharacterData) -> void:
 		brig.build(ch)
 		rig = brig
 	f.rig = rig
-	# The depth stagger is applied dynamically per-frame (see _update_model_depth): zero at range
-	# so the fighters share one line, ramping in only at point-blank to avoid limb clipping ("穿模").
 	f.update_visual()
-
-## Dynamic depth stagger (anti-clip): keep both fighters on the same line (z=0) at range, and only
-## when their bodies overlap at close quarters slide them apart in depth a little so their limbs
-## don't pass through each other ("穿模"). Each is size-compensated so the depth never changes its
-## on-screen size. Presentation only; the simulation, hitboxes and bounds all stay on z = 0.
-func _update_model_depth() -> void:
-	if f1 == null or f2 == null or f1.rig == null or f2.rig == null:
-		return
-	var dx := absf(f2.position.x - f1.position.x)
-	var t := clampf((DEPTH_RAMP_FAR - dx) / (DEPTH_RAMP_FAR - DEPTH_RAMP_NEAR), 0.0, 1.0)
-	var half := t * MODEL_DEPTH_OFFSET
-	# Put the ATTACKER on the near (toward-camera) plane so its strike draws in front of the
-	# opponent, never behind it. Hysteresis keeps the ordering stable when neither/both attack.
-	var p1_atk := f1.state == Fighter.State.ATTACK
-	var p2_atk := f2.state == Fighter.State.ATTACK
-	if p1_atk and not p2_atk:
-		_depth_front_p1 = true
-	elif p2_atk and not p1_atk:
-		_depth_front_p1 = false
-	var cam_z := (FightCamera.MIN_Z + FightCamera.MAX_Z) * 0.5   # nominal camera distance
-	var f1_z := half if _depth_front_p1 else -half
-	_apply_depth(f1.rig, f1_z, cam_z)
-	_apply_depth(f2.rig, -f1_z, cam_z)
-
-## Place one rig at depth `depth_z` and counter-scale it so the perspective camera renders it at
-## the same on-screen size as if it were on z = 0 (scaled about the rig origin = the feet, so it
-## stays grounded).
-func _apply_depth(rig: Node, depth_z: float, cam_z: float) -> void:
-	var r := rig as Node3D
-	r.position.z = depth_z
-	r.scale = Vector3.ONE * (1.0 - depth_z / cam_z)
 
 func _wire_hud(c1: CharacterData, c2: CharacterData) -> void:
 	f1.health_changed.connect(func(c, m): hud.set_health(0, c, m))
@@ -260,7 +220,6 @@ func _physics_process(delta: float) -> void:
 	# the previous round's pose into the next round.
 	f1.update_visual()
 	f2.update_visual()
-	_update_model_depth()
 	hud.tick_counter()
 	hud.tick_visuals(delta)
 	_update_drive_rush(delta)
