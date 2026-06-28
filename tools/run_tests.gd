@@ -218,7 +218,18 @@ func _test_normal_hit() -> void:
 	_step(ctx, _neutral(), _neutral(), 20)
 	_check("P2 took jab damage", f2.health < hp_before)
 	_check("P1 gained meter on hit", f1.meter > 0)
+	_check("standing LP impact spawns at jab fist height", f2.last_hit_point.y >= 1.25)
 	ctx["arena"].queue_free()
+
+	var hk_ctx := _build()
+	var h1: Fighter = hk_ctx["f1"]
+	var h2: Fighter = hk_ctx["f2"]
+	h1.position.x = -0.5
+	h2.position.x = 0.5
+	_step(hk_ctx, _mk(0, 0, GameConst.Btn.HK), _neutral(), 1)
+	_step(hk_ctx, _neutral(), _neutral(), 24)
+	_check("standing HK impact spawns at high-kick height", h2.last_hit_point.y >= 1.3)
+	hk_ctx["arena"].queue_free()
 
 func _test_lp_whiff_range() -> void:
 	print("[lp whiff range]")
@@ -1481,6 +1492,10 @@ func _test_impact_fx_smoke() -> void:
 	var ring := spark.get_child(1) as MeshInstance3D
 	_check("hit spark core is compact", core != null and core.mesh is SphereMesh and (core.mesh as SphereMesh).radius <= 0.12)
 	_check("hit spark ring is compact", ring != null and ring.mesh is TorusMesh and (ring.mesh as TorusMesh).outer_radius <= 0.19)
+	_check("hit spark draws over fighters",
+		core != null and ring != null
+		and (core.material_override as StandardMaterial3D).no_depth_test
+		and (ring.material_override as StandardMaterial3D).no_depth_test)
 	spark.free()
 	var scene := MatchScene.new()
 	var victim := Fighter.new()
@@ -2424,7 +2439,10 @@ func _test_hud_combo_and_fx() -> void:
 	for i in range(120):
 		hud.tick_visuals(1.0 / 60.0)
 	_check("trail eases down to the real HP", absf(hud._trail_frac[0] - 0.5) < 0.05)
-	# Combo counter shows on >= 2 hits, then fades out.
+	# Combo counter shows immediately, even for a single hit, then fades out.
+	hud.set_combo(0, 1, 27)
+	_check("single-hit damage label visible immediately", hud._combo_label[0].modulate.a > 0.9)
+	_check("single-hit damage label populated", hud._combo_label[0].text.contains("1 HIT") and hud._combo_label[0].text.contains("27 DMG"))
 	hud.set_combo(0, 7, 312)
 	_check("combo label visible immediately on update", hud._combo_label[0].modulate.a > 0.9)
 	hud.tick_visuals(1.0 / 60.0)

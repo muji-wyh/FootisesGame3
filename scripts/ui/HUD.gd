@@ -169,14 +169,14 @@ func set_drive(side: int, current: int, maximum: int) -> void:
 	if side == 1:
 		rect.position.x = info["x"] + DR_W * (1.0 - frac)
 
-## Show this side's combo count + (scaled) damage. hits < 2 starts the fade-out but keeps
-## the last value on screen; hits >= 2 refreshes it. Driven by the fighter's combo_changed.
+## Show this side's hit count + (scaled) damage. hits <= 0 starts the fade-out but keeps
+## the last value on screen; hits > 0 refreshes it. Driven by the fighter's combo_changed.
 func set_combo(side: int, hits: int, damage: int) -> void:
 	var lbl: Label = _combo_label[side]
 	if lbl == null:
 		return
-	if hits >= 2:
-		lbl.text = "%d HITS\n%d DMG" % [hits, damage]
+	if hits > 0:
+		lbl.text = "%d %s\n%d DMG" % [hits, "HIT" if hits == 1 else "HITS", damage]
 		_combo_show[side] = 1.1
 		lbl.modulate.a = 1.0
 

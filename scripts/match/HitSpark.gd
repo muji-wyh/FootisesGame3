@@ -67,6 +67,7 @@ func _flash_material(color: Color, energy: float) -> StandardMaterial3D:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.no_depth_test = true
 	mat.albedo_color = color
 	mat.emission_enabled = true
 	mat.emission = color

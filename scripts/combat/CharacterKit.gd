@@ -38,7 +38,7 @@ static func add_standard_normals(c: CharacterData, dmg_scale: float, cancels: Ar
 		{"id": "st_lp", "display_name": "Stand LP", "button": GameConst.Btn.LP, "stance": GameConst.Stance.STAND,
 			"startup": 4, "active": 3, "recovery": 9, "damage": 28,
 			"hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.2,
-			"hit_offset": Vector3(0.62, 1.0, 0.0), "hit_size": Vector3(0.42, 0.36, 0.55),
+			"hit_offset": Vector3(0.62, 1.35, 0.0), "hit_size": Vector3(0.42, 0.62, 0.55),
 			"cancel_into": cancels},
 		{"id": "st_mp", "display_name": "Stand MP", "button": GameConst.Btn.MP, "stance": GameConst.Stance.STAND,
 			"startup": 7, "active": 3, "recovery": 16, "damage": 50,
