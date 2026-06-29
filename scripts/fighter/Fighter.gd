@@ -50,7 +50,7 @@ const DRIVE_RUSH_STARTUP_ANIM_TICKS := 14 # visual startup/wind-up before the ru
 const DRIVE_RUSH_ACCEL_TICKS := 20  # acceleration frames from startup speed to full speed
 const DRIVE_RUSH_ATTACK_SPEED := 8.4 # carried momentum for the first normal out of Drive Rush
 const DRIVE_RUSH_DURATION := 42     # ticks a Drive Rush advances before returning to neutral
-const DRIVE_RUSH_HITSTUN_BONUS := 5 # +hitstun/blockstun on the first normal out of a Drive Rush
+const DRIVE_RUSH_HITSTUN_BONUS := 5 # +stun for a DRC window and the first normal out of a Drive Rush
 const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green rush (1 bar)
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
@@ -376,6 +376,10 @@ func _step_dash(inp: InputFrame, forward: bool) -> void:
 ## normal) that can itself be cancelled into a grounded normal. The first normal performed
 ## out of it gets a one-time advantage bonus (see drive_rush_hit_bonus), enabling links.
 func _start_drive_rush() -> void:
+	var from_connected_normal := state == State.ATTACK and current_move != null \
+		and current_move.kind == GameConst.MoveKind.NORMAL and move_hits_done > 0
+	if from_connected_normal and opponent != null and is_instance_valid(opponent):
+		opponent.extend_stun(DRIVE_RUSH_HITSTUN_BONUS)
 	_goto(State.DRIVE_RUSH)
 	state_frame = 0
 	current_move = null
@@ -1022,6 +1026,10 @@ func drive_rush_hit_bonus() -> int:
 		drive_rush_pending = false
 		return DRIVE_RUSH_HITSTUN_BONUS
 	return 0
+
+func extend_stun(frames: int) -> void:
+	if state in [State.HITSTUN, State.BLOCKSTUN]:
+		stun_timer += frames
 
 func mark_connected(blocked: bool, m: MoveData) -> void:
 	move_hits_done += 1

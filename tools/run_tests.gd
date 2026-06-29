@@ -2048,6 +2048,34 @@ func _test_drive_rush() -> void:
 			break
 	_check("DRC startup buffers crouch HP direction", crhp_started)
 	ctxc["arena"].queue_free()
+	# Heavy DRC routes must preserve enough advantage for the queued heavy follow-up to combo.
+	var ctxx := _build()
+	var xa: Fighter = ctxx["f1"]
+	var xb: Fighter = ctxx["f2"]
+	xa.position.x = -0.7
+	xb.position.x = 0.6
+	_step(ctxx, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	var xhp: int = xb.health
+	for i in range(14):
+		if xb.health < xhp:
+			break
+		_step(ctxx, _neutral(), _neutral(), 1)
+	for i in range(24):
+		var fr := _neutral()
+		if xa.hitstop == 0:
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+		_step(ctxx, fr, _neutral(), 1)
+		if xa.state == Fighter.State.DRIVE_RUSH:
+			break
+	_step(ctxx, _mk(0, -1, GameConst.Btn.HP), _neutral(), 1)
+	var crhp_combo_hit := false
+	for i in range(Fighter.DRIVE_RUSH_STARTUP_TICKS + 16):
+		_step(ctxx, _neutral(), _neutral(), 1)
+		if xb.combo_count >= 2:
+			crhp_combo_hit = true
+			break
+	_check("st.HP DRC cr.HP forms a combo", crhp_combo_hit)
+	ctxx["arena"].queue_free()
 	# DRC input is buffered through hitstop: players can press two punches during impact freeze and
 	# get the cancel on the first actionable frame after freeze.
 	var ctxh := _build()
