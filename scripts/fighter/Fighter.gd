@@ -24,7 +24,7 @@ signal jumped()
 signal combo_changed(hits: int, damage: int)     # this fighter's combo on its opponent changed
 signal meaty_hit()                               # this fighter landed a meaty on the opponent's wake-up
 
-enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP, DRIVE_RUSH }
+enum State { INTRO, IDLE, WALK_F, WALK_B, CROUCH, JUMP, ATTACK, DASH_F, DASH_B, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO, WIN, WAKEUP, DRIVE_RUSH, GREEN_RUSH, GREEN_RUSH_DASH }
 
 const GROUND_Y := 0.0
 const PUSHBOX_HALF := 0.35
@@ -43,6 +43,7 @@ const MEATY_BONUS_HITSTUN := 8      # extra hitstun when an attack meaty-hits a 
 const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press stays cancel-eligible
 const DRC_INPUT_BUFFER := 30        # real ticks a two-punch DRC input can wait before/after contact
 const GREEN_RUSH_CHORD_BUFFER := 5  # ticks after a normal starts that a two-punch chord can still confirm a rush
+const GREEN_RUSH_MODE_TICKS := 180  # 3 seconds at 60 Hz
 const DRIVE_RUSH_SPEED := 9.8       # forward speed while in a Drive Rush
 const DRIVE_RUSH_START_SPEED := 0.22 # initial crawl before the rush fully engages
 const DRIVE_RUSH_STARTUP_TICKS := 12 # startup frames before normals can be cancelled from rush
@@ -111,7 +112,10 @@ var _recoil_friction: float = STUN_FRICTION
 
 # Drive (SF6-style gauge, separate from the Super meter).
 var drive: int = 0
-var drive_rush_pending: bool = false   # first normal out of a Drive Rush gets a one-time advantage
+var green_rush_timer: int = 0
+var drive_rush_pending: bool = false   # first normal out of DRC gets a one-time advantage
+var green_rush_pending: bool = false   # Green Rush dash/special gets its own one-time advantage
+var _green_rush_wait_dir_release: bool = false
 var _dr_carry: int = 0                  # ticks of forward slide momentum left on a Drive Rush normal
 var _dr_brake: int = 0                  # ticks of Green Rush interrupt-skid left (back-back cancel)
 var _burnout_timer: int = 0             # ticks Drive regen stays suspended after the gauge empties
@@ -132,6 +136,8 @@ var _prev_back: bool = false
 var _fwd_tap: int = -100
 var _back_tap: int = -100
 var _dash_req: int = 0
+var _gr_prev_fwd: bool = false
+var _gr_fwd_tap: int = -100
 var _drc_input_buffer: int = 0
 var _drc_input_buffer_age: int = 999
 
@@ -182,12 +188,16 @@ func advance(delta: float) -> void:
 	_update_drc_input_buffer(input_buffer.latest(), true)
 	if not pressed_now:
 		_cancel_age += 1
+	if green_rush_timer > 0:
+		green_rush_timer -= 1
 	_regen_drive()
 	state_frame += 1
 	var inp := input_buffer.latest()
 	match state:
 		State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH:
 			_step_neutral(inp)
+		State.GREEN_RUSH:
+			_step_green_rush_mode(inp)
 		State.JUMP:
 			_step_air(inp)
 		State.ATTACK:
@@ -196,7 +206,7 @@ func advance(delta: float) -> void:
 			_step_dash(inp, true)
 		State.DASH_B:
 			_step_dash(inp, false)
-		State.DRIVE_RUSH:
+		State.DRIVE_RUSH, State.GREEN_RUSH_DASH:
 			_step_drive_rush(inp)
 		State.HITSTUN, State.BLOCKSTUN:
 			_step_stun()
@@ -289,6 +299,28 @@ func _clear_drc_input_buffer() -> void:
 	_drc_input_buffer = 0
 	_drc_input_buffer_age = 999
 
+func _clear_dash_taps() -> void:
+	_dash_req = 0
+	var inp := input_buffer.latest()
+	_prev_fwd = inp.dir_x * facing > 0 and inp.dir_y == 0
+	_prev_back = inp.dir_x * facing < 0 and inp.dir_y == 0
+	_fwd_tap = -100
+	_back_tap = -100
+
+func _clear_green_rush_dash_taps() -> void:
+	var inp := input_buffer.latest()
+	_gr_prev_fwd = inp.dir_x * facing > 0 and inp.dir_y == 0
+	_gr_fwd_tap = -100
+
+func _green_rush_dash_requested(inp: InputFrame) -> bool:
+	var fwd := inp.dir_x * facing > 0 and inp.dir_y == 0
+	var requested := false
+	if fwd and not _gr_prev_fwd:
+		requested = _tick - _gr_fwd_tap <= DASH_WINDOW
+		_gr_fwd_tap = _tick
+	_gr_prev_fwd = fwd
+	return requested
+
 func update_facing() -> void:
 	if not _is_actionable():
 		return
@@ -303,8 +335,12 @@ func update_visual() -> void:
 # --- neutral / movement ----------------------------------------------------
 
 func _step_neutral(inp: InputFrame) -> void:
+	if green_rush_timer > 0:
+		_goto(State.GREEN_RUSH)
+		_step_green_rush_mode(inp)
+		return
 	if _is_green_rush_chord(inp) and spend_drive(RAW_DRIVE_RUSH_COST):
-		_start_drive_rush()
+		_start_green_rush_mode()
 		return
 	# A pressed move (special/super/normal) takes priority over a dash on the same tick,
 	# so motion inputs whose path crosses forward (e.g. double-QCF super) are not
@@ -319,6 +355,49 @@ func _step_neutral(inp: InputFrame) -> void:
 	if _dash_req > 0:
 		_start_dash(true)
 		return
+	_step_plain_neutral_movement(inp)
+
+func _step_green_rush_mode(inp: InputFrame) -> void:
+	if green_rush_timer <= 0:
+		_goto(State.IDLE)
+		velocity.x = 0
+		return
+	if _is_green_rush_chord(inp):
+		velocity.x = 0
+		_goto(State.GREEN_RUSH)
+		return
+	if _green_rush_wait_dir_release:
+		if inp.dir_x == 0 and inp.held == 0:
+			_green_rush_wait_dir_release = false
+			_gr_prev_fwd = false
+		else:
+			velocity.x = 0
+			_goto(State.GREEN_RUSH)
+			return
+	var move := _select_move(inp)
+	if move == null:
+		move = _buffered_move(inp)
+	if move:
+		_start_move(move)
+		return
+	if _green_rush_dash_requested(inp):
+		_start_green_rush_dash()
+		return
+	if inp.dir_x != 0:
+		velocity.x = 0
+		_goto(State.GREEN_RUSH)
+		return
+	if inp.dir_y > 0 and on_ground:
+		_start_jump(inp)
+		return
+	if inp.dir_y < 0:
+		_goto(State.CROUCH)
+		velocity.x = 0
+		return
+	_goto(State.GREEN_RUSH)
+	velocity.x = 0
+
+func _step_plain_neutral_movement(inp: InputFrame) -> void:
 	if _dash_req < 0:
 		_start_dash(false)
 		return
@@ -375,11 +454,40 @@ func _step_dash(inp: InputFrame, forward: bool) -> void:
 ## Drive Rush: a forward-advancing rush (Raw from neutral, or a Cancel out of a connected
 ## normal) that can itself be cancelled into a grounded normal. The first normal performed
 ## out of it gets a one-time advantage bonus (see drive_rush_hit_bonus), enabling links.
+func _start_green_rush_mode() -> void:
+	green_rush_timer = GREEN_RUSH_MODE_TICKS
+	current_move = null
+	move_hits_done = 0
+	move_hit_cooldown = 0
+	drive_rush_pending = false
+	green_rush_pending = false
+	_green_rush_wait_dir_release = input_buffer.latest().dir_x != 0
+	_clear_cancel_buffer()
+	_clear_dash_taps()
+	_clear_green_rush_dash_taps()
+	velocity.x = 0.0
+	_goto(State.GREEN_RUSH)
+
+func _start_green_rush_dash() -> void:
+	green_rush_timer = 0
+	_green_rush_wait_dir_release = false
+	_goto(State.GREEN_RUSH_DASH)
+	state_frame = 0
+	current_move = null
+	move_hits_done = 0
+	move_hit_cooldown = 0
+	_clear_cancel_buffer()
+	_clear_drc_input_buffer()
+	velocity.x = 0.0
+	_dr_brake = 0
+
 func _start_drive_rush() -> void:
 	var from_connected_normal := state == State.ATTACK and current_move != null \
 		and current_move.kind == GameConst.MoveKind.NORMAL and move_hits_done > 0
 	if from_connected_normal and opponent != null and is_instance_valid(opponent):
 		opponent.extend_stun(DRIVE_RUSH_HITSTUN_BONUS)
+	green_rush_timer = 0
+	_green_rush_wait_dir_release = false
 	_goto(State.DRIVE_RUSH)
 	state_frame = 0
 	current_move = null
@@ -429,6 +537,7 @@ func _step_drive_rush(inp: InputFrame) -> void:
 	if state_frame >= DRIVE_RUSH_DURATION:
 		velocity.x = 0
 		drive_rush_pending = false
+		green_rush_pending = false
 		_goto(State.IDLE)
 
 ## Interrupt skid: a back-back during the rush bleeds the forward momentum off over a few ticks
@@ -444,6 +553,7 @@ func _drive_rush_brake() -> void:
 		velocity.x = 0
 		_dr_brake = 0
 		drive_rush_pending = false
+		green_rush_pending = false
 		_goto(State.IDLE)
 
 # --- attacks ---------------------------------------------------------------
@@ -526,11 +636,16 @@ func _cancel_motion_ok(m: MoveData) -> bool:
 
 func _start_move(m: MoveData) -> void:
 	_clear_drc_input_buffer()
-	# Arm the one-time Drive Rush advantage when a normal is performed out of a Drive Rush,
-	# and grant it a brief forward slide so it closes the gap (SF6 Drive Rush momentum).
-	var from_dr := (state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL)
+	# Keep DRC and raw Green Rush bonuses separate; they only meet at hit-resolution time.
+	var from_dr := state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL
+	var from_gr_dash := state == State.GREEN_RUSH_DASH and m.kind == GameConst.MoveKind.NORMAL
+	var green_special := green_rush_timer > 0 and m.kind == GameConst.MoveKind.SPECIAL
+	if green_special:
+		green_rush_timer = 0
+		_green_rush_wait_dir_release = false
 	drive_rush_pending = from_dr
-	_dr_carry = DRIVE_RUSH_CARRY_TICKS if from_dr else 0
+	green_rush_pending = from_gr_dash or green_special
+	_dr_carry = DRIVE_RUSH_CARRY_TICKS if (from_dr or from_gr_dash) else 0
 	current_move = m
 	move_hits_done = 0
 	move_hit_cooldown = 0
@@ -544,7 +659,7 @@ func _start_move(m: MoveData) -> void:
 	# Air attacks keep their jump momentum (arc); grounded attacks stop in place, except a
 	# Drive Rush normal which slides forward for its carry window.
 	if m.stance != GameConst.Stance.AIR:
-		velocity.x = facing * DRIVE_RUSH_CARRY if from_dr else 0.0
+		velocity.x = facing * DRIVE_RUSH_CARRY if (from_dr or from_gr_dash) else 0.0
 	move_started.emit(m)
 
 func _step_attack(_inp: InputFrame) -> void:
@@ -553,7 +668,7 @@ func _step_attack(_inp: InputFrame) -> void:
 		_goto(State.IDLE)
 		return
 	if _can_confirm_raw_green_rush_from_attack(_inp) and spend_drive(RAW_DRIVE_RUSH_COST):
-		_start_drive_rush()
+		_start_green_rush_mode()
 		return
 	if move_hit_cooldown > 0:
 		move_hit_cooldown -= 1
@@ -564,7 +679,7 @@ func _step_attack(_inp: InputFrame) -> void:
 			current_move = null
 			_goto(State.IDLE)
 			return
-	elif drive_rush_pending and state_frame < m.startup + m.active:
+	elif (drive_rush_pending or (green_rush_pending and m.kind == GameConst.MoveKind.NORMAL)) and state_frame < m.startup + m.active:
 		velocity.x = facing * maxf(DRIVE_RUSH_ATTACK_SPEED, m.advance)
 	elif m.advance > 0.0 and state_frame < m.startup + m.active:
 		velocity.x = facing * m.advance   # ground lunge/advance
@@ -696,10 +811,10 @@ func _can_block() -> bool:
 	# still cannot attack (WAKEUP stays in _is_locked_out) -- the okizeme defence option.
 	if state == State.WAKEUP:
 		return on_ground and _in_wakeup_vuln()
-	return on_ground and state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH, State.BLOCKSTUN]
+	return on_ground and state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH, State.GREEN_RUSH, State.BLOCKSTUN]
 
 func _is_actionable() -> bool:
-	return state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH]
+	return state in [State.IDLE, State.WALK_F, State.WALK_B, State.CROUCH, State.GREEN_RUSH]
 
 ## True during the final WAKEUP_VULN_FRAMES of the get-up: the riser is hittable and can block
 ## (the okizeme / meaty window). Earlier wake-up frames stay fully invulnerable.
@@ -1022,10 +1137,14 @@ func is_burnout() -> bool:
 ## One-time hitstun/blockstun bonus for the first normal performed out of a Drive Rush,
 ## consumed on contact (read by HitResolver and passed to the victim).
 func drive_rush_hit_bonus() -> int:
-	if drive_rush_pending:
+	if drive_rush_pending or green_rush_pending:
 		drive_rush_pending = false
+		green_rush_pending = false
 		return DRIVE_RUSH_HITSTUN_BONUS
 	return 0
+
+func green_rush_active() -> bool:
+	return green_rush_timer > 0
 
 func extend_stun(frames: int) -> void:
 	if state in [State.HITSTUN, State.BLOCKSTUN]:
@@ -1128,6 +1247,8 @@ func reset_for_round() -> void:
 	launched = false
 	hitstop = 0
 	_recoil_vel = 0.0
+	green_rush_timer = 0
+	_green_rush_wait_dir_release = false
 	hit_strength = 0
 	hit_height = GameConst.HitHeight.MID
 	hit_crouch = false
@@ -1140,6 +1261,7 @@ func reset_for_round() -> void:
 	knockdown_kind = GameConst.Knockdown.NONE
 	drive = character.max_drive
 	drive_rush_pending = false
+	green_rush_pending = false
 	_dr_carry = 0
 	_dr_brake = 0
 	_burnout_timer = 0

@@ -47,14 +47,12 @@ A six-bar **Drive gauge** (separate from the Super meter) powers the modern mech
 | **Green Rush** (绿冲) | any two punch buttons from neutral | 1 bar |
 | **Drive Rush Cancel** (DRC / 绿冲) | any two punch buttons during a *connected* normal | 3 bars |
 
-A Drive Rush trails a cyan **afterimage** streak, starts with a brief wind-up, accelerates
-instead of launching at full speed immediately, and lets the first normal out of it slide in
-and link (a built-in advantage). Press the two punch buttons together from neutral to start
-Green Rush; pressing them again during Green Rush startup does nothing. Holding back during
-the rush does not cancel it, but a **back-back** (`<-<-`) interrupts it with a short braking
-skid (momentum bleeds off instead of stopping dead), and DRC two-punch inputs entered during
-hitstop are buffered into
-the first actionable frame. Blaze uses a Ken-inspired combo toolkit: `st.MP > st.HP`
+Green Rush puts the fighter in a 3-second ready mode instead of rushing immediately.
+While that mode is active, **forward-forward** (`->->`) starts the old accelerating rush,
+and the next special move becomes the enhanced version and consumes the mode. DRC is
+unchanged: a connected normal can still cancel directly into the accelerating rush for 3
+bars, and DRC two-punch inputs entered during hitstop are buffered into the first
+actionable frame. Blaze uses a Ken-inspired combo toolkit: `st.MP > st.HP`
 target routes, a `cr.LK > cr.MK` low confirm, **Flame Surge** (236+MP) — a launcher that
 pops the opponent up for a **Rising Inferno** juggle into the super (e.g.
 `cr.MK > Flame Surge > Inferno Rush`), Flame Step confirms, Cinder Lash pressure, Ember

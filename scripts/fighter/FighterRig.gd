@@ -67,7 +67,7 @@ func pose(f: Fighter) -> void:
 		Fighter.State.JUMP:
 			_leg_l.rotation.z = 0.6
 			_leg_r.rotation.z = -0.6
-		Fighter.State.DRIVE_RUSH:
+		Fighter.State.DRIVE_RUSH, Fighter.State.GREEN_RUSH_DASH:
 			_pose_drive_rush(f)
 		Fighter.State.ATTACK:
 			_pose_attack(f)

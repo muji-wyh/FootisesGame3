@@ -1780,8 +1780,13 @@ func _test_drive_rush() -> void:
 		var raw := _build()
 		var r: Fighter = raw["f1"]
 		var d_before: int = r.drive
+		var x_before: float = r.position.x
 		_step(raw, _mk(0, 0, pair), _neutral(), 1)
-		_check("two-punch neutral input starts green rush", r.state == Fighter.State.DRIVE_RUSH)
+		var raw_timer: Variant = r.get("green_rush_timer")
+		_check("two-punch neutral input enters Green Rush mode",
+			r.state != Fighter.State.DRIVE_RUSH and raw_timer is int and int(raw_timer) > 0)
+		_check("raw Green Rush mode does not lunge immediately",
+			absf(r.position.x - x_before) < 0.01 and absf(r.velocity.x) < 0.01)
 		_check("raw green rush spends Drive", r.drive < d_before)
 		raw["arena"].queue_free()
 	# A genuine two-punch chord may be a frame staggered, but the buttons must OVERLAP (both held
@@ -1791,7 +1796,9 @@ func _test_drive_rush() -> void:
 	var sd: int = sr.drive
 	_step(stagger, _mk(0, 0, GameConst.Btn.LP, GameConst.Btn.LP), _neutral(), 1)
 	_step(stagger, _mk(0, 0, GameConst.Btn.MP, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("overlapping staggered two-punch starts green rush", sr.state == Fighter.State.DRIVE_RUSH)
+	var stagger_timer: Variant = sr.get("green_rush_timer")
+	_check("overlapping staggered two-punch enters Green Rush mode",
+		sr.state != Fighter.State.DRIVE_RUSH and stagger_timer is int and int(stagger_timer) > 0)
 	_check("staggered raw green rush spends Drive", sr.drive < sd)
 	stagger["arena"].queue_free()
 	# A sequential string (press LP, release, then press MP -- no overlap) must NOT green rush;
@@ -1817,34 +1824,132 @@ func _test_drive_rush() -> void:
 	var gr: Fighter = accel["f1"]
 	var start_x: float = gr.position.x
 	_step(accel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	var start_speed := absf(gr.velocity.x)
+	var entered_timer: Variant = gr.get("green_rush_timer")
+	_check("Green Rush mode starts without forward rush",
+		gr.state != Fighter.State.DRIVE_RUSH and entered_timer is int and int(entered_timer) > 0 and absf(gr.position.x - start_x) < 0.01)
+	_check("Green Rush mode uses a dedicated non-neutral state",
+		not (gr.state in [Fighter.State.IDLE, Fighter.State.WALK_F, Fighter.State.WALK_B, Fighter.State.CROUCH,
+		Fighter.State.DRIVE_RUSH, Fighter.State.GREEN_RUSH_DASH]))
+	_step(accel, _neutral(), _neutral(), 179)
+	var held_timer: Variant = gr.get("green_rush_timer")
+	_check("Green Rush mode lasts for nearly three seconds", held_timer is int and int(held_timer) > 0)
 	_step(accel, _neutral(), _neutral(), 1)
-	var startup_speed := absf(gr.velocity.x)
-	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS - 1)
-	var startup_dist: float = gr.position.x - start_x
-	var still_starting := gr.state == Fighter.State.DRIVE_RUSH
-	_step(accel, _neutral(), _neutral(), 6)
-	var mid_speed := absf(gr.velocity.x)
-	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_ACCEL_TICKS)
-	var full_speed := absf(gr.velocity.x)
-	_step(accel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_DURATION)
-	var total_dist: float = gr.position.x - start_x
+	var expired_timer: Variant = gr.get("green_rush_timer")
+	_check("Green Rush mode expires after three seconds", not (expired_timer is int and int(expired_timer) > 0))
+	accel["arena"].queue_free()
+
+	var stale_tap := _build()
+	var tf: Fighter = stale_tap["f1"]
+	_step(stale_tap, _mk(1, 0), _neutral(), 1)
+	_step(stale_tap, _neutral(), _neutral(), 1)
+	_step(stale_tap, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(stale_tap, _neutral(), _neutral(), 1)
+	_step(stale_tap, _mk(1, 0), _neutral(), 1)
+	_check("Green Rush mode ignores pre-mode forward taps", tf.green_rush_active() and tf.state != Fighter.State.DRIVE_RUSH)
+	stale_tap["arena"].queue_free()
+
+	var held_forward := _build()
+	var hf: Fighter = held_forward["f1"]
+	var held_start_x: float = hf.position.x
+	_step(held_forward, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(held_forward, _mk(1, 0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 10)
+	_check("Green Rush mode ignores held forward movement from trigger",
+		hf.green_rush_active() and hf.state != Fighter.State.DRIVE_RUSH and absf(hf.position.x - held_start_x) < 0.01)
+	_step(held_forward, _mk(1, 0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 50)
+	_check("Green Rush mode stays planted while trigger direction is held",
+		hf.green_rush_active() and hf.state != Fighter.State.DRIVE_RUSH and hf.state != Fighter.State.GREEN_RUSH_DASH
+		and absf(hf.position.x - held_start_x) < 0.01)
+	_step(held_forward, _mk(0, 0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 10)
+	_check("Green Rush mode waits for trigger buttons to release",
+		hf.green_rush_active() and hf.state == Fighter.State.GREEN_RUSH and absf(hf.position.x - held_start_x) < 0.01)
+	_step(held_forward, _neutral(), _neutral(), 1)
+	var after_release_x: float = hf.position.x
+	_step(held_forward, _mk(1, 0), _neutral(), 1)
+	_check("Green Rush mode does not walk on the first fresh forward",
+		hf.green_rush_active() and hf.state != Fighter.State.WALK_F and absf(hf.position.x - after_release_x) < 0.01)
+	_check("Green Rush mode requires two fresh forward taps after trigger",
+		hf.green_rush_active() and hf.state != Fighter.State.DRIVE_RUSH)
+	held_forward["arena"].queue_free()
+
+	var stale_dash_req := _build()
+	var df: Fighter = stale_dash_req["f1"]
+	_step(stale_dash_req, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	df._dash_req = 1
+	df._step_neutral(_neutral())
+	_check("Green Rush mode ignores normal dash requests",
+		df.green_rush_active() and df.state != Fighter.State.DRIVE_RUSH and df.state != Fighter.State.GREEN_RUSH_DASH)
+	stale_dash_req["arena"].queue_free()
+
+	var normal_mode := _build()
+	var nf: Fighter = normal_mode["f1"]
+	_step(normal_mode, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_step(normal_mode, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	var normal_timer: Variant = nf.get("green_rush_timer")
+	_check("normal attacks do not consume Green Rush mode",
+		nf.current_move != null and nf.current_move.id == "st_lp"
+		and normal_timer is int and int(normal_timer) > 0
+		and not nf.drive_rush_pending and nf.get("green_rush_pending") != true)
+	normal_mode["arena"].queue_free()
+
+	var special_mode := _build()
+	var sf: Fighter = special_mode["f1"]
+	var sv: Fighter = special_mode["f2"]
+	sf.position.x = -0.5
+	sv.position.x = 0.5
+	_step(special_mode, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_p1_qcf(special_mode, GameConst.Btn.MP)
+	_check("special attacks consume Green Rush mode and become enhanced",
+		sf.current_move != null and sf.current_move.id == "flame_surge"
+		and not (sf.get("green_rush_timer") is int and int(sf.get("green_rush_timer")) > 0)
+		and not sf.drive_rush_pending and sf.get("green_rush_pending") == true)
+	for i in range(14):
+		_step(special_mode, _neutral(), _neutral(), 1)
+		if sv.health < sv.character.max_health:
+			break
+	var surge := sf.character.get_move("flame_surge")
+	_check("enhanced Green Rush special gets the Drive Rush stun bonus",
+		sv.stun_timer >= surge.hitstun + Fighter.DRIVE_RUSH_HITSTUN_BONUS)
+	special_mode["arena"].queue_free()
+
+	var rush := _build()
+	var rr: Fighter = rush["f1"]
+	_step(rush, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var drive_after_mode: int = rr.drive
+	_drive_rush_dbltap(rush)
+	_check("forward double-tap during Green Rush mode starts a non-DRC rush",
+		rr.state != Fighter.State.DRIVE_RUSH and absf(rr.velocity.x) < 0.1)
+	_check("mode forward rush spends no extra Drive", rr.drive >= drive_after_mode)
+	var rush_start_x: float = rr.position.x
+	var start_speed := absf(rr.velocity.x)
+	_step(rush, _neutral(), _neutral(), 1)
+	var startup_speed := absf(rr.velocity.x)
+	_step(rush, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS - 1)
+	var startup_dist: float = rr.position.x - rush_start_x
+	var still_starting := rr.state != Fighter.State.IDLE and rr.state != Fighter.State.DRIVE_RUSH
+	_step(rush, _neutral(), _neutral(), 6)
+	var mid_speed := absf(rr.velocity.x)
+	_step(rush, _neutral(), _neutral(), Fighter.DRIVE_RUSH_ACCEL_TICKS)
+	var full_speed := absf(rr.velocity.x)
+	_step(rush, _neutral(), _neutral(), Fighter.DRIVE_RUSH_DURATION)
+	var total_dist: float = rr.position.x - rush_start_x
 	_check("green rush starts below full speed", start_speed < 0.1 and startup_speed > 0.1 and startup_speed < Fighter.DRIVE_RUSH_SPEED * 0.025)
 	_check("green rush has a visible startup wind-up", startup_dist > 0.015 and startup_dist < 0.06 and still_starting)
 	_check("green rush accelerates gradually", mid_speed > startup_speed and mid_speed < Fighter.DRIVE_RUSH_SPEED * 0.65)
 	_check("green rush accelerates to full speed", full_speed > startup_speed + 5.0 and full_speed >= Fighter.DRIVE_RUSH_SPEED * 0.95)
 	_check("green rush total travel is closer", total_dist > 2.4 and total_dist < 4.2)
-	accel["arena"].queue_free()
+	rush["arena"].queue_free()
 	var cancel := _build()
 	var cr: Fighter = cancel["f1"]
 	_step(cancel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_drive_rush_dbltap(cancel)
 	_step(cancel, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + Fighter.DRIVE_RUSH_ACCEL_TICKS)
 	var rush_speed_before_brake := absf(cr.velocity.x)
 	_step(cancel, _mk(-cr.facing, 0), _neutral(), 1)
 	var speed_after_back := absf(cr.velocity.x)
 	var drive_before_reinput: int = cr.drive
 	_step(cancel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("back input cannot cancel green rush", cr.state == Fighter.State.DRIVE_RUSH and speed_after_back > rush_speed_before_brake * 0.8)
+	_check("back input cannot cancel green rush",
+		cr.state != Fighter.State.IDLE and cr.state != Fighter.State.DRIVE_RUSH and speed_after_back > rush_speed_before_brake * 0.8)
 	_check("green rush input is ignored while already rushing", cr.drive > drive_before_reinput - Fighter.RAW_DRIVE_RUSH_COST)
 	cancel["arena"].queue_free()
 	var whiff := _build()
@@ -1852,6 +1957,7 @@ func _test_drive_rush() -> void:
 	wr.position.x = -5.0
 	whiff["f2"].position.x = 5.0
 	_step(whiff, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_drive_rush_dbltap(whiff)
 	_step(whiff, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + 1)
 	_step(whiff, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
 	for i in range(wr.character.get_move("st_hp").total_frames() + 4):
@@ -1864,20 +1970,22 @@ func _test_drive_rush() -> void:
 	var heldatk := _build()
 	var grf: Fighter = heldatk["f1"]
 	_step(heldatk, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_drive_rush_dbltap(heldatk)
 	_step(heldatk, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + 1)
 	_step(heldatk, _mk(0, 0, GameConst.Btn.HP, GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP), _neutral(), 1)
 	_check("Green Rush attack fires while rush punches still held", grf.state == Fighter.State.ATTACK and grf.current_move != null)
-	_check("held-button Green Rush attack keeps the enhanced bonus", grf.drive_rush_pending)
+	_check("held-button Green Rush attack keeps the Green Rush bonus", not grf.drive_rush_pending and grf.get("green_rush_pending") == true)
 	heldatk["arena"].queue_free()
 	# Back-back (<-<-) interrupts Green Rush, but the momentum brakes over a short skid instead
 	# of stopping dead, then control returns to neutral. A single back must NOT cancel.
 	var brk := _build()
 	var bf: Fighter = brk["f1"]
 	_step(brk, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_drive_rush_dbltap(brk)
 	_step(brk, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + Fighter.DRIVE_RUSH_ACCEL_TICKS)
 	var full_rush := absf(bf.velocity.x)
 	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)            # first back tap: still rushing
-	var rushing_on_first_back := bf.state == Fighter.State.DRIVE_RUSH and absf(bf.velocity.x) > full_rush * 0.8
+	var rushing_on_first_back := bf.state != Fighter.State.DRIVE_RUSH and absf(bf.velocity.x) > full_rush * 0.8
 	_step(brk, _neutral(), _neutral(), 1)                    # release
 	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)            # second back tap: interrupt + brake
 	var brake_speed := absf(bf.velocity.x)
@@ -1885,7 +1993,7 @@ func _test_drive_rush() -> void:
 	var brake_speed_2 := absf(bf.velocity.x)
 	var brake_ticks := 0
 	for i in range(30):
-		if bf.state != Fighter.State.DRIVE_RUSH:
+		if bf.state == Fighter.State.IDLE:
 			break
 		_step(brk, _neutral(), _neutral(), 1)
 		brake_ticks += 1
@@ -2293,7 +2401,8 @@ func _test_overdrive() -> void:
 	_step(ctx, _mk(0, -1), _neutral(), 3)
 	_step(ctx, _mk(1, -1), _neutral(), 3)
 	_step(ctx, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("two-punch motion starts green rush, not OD", f1.state == Fighter.State.DRIVE_RUSH and f1.drive < d0)
+	_check("two-punch motion enters Green Rush mode, not OD",
+		f1.state != Fighter.State.DRIVE_RUSH and f1.green_rush_active() and f1.drive < d0)
 	_check("two-punch motion spawns no OD projectile", arena.projectiles.is_empty())
 	ctx["arena"].queue_free()
 
@@ -2389,12 +2498,12 @@ func _test_drive_rush_carry() -> void:
 ## CONNECTED normal; a whiffed poke cannot be cancelled into a rush to skip neutral.
 func _test_system_amplifies_neutral() -> void:
 	print("[system amplifies neutral]")
-	# Invariants: the post-contact rush is dearer than the raw neutral rush, and the raw rush
-	# has a real wind-up, so it cannot instantly teleport past mid-range.
+	# Invariants: the post-contact rush is dearer than the raw neutral mode, and raw Green Rush
+	# is a timed mode before any forward rush, so it cannot instantly teleport past mid-range.
 	_check("DRC (post-contact rush) costs more than a raw neutral green rush",
 		Fighter.DRC_COST > Fighter.RAW_DRIVE_RUSH_COST)
-	_check("raw green rush has a startup wind-up (not an instant neutral skip)",
-		Fighter.DRIVE_RUSH_STARTUP_TICKS > 0 and Fighter.DRIVE_RUSH_START_SPEED < Fighter.DRIVE_RUSH_SPEED)
+	_check("raw Green Rush is a 3-second mode, not an instant neutral skip",
+		Fighter.GREEN_RUSH_MODE_TICKS == 180 and Fighter.DRIVE_RUSH_STARTUP_TICKS > 0)
 
 	# A) "Starts after a spacing win": a CONNECTED normal can DRC into a rush, spending ~3 bars.
 	var ctx := _build()
@@ -2502,18 +2611,25 @@ func _test_hud_combo_and_fx() -> void:
 	var fx := DriveRushFx.new()
 	root.add_child(fx)
 	fx.setup(f, Color(0.35, 1.0, 0.7))
-	f.state = Fighter.State.DRIVE_RUSH
+	f.green_rush_timer = Fighter.GREEN_RUSH_MODE_TICKS
+	f.state = Fighter.State.GREEN_RUSH
 	f.update_visual()
 	for i in range(6):
 		fx._process(0.03)
-	_check("drive-rush fx spawned ghost trail snapshots", fx._ghosts.size() >= 1)
+	_check("green-rush mode does not use drive-rush trail snapshots", fx._ghosts.is_empty())
+	f.state = Fighter.State.GREEN_RUSH_DASH
+	for i in range(6):
+		fx._process(0.03)
+	_check("green-rush dash fx spawned ghost trail snapshots", fx._ghosts.size() >= 1)
 	_check("drive-rush fx emits fewer ghost snapshots", fx._ghosts.size() <= 4)
 	if not fx._ghosts.is_empty():
 		_check("drive-rush fx ghost copies character meshes", fx._ghosts[0]["meshes"].size() > 1)
 		var ghost_mat: StandardMaterial3D = fx._ghosts[0]["mats"][0]
 		_check("drive-rush fx ghost is faint", ghost_mat.albedo_color.a <= DriveRushFx.GHOST_ALPHA and ghost_mat.emission_energy_multiplier <= DriveRushFx.GHOST_EMISSION)
+	f.green_rush_timer = 0
 	f.state = Fighter.State.IDLE
 	f.drive_rush_pending = false
+	f.green_rush_pending = false
 	for i in range(20):
 		fx._process(0.03)
 	_check("drive-rush fx ghost trail fades out", fx._ghosts.is_empty())

@@ -113,7 +113,7 @@ func _play_fitted(clip: String, ticks: int, blend: float) -> void:
 
 func _state_clip(f: Fighter) -> String:
 	match f.state:
-		Fighter.State.IDLE, Fighter.State.INTRO:
+		Fighter.State.IDLE, Fighter.State.INTRO, Fighter.State.GREEN_RUSH:
 			return _state("idle")
 		Fighter.State.WALK_F:
 			return _state("walk_f")
@@ -127,7 +127,7 @@ func _state_clip(f: Fighter) -> String:
 			return _state("dash_f")
 		Fighter.State.DASH_B:
 			return _state("dash_b")
-		Fighter.State.DRIVE_RUSH:
+		Fighter.State.DRIVE_RUSH, Fighter.State.GREEN_RUSH_DASH:
 			return _drive_rush_clip(f)
 		Fighter.State.BLOCKSTUN:
 			return _state("block")

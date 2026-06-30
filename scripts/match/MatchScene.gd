@@ -196,8 +196,9 @@ func _update_drive_rush(delta: float) -> void:
 	var any_rush := false
 	for i in range(2):
 		var f: Fighter = fs[i]
-		var rushing: bool = f.state == Fighter.State.DRIVE_RUSH
-		if rushing or f.drive_rush_pending:
+		var rushing: bool = f.state in [Fighter.State.DRIVE_RUSH, Fighter.State.GREEN_RUSH_DASH] \
+			or f.drive_rush_pending or f.green_rush_pending
+		if rushing:
 			any_rush = true
 		if rushing and not _dr_was[i]:
 			_spawn_dr_fx(f)
