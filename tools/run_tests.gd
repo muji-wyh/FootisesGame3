@@ -274,6 +274,10 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("Cinder Lash (236+HP) hitbox fits the overhand animation",
 		cinder_lash.hit_size.x <= 0.42 and cinder_lash.hit_size.y <= 0.48
 		and cinder_lash.hit_offset.x + cinder_lash.hit_size.x * 0.5 <= 0.93)
+	var ember_wheel := blaze.get_move("ember_wheel")
+	_check("Ember Wheel (214+HK) hitbox fits the spin animation",
+		ember_wheel.hit_size.x <= 0.36 and ember_wheel.hit_size.y <= 0.44
+		and ember_wheel.hit_offset.x + ember_wheel.hit_size.x * 0.5 <= 0.76)
 	_check("stand LK/MK/HK ranges scale up light -> medium -> heavy",
 		st_lk.hit_offset.x + st_lk.hit_size.x * 0.5 < st_mk.hit_offset.x + st_mk.hit_size.x * 0.5
 		and st_mk.hit_offset.x + st_mk.hit_size.x * 0.5 < st_hk.hit_offset.x + st_hk.hit_size.x * 0.5)

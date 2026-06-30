@@ -130,7 +130,7 @@ static func build() -> CharacterData:
 		"guard": GameConst.Guard.MID, "knockback": 1.8, "advance": 6.8, "launch": true,
 		"launch_velocity": 6.5, "meter_gain": 9, "sfx": "spin", "anim_limb": "leg_r",
 		"anim_extend": 1.0, "anim_clip": "KB_m_HighKickRound_R_1",
-		"hit_offset": Vector3(0.86, 0.88, 0.0), "hit_size": Vector3(0.96, 0.85, 0.72),
+		"hit_offset": Vector3(0.56, 0.76, 0.0), "hit_size": Vector3(0.34, 0.42, 0.42),
 		"cancel_into": ["super_inferno"]}))
 
 	# Flame Surge: Blaze's new mid-range LAUNCHER (236+MP). An advancing two-hit rising punch
