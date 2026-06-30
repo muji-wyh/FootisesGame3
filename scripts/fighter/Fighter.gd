@@ -44,10 +44,10 @@ const CANCEL_BUFFER := 6            # advancing ticks a buffered attack press st
 const DRC_INPUT_BUFFER := 30        # real ticks a two-punch DRC input can wait before/after contact
 const GREEN_RUSH_CHORD_BUFFER := 5  # ticks after a normal starts that a two-punch chord can still confirm a rush
 const GREEN_RUSH_MODE_TICKS := 180  # 3 seconds at 60 Hz
-const DRIVE_RUSH_SPEED := 9.8       # forward speed while in a Drive Rush
-const DRIVE_RUSH_START_SPEED := 0.22 # initial crawl before the rush fully engages
-const DRIVE_RUSH_STARTUP_TICKS := 12 # startup frames before normals can be cancelled from rush
-const DRIVE_RUSH_STARTUP_ANIM_TICKS := 14 # visual startup/wind-up before the run clip takes over
+const DRIVE_RUSH_SPEED := 11.6      # forward speed while in a Drive Rush
+const DRIVE_RUSH_START_SPEED := 3.2 # initial lurch before the rush fully engages
+const DRIVE_RUSH_STARTUP_TICKS := 5 # startup frames before normals can be cancelled from rush
+const DRIVE_RUSH_STARTUP_ANIM_TICKS := 5 # visual startup/wind-up before the run clip takes over
 const DRIVE_RUSH_ACCEL_TICKS := 20  # acceleration frames from startup speed to full speed
 const DRIVE_RUSH_ATTACK_SPEED := 8.4 # carried momentum for the first normal out of Drive Rush
 const DRIVE_RUSH_DURATION := 42     # ticks a Drive Rush advances before returning to neutral
@@ -115,7 +115,6 @@ var drive: int = 0
 var green_rush_timer: int = 0
 var drive_rush_pending: bool = false   # first normal out of DRC gets a one-time advantage
 var green_rush_pending: bool = false   # Green Rush dash/special gets its own one-time advantage
-var _green_rush_wait_dir_release: bool = false
 var _dr_carry: int = 0                  # ticks of forward slide momentum left on a Drive Rush normal
 var _dr_brake: int = 0                  # ticks of Green Rush interrupt-skid left (back-back cancel)
 var _burnout_timer: int = 0             # ticks Drive regen stays suspended after the gauge empties
@@ -366,14 +365,6 @@ func _step_green_rush_mode(inp: InputFrame) -> void:
 		velocity.x = 0
 		_goto(State.GREEN_RUSH)
 		return
-	if _green_rush_wait_dir_release:
-		if inp.dir_x == 0 and inp.held == 0:
-			_green_rush_wait_dir_release = false
-			_gr_prev_fwd = false
-		else:
-			velocity.x = 0
-			_goto(State.GREEN_RUSH)
-			return
 	var move := _select_move(inp)
 	if move == null:
 		move = _buffered_move(inp)
@@ -464,7 +455,6 @@ func _start_green_rush_mode() -> void:
 	move_hit_cooldown = 0
 	drive_rush_pending = false
 	green_rush_pending = false
-	_green_rush_wait_dir_release = input_buffer.latest().dir_x != 0
 	_clear_cancel_buffer()
 	_clear_dash_taps()
 	_clear_green_rush_dash_taps()
@@ -473,7 +463,6 @@ func _start_green_rush_mode() -> void:
 
 func _start_green_rush_dash() -> void:
 	green_rush_timer = 0
-	_green_rush_wait_dir_release = false
 	_goto(State.GREEN_RUSH_DASH)
 	state_frame = 0
 	current_move = null
@@ -490,7 +479,6 @@ func _start_drive_rush() -> void:
 	if from_connected_normal and opponent != null and is_instance_valid(opponent):
 		opponent.extend_stun(DRIVE_RUSH_HITSTUN_BONUS)
 	green_rush_timer = 0
-	_green_rush_wait_dir_release = false
 	_goto(State.DRIVE_RUSH)
 	state_frame = 0
 	current_move = null
@@ -646,7 +634,6 @@ func _start_move(m: MoveData) -> void:
 	var green_special := green_rush_timer > 0 and m.kind == GameConst.MoveKind.SPECIAL
 	if from_gr_mode and m.kind != GameConst.MoveKind.NORMAL:
 		green_rush_timer = 0
-		_green_rush_wait_dir_release = false
 	drive_rush_pending = from_dr
 	green_rush_pending = from_gr_dash or green_special
 	_dr_carry = DRIVE_RUSH_CARRY_TICKS if (from_dr or from_gr_dash) else 0
@@ -720,6 +707,7 @@ func _step_attack(_inp: InputFrame) -> void:
 	if state_frame >= m.total_frames():
 		current_move = null
 		drive_rush_pending = false
+		green_rush_pending = false
 		_goto(State.IDLE if on_ground else State.JUMP)
 
 ## Choose a buffered cancel target. Uses the hitstop-aware cancel buffer (a press within the
@@ -1153,7 +1141,7 @@ func green_rush_active() -> bool:
 func drive_rush_fx_active() -> bool:
 	return green_rush_timer > 0 \
 		or state in [State.DRIVE_RUSH, State.GREEN_RUSH_DASH] \
-		or drive_rush_pending
+		or drive_rush_pending or green_rush_pending
 
 func extend_stun(frames: int) -> void:
 	if state in [State.HITSTUN, State.BLOCKSTUN]:
@@ -1257,7 +1245,6 @@ func reset_for_round() -> void:
 	hitstop = 0
 	_recoil_vel = 0.0
 	green_rush_timer = 0
-	_green_rush_wait_dir_release = false
 	hit_strength = 0
 	hit_height = GameConst.HitHeight.MID
 	hit_crouch = false
