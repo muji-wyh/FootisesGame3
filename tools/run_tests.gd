@@ -6,6 +6,7 @@ extends SceneTree
 ## hitstun, projectiles, meter, supers, KO). Prints a PASS/FAIL summary.
 
 const DELTA := 1.0 / 60.0
+const FORCE_FAIL_ARG := "--force-fail"
 
 class Manual extends InputController:
 	var frame := InputFrame.new()
@@ -102,6 +103,10 @@ func _p1_qcf(ctx: Dictionary, button: int) -> void:
 
 func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
+	if OS.get_cmdline_user_args().has(FORCE_FAIL_ARG):
+		_check("forced harness failure", false)
+		_finish()
+		return
 	_test_walk()
 	_test_pushbox_spacing()
 	_test_visible_spacing_limit()
@@ -162,12 +167,15 @@ func _initialize() -> void:
 	_test_drive_rush_carry()
 	_test_system_amplifies_neutral()
 	_test_hud_combo_and_fx()
+	_finish()
+
+func _finish() -> void:
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
 	if _failed == 0:
 		print("ALL TESTS PASSED")
 	else:
 		print("THERE WERE FAILURES")
-	quit()
+	quit(1 if _failed > 0 else 0)
 
 func _test_walk() -> void:
 	print("[walk]")
@@ -262,6 +270,10 @@ func _test_blaze_mp_hp_range() -> void:
 	# character hurtbox (~0.84 wide). Regression: it used to be 0.90 wide -- bigger than the model.
 	var flame_step_h := blaze.get_move("flame_step_h")
 	_check("Flame Step H (236+HK) hitbox fits the model", flame_step_h.hit_size.x < 0.8 and flame_step_h.hit_size.y < 0.65)
+	var cinder_lash := blaze.get_move("cinder_lash")
+	_check("Cinder Lash (236+HP) hitbox fits the overhand animation",
+		cinder_lash.hit_size.x <= 0.42 and cinder_lash.hit_size.y <= 0.48
+		and cinder_lash.hit_offset.x + cinder_lash.hit_size.x * 0.5 <= 0.93)
 	_check("stand LK/MK/HK ranges scale up light -> medium -> heavy",
 		st_lk.hit_offset.x + st_lk.hit_size.x * 0.5 < st_mk.hit_offset.x + st_mk.hit_size.x * 0.5
 		and st_mk.hit_offset.x + st_mk.hit_size.x * 0.5 < st_hk.hit_offset.x + st_hk.hit_size.x * 0.5)
@@ -1872,6 +1884,19 @@ func _test_drive_rush() -> void:
 		hf.green_rush_active() and hf.state != Fighter.State.DRIVE_RUSH and hf.state != Fighter.State.GREEN_RUSH_DASH)
 	held_forward["arena"].queue_free()
 
+	var reentry := _build()
+	var rf: Fighter = reentry["f1"]
+	_step(reentry, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var reentry_timer: int = rf.green_rush_timer
+	_step(reentry, _mk(1, 0), _neutral(), 1)
+	var reentry_x: float = rf.position.x
+	var reentry_drive: int = rf.drive
+	_step(reentry, _mk(1, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("Green Rush mode ignores re-entry chord",
+		rf.green_rush_active() and rf.drive >= reentry_drive and rf.green_rush_timer < reentry_timer
+		and rf.state == Fighter.State.WALK_F and rf.position.x > reentry_x)
+	reentry["arena"].queue_free()
+
 	var held_back := _build()
 	var back_f: Fighter = held_back["f1"]
 	var held_back_start_x: float = back_f.position.x
@@ -1987,11 +2012,8 @@ func _test_drive_rush() -> void:
 	var rush_speed_before_brake := absf(cr.velocity.x)
 	_step(cancel, _mk(-cr.facing, 0), _neutral(), 1)
 	var speed_after_back := absf(cr.velocity.x)
-	var drive_before_reinput: int = cr.drive
-	_step(cancel, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
-	_check("back input cannot cancel green rush",
-		cr.state != Fighter.State.IDLE and cr.state != Fighter.State.DRIVE_RUSH and speed_after_back > rush_speed_before_brake * 0.8)
-	_check("green rush input is ignored while already rushing", cr.drive > drive_before_reinput - Fighter.RAW_DRIVE_RUSH_COST)
+	_check("back input stops Green Rush rush",
+		cr.state == Fighter.State.IDLE and speed_after_back < 0.001 and rush_speed_before_brake > 0.1)
 	cancel["arena"].queue_free()
 	var whiff := _build()
 	var wr: Fighter = whiff["f1"]
@@ -2017,32 +2039,15 @@ func _test_drive_rush() -> void:
 	_check("Green Rush attack fires while rush punches still held", grf.state == Fighter.State.ATTACK and grf.current_move != null)
 	_check("held-button Green Rush attack keeps the Green Rush bonus", not grf.drive_rush_pending and grf.get("green_rush_pending") == true)
 	heldatk["arena"].queue_free()
-	# Back-back (<-<-) interrupts Green Rush, but the momentum brakes over a short skid instead
-	# of stopping dead, then control returns to neutral. A single back must NOT cancel.
+	# A single back now stops Green Rush immediately.
 	var brk := _build()
 	var bf: Fighter = brk["f1"]
 	_step(brk, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
 	_drive_rush_dbltap(brk)
 	_step(brk, _neutral(), _neutral(), Fighter.DRIVE_RUSH_STARTUP_TICKS + Fighter.DRIVE_RUSH_ACCEL_TICKS)
 	var full_rush := absf(bf.velocity.x)
-	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)            # first back tap: still rushing
-	var rushing_on_first_back := bf.state != Fighter.State.DRIVE_RUSH and absf(bf.velocity.x) > full_rush * 0.8
-	_step(brk, _neutral(), _neutral(), 1)                    # release
-	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)            # second back tap: interrupt + brake
-	var brake_speed := absf(bf.velocity.x)
-	_step(brk, _neutral(), _neutral(), 1)
-	var brake_speed_2 := absf(bf.velocity.x)
-	var brake_ticks := 0
-	for i in range(30):
-		if bf.state == Fighter.State.IDLE:
-			break
-		_step(brk, _neutral(), _neutral(), 1)
-		brake_ticks += 1
-	_check("single back does not cancel Green Rush", rushing_on_first_back)
-	_check("back-back brakes instead of stopping dead", brake_speed > 0.0 and brake_speed < full_rush)
-	_check("Green Rush brake keeps decelerating", brake_speed_2 < brake_speed)
-	_check("Green Rush brake is a process, not an instant stop", brake_ticks >= 1)
-	_check("Green Rush brake returns to neutral after the skid", bf.state == Fighter.State.IDLE and absf(bf.velocity.x) < 0.001)
+	_step(brk, _mk(-bf.facing, 0), _neutral(), 1)
+	_check("single back immediately stops Green Rush", bf.state == Fighter.State.IDLE and absf(bf.velocity.x) < 0.001 and full_rush > 0.1)
 	brk["arena"].queue_free()
 	# Forward double-tap is still a normal dash, not a raw Drive Rush.
 	var ctx := _build()
@@ -2082,6 +2087,9 @@ func _test_drive_rush() -> void:
 	var drive_after_drc: int = a.drive
 	_check("DRC entered Drive Rush off a connected normal", drc_entered)
 	_check("DRC spent ~3 bars", drive_after_drc <= da - Fighter.DRC_COST + 60)
+	var drc_speed_before_back := absf(a.velocity.x)
+	_step(ctxa, _mk(-a.facing, 0), _neutral(), 1)
+	_check("single back does not stop DRC rush", a.state == Fighter.State.DRIVE_RUSH and absf(a.velocity.x) > drc_speed_before_back * 0.8)
 	var bh1: int = b.health
 	var follow_hit := false
 	for i in range(Fighter.DRIVE_RUSH_STARTUP_TICKS + 18):

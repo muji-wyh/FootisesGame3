@@ -119,7 +119,7 @@ static func build() -> CharacterData:
 		"damage": 70, "hitstun": 24, "blockstun": 14, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD,
 		"knockback": 5.8, "advance": 6.4, "launch": true, "launch_velocity": 6.8, "meter_gain": 12,
 		"sfx": "hp", "anim_limb": "arm_r", "anim_extend": 1.0, "anim_clip": "KB_m_Overhand_R",
-		"hit_offset": Vector3(0.95, 1.12, 0.0), "hit_size": Vector3(0.82, 0.78, 0.72),
+		"hit_offset": Vector3(0.70, 1.02, 0.0), "hit_size": Vector3(0.40, 0.46, 0.48),
 		"cancel_into": ["super_inferno"]}))
 
 	# Ember Wheel: original corner-carry spin role, replacing the old generic tatsu. Its

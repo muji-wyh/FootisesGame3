@@ -362,15 +362,14 @@ func _step_green_rush_mode(inp: InputFrame) -> void:
 		velocity.x = 0
 		return
 	if _is_green_rush_chord(inp):
-		velocity.x = 0
-		_goto(State.GREEN_RUSH)
-		return
-	var move := _select_move(inp)
-	if move == null:
-		move = _buffered_move(inp)
-	if move:
-		_start_move(move)
-		return
+		_clear_cancel_buffer()
+	else:
+		var move := _select_move(inp)
+		if move == null:
+			move = _buffered_move(inp)
+		if move:
+			_start_move(move)
+			return
 	if _green_rush_dash_requested(inp):
 		_start_green_rush_dash()
 		return
@@ -496,7 +495,14 @@ func _drive_rush_speed() -> float:
 	return lerpf(DRIVE_RUSH_START_SPEED, DRIVE_RUSH_SPEED, t)
 
 func _step_drive_rush(inp: InputFrame) -> void:
-	# Back-back (<-<-) interrupts Green Rush. The forward momentum is not killed instantly: it
+	if state == State.GREEN_RUSH_DASH and inp.dir_x * facing < 0:
+		_clear_cancel_buffer()
+		velocity.x = 0
+		drive_rush_pending = false
+		green_rush_pending = false
+		_goto(State.IDLE)
+		return
+	# Back-back (<-<-) interrupts DRC. The forward momentum is not killed instantly: it
 	# bleeds off over a short skid (see _drive_rush_brake) before control returns to neutral.
 	# Checked before the hold-back branch so the second tap (back held) triggers the brake.
 	if _dr_brake > 0 or _dash_req < 0:
