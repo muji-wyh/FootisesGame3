@@ -595,7 +595,7 @@ func _test_super() -> void:
 			break
 	_check("KO during Inferno Rush enters round over", ko_during_super)
 	_check("Inferno Rush animation is not interrupted by KO", fa.state == Fighter.State.ATTACK and fa.current_move == super_move)
-	for i in range(super_move.total_frames() + 8):
+	for i in range(super_move.total_frames() + super_move.hitstop * super_move.hits + 40):
 		_step_round(finish, finish_rm, _neutral(), _neutral(), 1)
 		if fa.state == Fighter.State.WIN:
 			break
@@ -1490,8 +1490,8 @@ func _test_hitstop_tiers() -> void:
 	var heavy := _peak_hitstop(GameConst.Btn.HP)
 	_check("heavy hit freezes longer than light", int(heavy["vic"]) > int(light["vic"]))
 	_check("attacker + victim freeze match (symmetric hitstop)", int(heavy["vic"]) == int(heavy["atk"]))
-	_check("light hits have stronger SF6-like impact freeze", int(light["vic"]) >= 9)
-	_check("heavy hits have a heavier impact freeze", int(heavy["vic"]) >= 15)
+	_check("light hits have roomier impact freeze", int(light["vic"]) == 11)
+	_check("heavy hits have roomier impact freeze", int(heavy["vic"]) == 17)
 
 func _test_impact_fx_smoke() -> void:
 	print("[impact fx smoke]")

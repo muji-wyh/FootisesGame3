@@ -56,6 +56,7 @@ const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green 
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
+const HITSTOP_FEEL_BONUS := 2       # ponytail: one global hitstop feel knob; per-move overrides if tuning needs diverge
 const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
 const DRIVE_RUSH_CARRY_TICKS := 10  # ticks that carry momentum lasts
 const DRIVE_RUSH_BRAKE_TICKS := 10     # max skid frames after a back-back interrupt (safety cap)
@@ -760,7 +761,7 @@ func receive_attack(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -
 		_apply_block(m, attacker_facing, bonus_hitstun)
 	else:
 		_apply_hit(m, attacker_facing, bonus_hitstun)
-	var stop := m.hitstop
+	var stop := m.hitstop + HITSTOP_FEEL_BONUS
 	if not blocked:
 		stop += _hitstop_bonus()
 	apply_hitstop(stop)
@@ -1156,7 +1157,7 @@ func extend_stun(frames: int) -> void:
 func mark_connected(blocked: bool, m: MoveData) -> void:
 	move_hits_done += 1
 	move_hit_cooldown = m.hit_gap
-	var stop := m.hitstop
+	var stop := m.hitstop + HITSTOP_FEEL_BONUS
 	if not blocked and opponent != null and is_instance_valid(opponent):
 		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
 	hitstop = stop
