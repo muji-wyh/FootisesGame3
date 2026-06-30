@@ -189,15 +189,14 @@ func _on_meaty(_attacker: Fighter) -> void:
 	hud.show_meaty()
 	_slowmo.request(0.4, 10)
 
-## Drive Rush presentation: spawn an afterimage trail on the frame a fighter starts rushing,
-## play a whoosh, pulse the screen tint while anyone is rushing, and surface Burnout on the HUD.
+## Drive Rush presentation: spawn an afterimage trail on the frame a fighter starts glowing,
+## play a whoosh, pulse the screen tint while anyone is glowing, and surface Burnout on the HUD.
 func _update_drive_rush(delta: float) -> void:
 	var fs := [f1, f2]
 	var any_rush := false
 	for i in range(2):
 		var f: Fighter = fs[i]
-		var rushing: bool = f.state in [Fighter.State.DRIVE_RUSH, Fighter.State.GREEN_RUSH_DASH] \
-			or f.drive_rush_pending or f.green_rush_pending
+		var rushing := f.drive_rush_fx_active()
 		if rushing:
 			any_rush = true
 		if rushing and not _dr_was[i]:

@@ -1,8 +1,8 @@
 class_name DriveRushFx
 extends Node3D
 
-## Cosmetic rush trail: while a fighter is actually rushing or has a one-time enhanced
-## attack armed, it leaves a stream of fading translucent afterimages
+## Cosmetic rush trail: while a fighter is in Green Rush mode, actually rushing, or has a
+## Drive Rush-enhanced attack armed, it leaves a stream of fading translucent afterimages
 ## in the character's accent-tinted Drive colour — the SF6 "绿冲" streak. Purely visual: it
 ## only READS Fighter state and frees itself, never touching the deterministic sim.
 
@@ -24,8 +24,7 @@ func _process(delta: float) -> void:
 	if _fighter == null or not is_instance_valid(_fighter):
 		queue_free()
 		return
-	var rushing := _fighter.state in [Fighter.State.DRIVE_RUSH, Fighter.State.GREEN_RUSH_DASH] \
-		or _fighter.drive_rush_pending or _fighter.green_rush_pending
+	var rushing := _fighter.drive_rush_fx_active()
 	if rushing:
 		_emit_accum += delta
 		while _emit_accum >= EMIT_INTERVAL:

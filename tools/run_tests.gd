@@ -794,7 +794,8 @@ func _test_training_mode() -> void:
 	_check("training resources stay full", scene.f1.meter == scene.f1.character.max_meter and scene.f1.drive == scene.f1.character.max_drive)
 	scene.f2.combo_changed.emit(2, 99)
 	_check("training combo HUD updates live", scene.hud._combo_label[0].text.contains("2 HITS") and scene.hud._combo_label[0].modulate.a > 0.9)
-	scene.f1.state = Fighter.State.DRIVE_RUSH
+	scene.f1.state = Fighter.State.GREEN_RUSH
+	scene.f1.green_rush_timer = Fighter.GREEN_RUSH_MODE_TICKS
 	scene.f1.state_frame = 0
 	scene._physics_process(DELTA)
 	var training_fx_spawned := false
@@ -802,7 +803,7 @@ func _test_training_mode() -> void:
 		if child is DriveRushFx:
 			training_fx_spawned = true
 			break
-	_check("training scene spawns Drive Rush ghost trail", training_fx_spawned)
+	_check("training scene spawns Green Rush mode ghost trail", training_fx_spawned)
 	scene.queue_free()
 	game.set("mode", old_mode)
 	game.set("p1_char_id", old_p1)
@@ -1865,10 +1866,10 @@ func _test_drive_rush() -> void:
 	_step(held_forward, _neutral(), _neutral(), 1)
 	var after_release_x: float = hf.position.x
 	_step(held_forward, _mk(1, 0), _neutral(), 1)
-	_check("Green Rush mode does not walk on the first fresh forward",
-		hf.green_rush_active() and hf.state != Fighter.State.WALK_F and absf(hf.position.x - after_release_x) < 0.01)
-	_check("Green Rush mode requires two fresh forward taps after trigger",
-		hf.green_rush_active() and hf.state != Fighter.State.DRIVE_RUSH)
+	_check("Green Rush mode can walk on the first fresh forward",
+		hf.green_rush_active() and hf.state == Fighter.State.WALK_F and hf.position.x > after_release_x + 0.01)
+	_check("Green Rush mode still requires two fresh forward taps to rush",
+		hf.green_rush_active() and hf.state != Fighter.State.DRIVE_RUSH and hf.state != Fighter.State.GREEN_RUSH_DASH)
 	held_forward["arena"].queue_free()
 
 	var stale_dash_req := _build()
@@ -1910,6 +1911,17 @@ func _test_drive_rush() -> void:
 	_check("enhanced Green Rush special gets the Drive Rush stun bonus",
 		sv.stun_timer >= surge.hitstun + Fighter.DRIVE_RUSH_HITSTUN_BONUS)
 	special_mode["arena"].queue_free()
+
+	var super_mode := _build()
+	var sm: Fighter = super_mode["f1"]
+	sm.meter = sm.character.max_meter
+	_step(super_mode, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_p1_qcf(super_mode, 0)
+	_p1_qcf(super_mode, GameConst.Btn.HP)
+	_check("super attacks consume Green Rush mode",
+		sm.current_move != null and sm.current_move.id == "super_inferno"
+		and not (sm.get("green_rush_timer") is int and int(sm.get("green_rush_timer")) > 0))
+	super_mode["arena"].queue_free()
 
 	var rush := _build()
 	var rr: Fighter = rush["f1"]
@@ -2616,7 +2628,7 @@ func _test_hud_combo_and_fx() -> void:
 	f.update_visual()
 	for i in range(6):
 		fx._process(0.03)
-	_check("green-rush mode does not use drive-rush trail snapshots", fx._ghosts.is_empty())
+	_check("green-rush mode fx spawned ghost trail snapshots", fx._ghosts.size() >= 1)
 	f.state = Fighter.State.GREEN_RUSH_DASH
 	for i in range(6):
 		fx._process(0.03)
@@ -2627,10 +2639,10 @@ func _test_hud_combo_and_fx() -> void:
 		var ghost_mat: StandardMaterial3D = fx._ghosts[0]["mats"][0]
 		_check("drive-rush fx ghost is faint", ghost_mat.albedo_color.a <= DriveRushFx.GHOST_ALPHA and ghost_mat.emission_energy_multiplier <= DriveRushFx.GHOST_EMISSION)
 	f.green_rush_timer = 0
-	f.state = Fighter.State.IDLE
+	f.state = Fighter.State.ATTACK
 	f.drive_rush_pending = false
-	f.green_rush_pending = false
+	f.green_rush_pending = true
 	for i in range(20):
 		fx._process(0.03)
-	_check("drive-rush fx ghost trail fades out", fx._ghosts.is_empty())
+	_check("green-rush mode fx disappears after mode exit", fx._ghosts.is_empty())
 	f.free()

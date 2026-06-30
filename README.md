@@ -48,8 +48,9 @@ A six-bar **Drive gauge** (separate from the Super meter) powers the modern mech
 | **Drive Rush Cancel** (DRC / 绿冲) | any two punch buttons during a *connected* normal | 3 bars |
 
 Green Rush puts the fighter in a 3-second ready mode instead of rushing immediately.
-While that mode is active, **forward-forward** (`->->`) starts the old accelerating rush,
-and the next special move becomes the enhanced version and consumes the mode. DRC is
+While that mode is active, the fighter can still move; **forward-forward** (`->->`)
+starts the old accelerating rush, and the next special move becomes the enhanced version
+and consumes the mode. Supers consume the mode without the special-move bonus. DRC is
 unchanged: a connected normal can still cancel directly into the accelerating rush for 3
 bars, and DRC two-punch inputs entered during hitstop are buffered into the first
 actionable frame. Blaze uses a Ken-inspired combo toolkit: `st.MP > st.HP`

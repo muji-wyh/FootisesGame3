@@ -383,19 +383,22 @@ func _step_green_rush_mode(inp: InputFrame) -> void:
 	if _green_rush_dash_requested(inp):
 		_start_green_rush_dash()
 		return
-	if inp.dir_x != 0:
-		velocity.x = 0
-		_goto(State.GREEN_RUSH)
-		return
 	if inp.dir_y > 0 and on_ground:
 		_start_jump(inp)
 		return
+	var fwd := inp.dir_x * facing
 	if inp.dir_y < 0:
 		_goto(State.CROUCH)
 		velocity.x = 0
-		return
-	_goto(State.GREEN_RUSH)
-	velocity.x = 0
+	elif fwd > 0:
+		_goto(State.WALK_F)
+		velocity.x = facing * character.walk_speed
+	elif fwd < 0:
+		_goto(State.WALK_B)
+		velocity.x = -facing * character.back_speed
+	else:
+		_goto(State.GREEN_RUSH)
+		velocity.x = 0
 
 func _step_plain_neutral_movement(inp: InputFrame) -> void:
 	if _dash_req < 0:
@@ -639,8 +642,9 @@ func _start_move(m: MoveData) -> void:
 	# Keep DRC and raw Green Rush bonuses separate; they only meet at hit-resolution time.
 	var from_dr := state == State.DRIVE_RUSH and m.kind == GameConst.MoveKind.NORMAL
 	var from_gr_dash := state == State.GREEN_RUSH_DASH and m.kind == GameConst.MoveKind.NORMAL
+	var from_gr_mode := green_rush_timer > 0
 	var green_special := green_rush_timer > 0 and m.kind == GameConst.MoveKind.SPECIAL
-	if green_special:
+	if from_gr_mode and m.kind != GameConst.MoveKind.NORMAL:
 		green_rush_timer = 0
 		_green_rush_wait_dir_release = false
 	drive_rush_pending = from_dr
@@ -1145,6 +1149,11 @@ func drive_rush_hit_bonus() -> int:
 
 func green_rush_active() -> bool:
 	return green_rush_timer > 0
+
+func drive_rush_fx_active() -> bool:
+	return green_rush_timer > 0 \
+		or state in [State.DRIVE_RUSH, State.GREEN_RUSH_DASH] \
+		or drive_rush_pending
 
 func extend_stun(frames: int) -> void:
 	if state in [State.HITSTUN, State.BLOCKSTUN]:
