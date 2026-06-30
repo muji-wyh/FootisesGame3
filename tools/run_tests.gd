@@ -1548,6 +1548,17 @@ func _test_slowmo_director() -> void:
 	_check("KO (force) overrides cooldown", d.active() and d.scale < 1.0)
 	d.reset()
 	_check("reset clears the dip", d.scale == 1.0 and not d.active())
+	var scene := MatchScene.new()
+	root.add_child(scene)
+	scene.hud = HUD.new()
+	scene.add_child(scene.hud)
+	var blaze := CharacterLibrary.create("blaze")
+	scene.hud.build(blaze, blaze)
+	var fighter := Fighter.new()
+	scene._on_meaty(fighter)
+	_check("meaty callout does not slow gameplay input timing", not scene._slowmo.active() and scene._slowmo.scale == 1.0)
+	fighter.free()
+	scene.free()
 
 # --- blaze-sf6-combat-feel: combos, drive gauge, drive rush, rising uppercut ---
 

@@ -183,11 +183,9 @@ func _on_countered(kind: int) -> void:
 	if kind == GameConst.Counter.PUNISH:
 		_slowmo.request(0.35, 12)
 
-## A fighter landed a meaty on the opponent's wake-up: flash "MEATY!" and a short slow-mo beat
-## so a well-timed okizeme reads as a reward.
+## A fighter landed a meaty on the opponent's wake-up: flash "MEATY!" without slowing input.
 func _on_meaty(_attacker: Fighter) -> void:
 	hud.show_meaty()
-	_slowmo.request(0.4, 10)
 
 ## Drive Rush presentation: spawn an afterimage trail on the frame a fighter starts glowing,
 ## play a whoosh, pulse the screen tint while anyone is glowing, and surface Burnout on the HUD.
