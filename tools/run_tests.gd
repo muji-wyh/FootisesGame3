@@ -2342,6 +2342,61 @@ func _test_drive_rush() -> void:
 	_check("normal was blocked", did_block)
 	_check("DRC off a blocked normal (pressure)", drc_block)
 	ctxb["arena"].queue_free()
+	# DRC also works off a connected special/skill: the input is still gated by contact, not whiff.
+	var ctxskill := _build()
+	var sk: Fighter = ctxskill["f1"]
+	var skill_victim: Fighter = ctxskill["f2"]
+	sk.position.x = -0.45
+	skill_victim.position.x = 0.45
+	var skill_drive: int = sk.drive
+	_p1_qcf(ctxskill, GameConst.Btn.MK) # Flame Step M
+	var skill_hit := false
+	for i in range(20):
+		if skill_victim.health < skill_victim.character.max_health:
+			skill_hit = true
+			break
+		_step(ctxskill, _neutral(), _neutral(), 1)
+	var skill_drc := false
+	for i in range(20):
+		var fr := _neutral()
+		if sk.hitstop == 0:
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+		_step(ctxskill, fr, _neutral(), 1)
+		if sk.state == Fighter.State.DRIVE_RUSH:
+			skill_drc = true
+			break
+	_check("DRC off a connected special/skill", skill_hit and skill_drc)
+	_check("skill DRC spent ~3 bars", sk.drive <= skill_drive - Fighter.DRC_COST + 60)
+	ctxskill["arena"].queue_free()
+	# 236+HP launches; DRC should push against the airborne victim instead of crossing through.
+	var ctxlaunch := _build()
+	var la: Fighter = ctxlaunch["f1"]
+	var lv: Fighter = ctxlaunch["f2"]
+	la.position.x = 5.4
+	lv.position.x = 6.3
+	var side_before := signf(lv.position.x - la.position.x)
+	_p1_qcf(ctxlaunch, GameConst.Btn.HP) # Cinder Lash
+	var launched := false
+	for i in range(24):
+		if lv.launched:
+			launched = true
+			break
+		_step(ctxlaunch, _neutral(), _neutral(), 1)
+	var launch_drc := false
+	var crossed_launch := false
+	for i in range(80):
+		var fr := _neutral()
+		if la.hitstop == 0:
+			fr = _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP)
+		_step(ctxlaunch, fr, _neutral(), 1)
+		if la.state == Fighter.State.DRIVE_RUSH:
+			launch_drc = true
+		if lv.launched and signf(lv.position.x - la.position.x) != side_before:
+			crossed_launch = true
+			break
+	_check("Cinder Lash DRC starts from a launched hit", launched and launch_drc)
+	_check("Cinder Lash DRC does not cross through the launched victim", not crossed_launch)
+	ctxlaunch["arena"].queue_free()
 
 func _test_uppercut_rise() -> void:
 	print("[rising specials removed]")

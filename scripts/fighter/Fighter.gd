@@ -694,7 +694,7 @@ func _step_attack(_inp: InputFrame) -> void:
 	# Spawn a projectile on the first active frame.
 	if m.projectile and state_frame == m.startup:
 		pending_projectiles.append(m)
-	# Once connected (hit or block), a normal can always DRC on a two-punch input. Authored
+	# Once connected (hit or block), a normal or special can DRC on a two-punch input. Authored
 	# cancel routes are optional and live in cancel_into; Blaze currently leaves them empty.
 	if move_hits_done > 0:
 		if not m.cancel_into.is_empty():
@@ -702,7 +702,7 @@ func _step_attack(_inp: InputFrame) -> void:
 			if special_cancel:
 				_start_move(special_cancel)
 				return
-		if m.kind == GameConst.MoveKind.NORMAL and _consume_drc_input() and spend_drive(DRC_COST):
+		if m.kind != GameConst.MoveKind.SUPER and _consume_drc_input() and spend_drive(DRC_COST):
 			_start_drive_rush()
 			return
 		if not m.cancel_into.is_empty():

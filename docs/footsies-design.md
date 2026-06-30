@@ -83,12 +83,12 @@ Guardrails currently in the data/engine (`scripts/fighter/Fighter.gd`):
 - **Raw Green Rush** (two punches from neutral) costs `RAW_DRIVE_RUSH_COST` (1 Drive bar),
   has a visible startup wind-up (`DRIVE_RUSH_STARTUP_TICKS`) and accelerates instead of
   snapping to full speed, so it can be checked or whiff-punished — it is not a free teleport.
-- **DRC** (two punches during a *connected* normal) costs `DRC_COST` (3 bars) — three times the
+- **DRC** (two punches during a *connected* normal or special) costs `DRC_COST` (3 bars) — three times the
   raw cost — so the cheap, repeatable rush only exists *after* you have already won a contact.
 - Drive empties into **Burnout**, which removes access to the rush entirely until it refills.
 
-The intent: the cheapest, most rewarding rush (DRC) is gated behind landing/connecting a
-normal first, so spending resources feels strongest after a spacing win, contact, or read.
+The intent: the cheapest, most rewarding rush (DRC) is gated behind landing/connecting an
+attack first, so spending resources feels strongest after a spacing win, contact, or read.
 These guardrails are validated by `_test_system_amplifies_neutral()` in `tools/run_tests.gd`.
 
 ## 4. Training-mode follow-up

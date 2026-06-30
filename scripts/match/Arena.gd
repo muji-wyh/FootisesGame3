@@ -143,7 +143,7 @@ func _resolve_bounds() -> void:
 	_resolve_visible_spacing()
 
 func _should_resolve_pushbox(a: Fighter, b: Fighter) -> bool:
-	return a.on_ground and b.on_ground
+	return (a.on_ground or a.launched) and (b.on_ground or b.launched)
 
 func _resolve_visible_spacing() -> void:
 	if fighters.size() < 2:
