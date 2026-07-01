@@ -1490,8 +1490,8 @@ func _test_hitstop_tiers() -> void:
 	var heavy := _peak_hitstop(GameConst.Btn.HP)
 	_check("heavy hit freezes longer than light", int(heavy["vic"]) > int(light["vic"]))
 	_check("attacker + victim freeze match (symmetric hitstop)", int(heavy["vic"]) == int(heavy["atk"]))
-	_check("light hits have roomier impact freeze", int(light["vic"]) == 11)
-	_check("heavy hits have roomier impact freeze", int(heavy["vic"]) == 17)
+	_check("light hits have obvious impact freeze", int(light["vic"]) == 13)
+	_check("heavy hits have obvious impact freeze", int(heavy["vic"]) == 19)
 
 func _test_impact_fx_smoke() -> void:
 	print("[impact fx smoke]")
