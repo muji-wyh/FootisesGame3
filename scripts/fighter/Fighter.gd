@@ -64,6 +64,7 @@ const DRIVE_RUSH_BRAKE_FRICTION := 0.6 # per-tick forward-momentum decay during 
 const DRIVE_RUSH_BRAKE_STOP := 0.2     # speed below which the skid ends early and control returns
 const BURNOUT_TICKS := 90           # ticks Drive regen is suspended after the gauge empties (SF6 Burnout)
 const DRC_PUNCH_MASK := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
+const HIT_RECOIL_RATIO := 0.035     # SF6-like open-space separation without breaking close confirms
 
 ## Combo damage scaling (SF6-style): the n-th hit of a combo deals this fraction of its
 ## damage. Gentle and only kicks in past hit 3 so single moves / short strings are unscaled.
@@ -99,6 +100,7 @@ var hit_crouch: bool = false       # victim was crouching when struck
 var hit_air: bool = false          # victim was airborne when struck
 var hit_from_back: bool = false    # victim was struck from behind (cross-up)
 var hit_reaction_clip: String = "" # per-move victim reaction override, if the move authored one
+var last_hit_fx: String = ""       # per-move impact texture for presentation
 var last_hit_point := Vector3.ZERO # world-space contact point used by impact FX
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
 var last_meaty: bool = false                     # the most recent hit taken was a meaty (wake-up) hit
@@ -961,6 +963,7 @@ func _record_hit_context(m: MoveData, attacker_facing: int) -> void:
 	hit_air = not on_ground
 	hit_crouch = on_ground and (state == State.CROUCH or input_buffer.latest().dir_y < 0)
 	hit_reaction_clip = m.hit_reaction_clip
+	last_hit_fx = m.hit_fx
 	# attacker_facing points from the attacker toward this fighter; if we face the same
 	# way, our back is to the attacker -> struck from behind (a cross-up).
 	hit_from_back = facing == attacker_facing
@@ -1179,9 +1182,7 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 		# Attacker gets 22% of the blocked knockback as standard block recoil
 		self_push = final_knockback * 0.22
 	else:
-		# On normal hit, the attacker gets ZERO base recoil to ensure combos link perfectly in open space.
-		# Corner pushback transfer will handle pushing the attacker away if the victim is in the corner.
-		self_push = 0.0
+		self_push = final_knockback * HIT_RECOIL_RATIO
 
 	# Strength-based slide friction, shared by the victim's corner-distance estimate below and
 	# the attacker's own recoil slide, so heavier hits slide further.
@@ -1258,6 +1259,7 @@ func reset_for_round() -> void:
 	hit_air = false
 	hit_from_back = false
 	hit_reaction_clip = ""
+	last_hit_fx = ""
 	last_hit_point = Vector3.ZERO
 	last_counter = GameConst.Counter.NONE
 	last_meaty = false

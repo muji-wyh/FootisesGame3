@@ -434,6 +434,38 @@ func _test_pushback_scaling() -> void:
 	_check("heavies route into corner carry specials", b.get_move("st_hp").cancel_into.has("ember_wheel") and b.get_move("st_hp").cancel_into.has("cinder_lash"))
 	_check("kick heavies route into corner carry specials", b.get_move("st_hk").cancel_into.has("flame_step_h") and b.get_move("st_hk").cancel_into.has("ember_wheel"))
 	_check("crouch heavies route into combo enders", b.get_move("cr_hp").cancel_into.has("ember_wheel") and b.get_move("cr_hk").cancel_into.has("super_inferno"))
+	var sf6_like_kb := {
+		"st_lp": [3.4, 3.8], "st_mp": [4.1, 4.5], "st_hp": [5.8, 6.3],
+		"st_lk": [3.1, 3.5], "st_mk": [4.6, 5.0], "st_hk": [6.4, 7.0],
+		"cr_lp": [3.2, 3.6], "cr_mp": [3.9, 4.3], "cr_hp": [5.3, 5.8],
+		"cr_lk": [2.9, 3.3], "cr_mk": [4.3, 4.8], "cr_hk": [6.0, 6.6],
+		"air_lp": [2.9, 3.3], "air_mp": [4.2, 4.6], "air_hp": [5.7, 6.3],
+		"air_lk": [3.0, 3.4], "air_mk": [4.5, 4.9], "air_hk": [6.2, 6.8],
+		"flame_step_l": [3.0, 3.4], "flame_step_m": [3.8, 4.3], "flame_step_h": [5.0, 5.5],
+		"flame_surge": [3.4, 3.8], "cinder_lash": [6.4, 7.0], "ember_wheel": [3.2, 3.7],
+		"super_inferno": [7.0, 7.8],
+	}
+	for id in sf6_like_kb.keys():
+		var m := b.get_move(id)
+		var r: Array = sf6_like_kb[id]
+		_check("%s knockback is in its SF6-like role range" % id, m != null and m.knockback >= float(r[0]) and m.knockback <= float(r[1]))
+	var ctx := _build()
+	var f1: Fighter = ctx["f1"]
+	var f2: Fighter = ctx["f2"]
+	var light := b.get_move("st_lp")
+	var medium := b.get_move("st_mp")
+	var heavy := b.get_move("st_hp")
+	f1.mark_connected(false, light)
+	var light_recoil := absf(f1._recoil_vel) / ((1.0 - f1._recoil_friction) * 60.0)
+	f1._recoil_vel = 0.0
+	f1.mark_connected(false, medium)
+	var medium_recoil := absf(f1._recoil_vel) / ((1.0 - f1._recoil_friction) * 60.0)
+	f1._recoil_vel = 0.0
+	f1.mark_connected(false, heavy)
+	var heavy_recoil := absf(f1._recoil_vel) / ((1.0 - f1._recoil_friction) * 60.0)
+	_check("open-space hit gives attacker a small SF6-like recoil", light_recoil > 0.0)
+	_check("attacker recoil scales light < medium < heavy", light_recoil < medium_recoil and medium_recoil < heavy_recoil)
+	ctx["arena"].queue_free()
 
 func _test_lp_pushout() -> void:
 	print("[lp pushout]")
@@ -1496,10 +1528,20 @@ func _test_hitstop_tiers() -> void:
 func _test_impact_fx_smoke() -> void:
 	print("[impact fx smoke]")
 	var cam := FightCamera.new()
-	cam.shake(0.2, 8)
+	root.add_child(cam)
+	cam.shake(0.35, 8, 1.0, 0.10)
 	_check("camera shake armed", cam._shake_t == 8 and cam._shake_amp > 0.0)
-	var off := cam._shake_offset()
-	_check("shake offset finite + bounded", is_finite(off.x) and absf(off.x) <= 0.2)
+	cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
+	_check("impact shake has a visible first-frame kick without wild roll",
+		cam.position.distance_to(cam._base) > 0.18 and absf(cam.rotation.z) < deg_to_rad(2.0))
+	_check("impact shake kicks away from the hit side with a modest punch-in",
+		cam.position.x > cam._base.x + 0.12 and cam.position.z < cam._base.z - 0.04)
+	_check("impact shake avoids flash-like FOV jumps", cam.fov > FightCamera.FOV - 2.0)
+	for i in range(12):
+		cam.track(Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0))
+	_check("impact shake decays back to stable framing",
+		cam._shake_t == 0 and cam.position.distance_to(cam._base) < 0.001
+		and absf(cam.rotation.z) < 0.001 and absf(cam.fov - FightCamera.FOV) < 0.001)
 	cam.free()
 	var spark := HitSpark.new()
 	root.add_child(spark)
@@ -1514,6 +1556,27 @@ func _test_impact_fx_smoke() -> void:
 		and (core.material_override as StandardMaterial3D).no_depth_test
 		and (ring.material_override as StandardMaterial3D).no_depth_test)
 	spark.free()
+	var fx_path := "res://assets/cartoon_fx_pack/textures/Effect01.png"
+	_check("CartoonFXPack spark texture imported", ResourceLoader.exists(fx_path))
+	var textured_spark := HitSpark.new()
+	root.add_child(textured_spark)
+	textured_spark.setup(Color(1.0, 0.5, 0.2), 1.0, fx_path)
+	_check("textured hit spark adds a pack texture layer", textured_spark.get_child_count() >= 3)
+	textured_spark._process(1.0 / 60.0)
+	_check("textured hit spark starts at readable size",
+		textured_spark._fx_quad != null and textured_spark._fx_quad.scale.x >= 0.8 and textured_spark.scale == Vector3.ONE)
+	for i in range(12):
+		textured_spark._process(1.0 / 60.0)
+	_check("textured hit spark persists long enough to read", not textured_spark.is_queued_for_deletion())
+	textured_spark.free()
+	var blaze := CharacterLibrary.create("blaze")
+	var moves: Array = []
+	moves.append_array(blaze.normals)
+	moves.append_array(blaze.specials)
+	moves.append_array(blaze.supers)
+	for m in moves:
+		var hit_fx := String(m.get("hit_fx"))
+		_check("%s has a CartoonFXPack hit effect" % m.id, hit_fx != "" and ResourceLoader.exists(hit_fx))
 	var scene := MatchScene.new()
 	var victim := Fighter.new()
 	var attacker := Fighter.new()
@@ -1529,6 +1592,12 @@ func _test_impact_fx_smoke() -> void:
 	victim.last_hit_point = Vector3(1.2, 1.35, 0.0)
 	scene._on_struck(victim, false)
 	_check("hit visual updates before spark spawn", rig.pose_count == 1 and scene.get_child_count() >= 2)
+	_check("medium impact arms readable directional camera punch",
+		scene.camera._shake_amp >= 0.1 and scene.camera._shake_t >= 7 and scene.camera._shake_zoom > 0.02)
+	victim.hit_strength = 2
+	var heavy_p := scene._spark_params(victim, false)
+	_check("heavy impact uses camera punch without screen flash",
+		not heavy_p.has("flash") and float(heavy_p["shake"]) >= 0.3 and float(heavy_p["zoom"]) <= 0.12)
 	var impact_spark := scene.get_child(scene.get_child_count() - 1) as HitSpark
 	_check("hit spark spawns at the recorded contact point", impact_spark != null and impact_spark.position.distance_to(victim.last_hit_point) < 0.001)
 	scene.free()

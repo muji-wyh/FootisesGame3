@@ -135,12 +135,13 @@ func _on_struck(victim: Fighter, blocked: bool) -> void:
 	var sc: float = p["scale"]
 	var amp: float = p["shake"]
 	var fr: int = p["frames"]
+	var zoom: float = p["zoom"]
 	var y: float = p["y"]
 	var spark := HitSpark.new()
 	add_child(spark)
 	spark.position = _spark_position(victim, atk, y)
-	spark.setup(col, sc)
-	camera.shake(amp, fr)
+	spark.setup(col, sc, victim.last_hit_fx)
+	camera.shake(amp, fr, _shake_dir(victim, atk), zoom)
 
 func _spark_position(victim: Fighter, atk: Fighter, fallback_y: float) -> Vector3:
 	if victim.last_hit_point != Vector3.ZERO:
@@ -150,23 +151,28 @@ func _spark_position(victim: Fighter, atk: Fighter, fallback_y: float) -> Vector
 		cx = (victim.position.x + atk.position.x) * 0.5
 	return Vector3(cx, fallback_y, 0.0)
 
+func _shake_dir(victim: Fighter, atk: Fighter) -> float:
+	if atk != null and is_instance_valid(atk):
+		return signf(victim.position.x - atk.position.x)
+	return signf(victim.last_hit_point.x - camera.position.x)
+
 func _spark_params(victim: Fighter, blocked: bool) -> Dictionary:
 	if blocked:
-		return {"color": Color(0.6, 0.8, 1.0), "scale": 0.42, "shake": 0.03, "frames": 5, "y": 1.0}
+		return {"color": Color(0.6, 0.8, 1.0), "scale": 0.42, "shake": 0.10, "frames": 5, "zoom": 0.03, "y": 1.0}
 	var y := _hit_y(victim)
 	if victim.last_meaty:
-		return {"color": Color(1.0, 0.7, 0.1), "scale": 1.0, "shake": 0.16, "frames": 10, "y": y}
+		return {"color": Color(1.0, 0.7, 0.1), "scale": 1.0, "shake": 0.42, "frames": 9, "zoom": 0.11, "y": y}
 	match victim.last_counter:
 		GameConst.Counter.PUNISH:
-			return {"color": Color(1.0, 0.35, 0.9), "scale": 1.15, "shake": 0.22, "frames": 12, "y": y}
+			return {"color": Color(1.0, 0.35, 0.9), "scale": 1.15, "shake": 0.45, "frames": 10, "zoom": 0.12, "y": y}
 		GameConst.Counter.COUNTER:
-			return {"color": Color(0.45, 0.9, 1.0), "scale": 0.95, "shake": 0.15, "frames": 10, "y": y}
+			return {"color": Color(0.45, 0.9, 1.0), "scale": 0.95, "shake": 0.40, "frames": 9, "zoom": 0.10, "y": y}
 	match victim.hit_strength:
 		2:
-			return {"color": Color(1.0, 0.5, 0.2), "scale": 0.9, "shake": 0.12, "frames": 9, "y": y}
+			return {"color": Color(1.0, 0.5, 0.2), "scale": 0.9, "shake": 0.36, "frames": 8, "zoom": 0.10, "y": y}
 		1:
-			return {"color": Color(1.0, 0.8, 0.35), "scale": 0.68, "shake": 0.07, "frames": 7, "y": y}
-	return {"color": Color(1.0, 0.95, 0.7), "scale": 0.52, "shake": 0.04, "frames": 6, "y": y}
+			return {"color": Color(1.0, 0.8, 0.35), "scale": 0.68, "shake": 0.24, "frames": 7, "zoom": 0.06, "y": y}
+	return {"color": Color(1.0, 0.95, 0.7), "scale": 0.52, "shake": 0.16, "frames": 5, "zoom": 0.035, "y": y}
 
 func _hit_y(victim: Fighter) -> float:
 	match victim.hit_height:

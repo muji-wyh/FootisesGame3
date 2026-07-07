@@ -15,11 +15,20 @@ const HEIGHT := 1.0           # camera height (constant; pitch is what tracks th
 const AIR_LIFT := 0.45         # how much the camera lifts to follow airborne fighters
 const AIR_PAN := 0.6           # how much of that lift becomes an actual upward pan of framing
 const FOLLOW := 0.2
+const SHAKE_MAX_AMP := 0.45
+const SHAKE_ROLL_DEG := 1.5
+const SHAKE_ZOOM_MAX := 0.12
+const SHAKE_FOV_PER_ZOOM := 12.0
 
 var _base := Vector3(0, HEIGHT, MIN_Z)
 var _shake_amp: float = 0.0
 var _shake_t: int = 0
 var _shake_frames: int = 1
+var _shake_roll: float = 0.0
+var _shake_dir: float = 1.0
+var _shake_zoom: float = 0.0
+var _shake_fov: float = 0.0
+var _shake_zoom_base: float = 0.0
 
 func _ready() -> void:
 	fov = FOV
@@ -27,12 +36,17 @@ func _ready() -> void:
 	_aim(0.0, MIN_Z, HEIGHT, 0.0)
 
 ## Request a screen shake (impact feedback). Stronger requests win; decays over `frames`.
-func shake(amp: float, frames: int) -> void:
-	if amp <= _shake_amp and _shake_t > 0:
+func shake(amp: float, frames: int, dir: float = 1.0, zoom: float = 0.0) -> void:
+	var next_amp := minf(amp, SHAKE_MAX_AMP)
+	if next_amp <= _shake_amp and _shake_t > 0:
 		return
-	_shake_amp = amp
-	_shake_t = frames
-	_shake_frames = maxi(1, frames)
+	_shake_amp = next_amp
+	_shake_t = clampi(frames, 1, 18)
+	_shake_frames = _shake_t
+	_shake_dir = 1.0 if dir >= 0.0 else -1.0
+	_shake_zoom_base = minf(zoom, SHAKE_ZOOM_MAX)
+	_shake_zoom = _shake_zoom_base
+	_shake_fov = _shake_zoom_base * SHAKE_FOV_PER_ZOOM
 
 func track(a: Vector3, b: Vector3) -> void:
 	var mid_x := (a.x + b.x) * 0.5
@@ -43,8 +57,12 @@ func track(a: Vector3, b: Vector3) -> void:
 	var bound: float = Arena.FIGHT_BOUNDS_HALF_WIDTH - 1.0
 	mid_x = clampf(mid_x, -bound, bound)
 	_base = _base.lerp(Vector3(mid_x, HEIGHT + lift, z), FOLLOW)
-	position = _base + _shake_offset()
+	var shake := _shake_offset()
+	position = _base + shake
+	position.z -= _shake_zoom
 	_aim(_base.x, _base.z, _base.y, lift * AIR_PAN)
+	rotation.z = _shake_roll
+	fov = FOV - _shake_fov
 
 ## Half of the screen's horizontal extent (in tan units) at the subject plane, accounting for
 ## the live viewport aspect (vertical FOV is fixed, so width follows the aspect).
@@ -69,9 +87,22 @@ func _aim(x: float, z: float, cam_y: float, floor_y: float) -> void:
 
 func _shake_offset() -> Vector3:
 	if _shake_t <= 0:
+		_shake_roll = 0.0
+		_shake_zoom = 0.0
+		_shake_fov = 0.0
+		_shake_zoom_base = 0.0
 		return Vector3.ZERO
+	var age := _shake_frames - _shake_t
+	var p := float(age) / float(_shake_frames)
+	var strength := pow(1.0 - p, 2.15)
+	var decay: float = _shake_amp * strength
+	var side := _shake_dir if age == 0 else -_shake_dir * 0.35
+	var snap := 1.18 if age == 0 else 0.58
+	var y_kick := -0.82 if age == 0 else sin(float(age) * 2.7) * 0.36
+	_shake_roll = deg_to_rad(side * decay * SHAKE_ROLL_DEG)
+	_shake_zoom = _shake_zoom_base * strength
+	_shake_fov = _shake_zoom * SHAKE_FOV_PER_ZOOM
 	_shake_t -= 1
-	var decay: float = _shake_amp * float(_shake_t) / float(_shake_frames)
 	if _shake_t <= 0:
 		_shake_amp = 0.0
-	return Vector3(randf_range(-decay, decay), randf_range(-decay, decay), 0.0)
+	return Vector3(side * decay * snap, decay * y_kick, 0.0)

@@ -12,6 +12,7 @@ const DISPLAY_NAME := "Blaze"
 ## Where this character's model + animation + texture assets live. (The licensed FBX/textures
 ## are gitignored; see assets/README.md.)
 const ASSETS := "res://characters/blaze/assets/"
+const HIT_FX := "res://assets/cartoon_fx_pack/textures/"
 
 ## Blaze-owned animation clips. Shared builders intentionally contain no KB_* clip names:
 ## future characters should provide their own clip maps / rig config in their own module.
@@ -39,24 +40,24 @@ const NORMAL_CLIPS := {
 ## These relationships are locked in by _test_blaze_button_roles() in tools/run_tests.gd;
 ## retune the data and that test together if a button's role changes.
 const NORMAL_TUNING := {
-	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.2, "hit_offset": Vector3(0.57, 1.35, 0.0), "hit_size": Vector3(0.37, 0.62, 0.55), "cancel_into": ["flame_step_l"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak"},
-	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.8, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno"]},
-	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.02, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med"},
-	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.0, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": ["flame_step_l"]},
-	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.2, "hit_offset": Vector3(0.74, 0.86, 0.0), "hit_size": Vector3(0.54, 0.40, 0.68), "cancel_into": []},
-	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "hit_offset": Vector3(0.82, 1.36, 0.0), "hit_size": Vector3(0.62, 0.56, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med"},
-	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.1, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": ["flame_step_l"]},
-	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 3.5, "cancel_into": ["st_mp", "flame_surge", "flame_step_m", "super_inferno"]},
-	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 3.8, "launch": false, "launch_velocity": 0.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7), "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_MidTop_Med"},
-	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 2.7, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": ["cr_mk", "flame_step_l"]},
-	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.0, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": ["flame_surge", "flame_step_m", "super_inferno"]},
-	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.LOW, "knockback": 4.8, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5, "cancel_into": ["super_inferno"]},
-	"air_lp": {"startup": 3, "active": 10, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.8, "hit_offset": Vector3(0.45, 0.35, 0.0), "hit_size": Vector3(0.55, 0.45, 0.65)},
-	"air_mp": {"startup": 5, "active": 8, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.8, "hit_offset": Vector3(0.52, 0.38, 0.0), "hit_size": Vector3(0.65, 0.50, 0.65)},
-	"air_hp": {"startup": 7, "active": 8, "recovery": 6, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.0, "hit_offset": Vector3(0.58, 0.42, 0.0), "hit_size": Vector3(0.75, 0.55, 0.7)},
-	"air_lk": {"startup": 4, "active": 10, "recovery": 4, "damage": 29, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 2.9, "hit_offset": Vector3(0.48, 0.18, 0.0), "hit_size": Vector3(0.65, 0.55, 0.65)},
-	"air_mk": {"startup": 7, "active": 6, "recovery": 5, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.1, "hit_offset": Vector3(0.25, 0.18, 0.0), "hit_size": Vector3(0.95, 0.55, 0.7)},
-	"air_hk": {"startup": 8, "active": 8, "recovery": 6, "damage": 82, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 5.3, "hit_offset": Vector3(0.55, 0.18, 0.0), "hit_size": Vector3(0.85, 0.65, 0.7)},
+	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.6, "hit_offset": Vector3(0.57, 1.35, 0.0), "hit_size": Vector3(0.37, 0.62, 0.55), "cancel_into": ["flame_step_l"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak", "hit_fx": HIT_FX + "Thin01.png"},
+	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.3, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno"], "hit_fx": HIT_FX + "Medium01.png"},
+	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.02, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large01.png"},
+	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.3, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": ["flame_step_l"], "hit_fx": HIT_FX + "Thin02.png"},
+	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.8, "hit_offset": Vector3(0.74, 0.86, 0.0), "hit_size": Vector3(0.54, 0.40, 0.68), "cancel_into": [], "hit_fx": HIT_FX + "Medium02.png"},
+	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.7, "hit_offset": Vector3(0.82, 1.36, 0.0), "hit_size": Vector3(0.62, 0.56, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large02.png"},
+	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.4, "hit_offset": Vector3(0.58, 0.78, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": ["flame_step_l"], "hit_fx": HIT_FX + "Effect01.png"},
+	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.1, "cancel_into": ["st_mp", "flame_surge", "flame_step_m", "super_inferno"], "hit_fx": HIT_FX + "Medium03.png"},
+	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "launch": false, "launch_velocity": 0.0, "hit_offset": Vector3(0.6, 1.5, 0.0), "hit_size": Vector3(0.8, 1.3, 0.7), "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_MidTop_Med", "hit_fx": HIT_FX + "Flash01.png"},
+	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 3.1, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": ["cr_mk", "flame_step_l"], "hit_fx": HIT_FX + "Effect02.png"},
+	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.6, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": ["flame_surge", "flame_step_m", "super_inferno"], "hit_fx": HIT_FX + "Medium04.png"},
+	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.LOW, "knockback": 6.3, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5, "cancel_into": ["super_inferno"], "hit_fx": HIT_FX + "Flash02.png"},
+	"air_lp": {"startup": 3, "active": 10, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.1, "hit_offset": Vector3(0.45, 0.35, 0.0), "hit_size": Vector3(0.55, 0.45, 0.65), "hit_fx": HIT_FX + "Effect03.png"},
+	"air_mp": {"startup": 5, "active": 8, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.4, "hit_offset": Vector3(0.52, 0.38, 0.0), "hit_size": Vector3(0.65, 0.50, 0.65), "hit_fx": HIT_FX + "Medium05.png"},
+	"air_hp": {"startup": 7, "active": 8, "recovery": 6, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 6.0, "hit_offset": Vector3(0.58, 0.42, 0.0), "hit_size": Vector3(0.75, 0.55, 0.7), "hit_fx": HIT_FX + "Large01.png"},
+	"air_lk": {"startup": 4, "active": 10, "recovery": 4, "damage": 29, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.2, "hit_offset": Vector3(0.48, 0.18, 0.0), "hit_size": Vector3(0.65, 0.55, 0.65), "hit_fx": HIT_FX + "Effect04.png"},
+	"air_mk": {"startup": 7, "active": 6, "recovery": 5, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.7, "hit_offset": Vector3(0.25, 0.18, 0.0), "hit_size": Vector3(0.95, 0.55, 0.7), "hit_fx": HIT_FX + "Medium06.png"},
+	"air_hk": {"startup": 8, "active": 8, "recovery": 6, "damage": 82, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD, "knockback": 6.5, "hit_offset": Vector3(0.55, 0.18, 0.0), "hit_size": Vector3(0.85, 0.65, 0.7), "hit_fx": HIT_FX + "Large02.png"},
 }
 
 static func build() -> CharacterData:
@@ -95,20 +96,20 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "flame_step_l", "display_name": "Flame Step L", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.LK, "motion": MotionParser.QCF, "startup": 5, "active": 8, "recovery": 14,
 		"damage": 34, "hits": 2, "hit_gap": 5, "hitstun": 18, "blockstun": 11, "hitstop": 9,
-		"guard": GameConst.Guard.MID, "knockback": 1.6, "advance": 3.6, "meter_gain": 8,
-		"sfx": "lk", "anim_limb": "leg_r", "anim_extend": 0.75, "anim_clip": "KB_p_MidKickFront_L",
+		"guard": GameConst.Guard.MID, "knockback": 3.2, "advance": 3.6, "meter_gain": 8,
+		"hit_fx": HIT_FX + "Effect05.png", "sfx": "lk", "anim_limb": "leg_r", "anim_extend": 0.75, "anim_clip": "KB_p_MidKickFront_L",
 		"hit_offset": Vector3(0.72, 0.72, 0.0), "hit_size": Vector3(0.70, 0.52, 0.68)}))
 	c.add_move(CharacterKit.make_move({"id": "flame_step_m", "display_name": "Flame Step M", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.MK, "motion": MotionParser.QCF, "startup": 7, "active": 10, "recovery": 17,
 		"damage": 42, "hits": 2, "hit_gap": 5, "hitstun": 20, "blockstun": 12, "hitstop": 10,
-		"guard": GameConst.Guard.MID, "knockback": 2.0, "advance": 5.2, "meter_gain": 10,
-		"sfx": "mk", "anim_limb": "leg_r", "anim_extend": 0.85, "anim_clip": "KB_m_MidKick_R",
+		"guard": GameConst.Guard.MID, "knockback": 4.1, "advance": 5.2, "meter_gain": 10,
+		"hit_fx": HIT_FX + "Effect07.png", "sfx": "mk", "anim_limb": "leg_r", "anim_extend": 0.85, "anim_clip": "KB_m_MidKick_R",
 		"hit_offset": Vector3(0.82, 0.82, 0.0), "hit_size": Vector3(0.82, 0.62, 0.70)}))
 	c.add_move(CharacterKit.make_move({"id": "flame_step_h", "display_name": "Flame Step H", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HK, "motion": MotionParser.QCF, "startup": 9, "active": 12, "recovery": 22,
 		"damage": 55, "hits": 2, "hit_gap": 6, "hitstun": 22, "blockstun": 13, "hitstop": 12,
-		"guard": GameConst.Guard.MID, "knockback": 3.2, "advance": 5.8, "launch": true, "launch_velocity": 6.0,
-		"meter_gain": 10, "sfx": "hk", "anim_limb": "leg_r", "anim_extend": 0.95,
+		"guard": GameConst.Guard.MID, "knockback": 5.3, "advance": 5.8, "launch": true, "launch_velocity": 6.0,
+		"meter_gain": 10, "hit_fx": HIT_FX + "Flash01.png", "sfx": "hk", "anim_limb": "leg_r", "anim_extend": 0.95,
 		"anim_clip": "KB_p_HighKick_R_1", "hit_offset": Vector3(0.90, 0.92, 0.0),
 		"hit_size": Vector3(0.46, 0.40, 0.50)}))
 
@@ -117,8 +118,8 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "cinder_lash", "display_name": "Cinder Lash", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF, "startup": 10, "active": 6, "recovery": 24,
 		"damage": 70, "hitstun": 24, "blockstun": 14, "hitstop": 12, "guard": GameConst.Guard.OVERHEAD,
-		"knockback": 5.8, "advance": 6.4, "launch": true, "launch_velocity": 6.8, "meter_gain": 12,
-		"sfx": "hp", "anim_limb": "arm_r", "anim_extend": 1.0, "anim_clip": "KB_m_Overhand_R",
+		"knockback": 6.7, "advance": 6.4, "launch": true, "launch_velocity": 6.8, "meter_gain": 12,
+		"hit_fx": HIT_FX + "Flash02.png", "sfx": "hp", "anim_limb": "arm_r", "anim_extend": 1.0, "anim_clip": "KB_m_Overhand_R",
 		"hit_offset": Vector3(0.70, 1.02, 0.0), "hit_size": Vector3(0.40, 0.46, 0.48),
 		"cancel_into": ["super_inferno"]}))
 
@@ -127,8 +128,8 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "ember_wheel", "display_name": "Ember Wheel", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.HK, "motion": MotionParser.QCB, "startup": 8, "active": 24, "recovery": 20,
 		"damage": 30, "hits": 4, "hit_gap": 5, "hitstun": 17, "blockstun": 12, "hitstop": 9,
-		"guard": GameConst.Guard.MID, "knockback": 1.8, "advance": 6.8, "launch": true,
-		"launch_velocity": 6.5, "meter_gain": 9, "sfx": "spin", "anim_limb": "leg_r",
+		"guard": GameConst.Guard.MID, "knockback": 3.4, "advance": 6.8, "launch": true,
+		"launch_velocity": 6.5, "meter_gain": 9, "hit_fx": HIT_FX + "Smoke01.png", "sfx": "spin", "anim_limb": "leg_r",
 		"anim_extend": 1.0, "anim_clip": "KB_m_HighKickRound_R_1",
 		"hit_offset": Vector3(0.56, 0.76, 0.0), "hit_size": Vector3(0.34, 0.42, 0.42),
 		"cancel_into": ["super_inferno"]}))
@@ -142,8 +143,8 @@ static func build() -> CharacterData:
 	c.add_move(CharacterKit.make_move({"id": "flame_surge", "display_name": "Flame Surge", "kind": GameConst.MoveKind.SPECIAL,
 		"button": GameConst.Btn.MP, "motion": MotionParser.QCF, "startup": 8, "active": 6, "recovery": 26,
 		"damage": 30, "hits": 2, "hit_gap": 4, "hitstun": 20, "blockstun": 12, "hitstop": 11,
-		"guard": GameConst.Guard.MID, "knockback": 2.4, "advance": 4.2, "launch": true, "launch_velocity": 6.4,
-		"meter_gain": 11, "sfx": "mp", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_m_Uppercut_R",
+		"guard": GameConst.Guard.MID, "knockback": 3.6, "advance": 4.2, "launch": true, "launch_velocity": 6.4,
+		"meter_gain": 11, "hit_fx": HIT_FX + "Effect08.png", "sfx": "mp", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_m_Uppercut_R",
 		"hit_offset": Vector3(0.74, 1.04, 0.0), "hit_size": Vector3(0.66, 0.82, 0.70),
 		"cancel_into": ["super_inferno"]}))
 
@@ -153,8 +154,8 @@ static func build() -> CharacterData:
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF_QCF, "meter_cost": 100,
 		"startup": 8, "active": 22, "recovery": 44, "damage": 52, "hits": 5, "hit_gap": 4,
 		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 12, "guard": GameConst.Guard.MID,
-		"knockback": 6.0, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
-		"sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
+		"knockback": 7.4, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
+		"hit_fx": HIT_FX + "Flash03.png", "sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(0.38, 1.02, 0.0), "hit_size": Vector3(0.28, 0.58, 0.36)}))
 
 	return c
