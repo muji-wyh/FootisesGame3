@@ -18,6 +18,12 @@ var _orbit_target := Vector3.ZERO
 var _orbit_yaw := 0.0
 var _orbit_pitch := deg_to_rad(-28.0)
 var _orbit_distance := 11.0
+var _gallery_title := "GALLERY-FightingAnimsetPro"
+var _model_yaw := 0.0
+var _animation_speed := 1.0
+var _columns := COLS
+var _spacing_x := SPACING_X
+var _spacing_z := SPACING_Z
 
 func _ready() -> void:
 	_add_environment()
@@ -31,11 +37,11 @@ func _ready() -> void:
 	var names := lib.get_animation_list()
 	names.sort()
 	var ps := load(blaze.model_path) as PackedScene
-	var rows := int(ceil(float(names.size()) / COLS))
+	var rows := int(ceil(float(names.size()) / _columns))
 	for i in range(names.size()):
-		var col := i % COLS
-		var row := i / COLS
-		_spawn(ps, lib, names[i], Vector3(col * SPACING_X, 0, -row * SPACING_Z))
+		var col := i % _columns
+		var row := i / _columns
+		_spawn(ps, lib, names[i], Vector3(col * _spacing_x, 0, -row * _spacing_z))
 
 	_setup_camera(rows)
 	_build_ui(names.size())
@@ -45,6 +51,7 @@ func _spawn(ps: PackedScene, lib: AnimationLibrary, clip: String, pos: Vector3) 
 	if model == null:
 		return
 	model.position = pos
+	model.rotation_degrees.y = _model_yaw
 	add_child(model)
 
 	# Keep only the lowest LOD; texture it.
@@ -67,7 +74,7 @@ func _spawn(ps: PackedScene, lib: AnimationLibrary, clip: String, pos: Vector3) 
 		ap.add_animation_library(_cfg.lib_name, lib)
 		var anim := lib.get_animation(clip)
 		anim.loop_mode = Animation.LOOP_LINEAR     # loop every clip in the gallery
-		ap.play(_cfg.lib_name + "/" + clip)
+		ap.play(_cfg.lib_name + "/" + clip, -1.0, _animation_speed)
 		ap.seek(randf() * anim.length, true)        # desync so the grid isn't in lockstep
 
 	var label := Label3D.new()
@@ -87,7 +94,7 @@ func _setup_camera(rows: int) -> void:
 	_cam.fov = 55.0
 	_cam.current = true
 	add_child(_cam)
-	_orbit_target = Vector3((COLS - 1) * SPACING_X * 0.5, 1.5, -maxf(0.0, float(rows - 1) * SPACING_Z * 0.35))
+	_orbit_target = Vector3((_columns - 1) * _spacing_x * 0.5, 1.5, -maxf(0.0, float(rows - 1) * _spacing_z * 0.35))
 	_apply_camera_transform()
 
 func _process(delta: float) -> void:
@@ -198,7 +205,7 @@ func _build_ui(count: int) -> void:
 	title.position = Vector2(24, 16)
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.35))
-	title.text = "ANIMATION GALLERY  -  %d clips" % count
+	title.text = "%s  -  %d clips" % [_gallery_title, count]
 	layer.add_child(title)
 	var hint := Label.new()
 	hint.position = Vector2(24, 56)

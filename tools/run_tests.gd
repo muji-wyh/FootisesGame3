@@ -131,6 +131,8 @@ func _initialize() -> void:
 	_test_training_mode()
 	_test_blaze_roster()
 	_test_animation_ownership()
+	_test_animation_gallery2()
+	_test_vfx_gallery()
 	_test_move_list_overlay()
 	_test_multihit()
 	_test_move_sfx()
@@ -893,6 +895,155 @@ func _test_animation_ownership() -> void:
 	for m in blaze.supers:
 		blaze_has_clips = blaze_has_clips and m.anim_clip != ""
 	_check("Blaze module owns current animation config", blaze.id == "blaze" and blaze_has_clips)
+
+func _test_animation_gallery2() -> void:
+	print("[animation gallery 2]")
+	var fighting_scene_path := "res://scenes/ui/GALLERY-FightingAnimsetPro.tscn"
+	var hit_scene_path := "res://scenes/ui/GALLERY-HitReactionAnimation.tscn"
+	var fighter_pack_scene_path := "res://scenes/ui/GALLERY-FighterAnimationPack.tscn"
+	_check("FightingAnimsetPro gallery scene exists", ResourceLoader.exists(fighting_scene_path))
+	_check("HitReactionAnimation gallery scene exists", ResourceLoader.exists(hit_scene_path))
+	_check("FighterAnimationPack gallery scene exists", ResourceLoader.exists(fighter_pack_scene_path))
+	_check("old gallery scene names are removed",
+		not ResourceLoader.exists("res://scenes/ui/AnimationGallery.tscn")
+		and not ResourceLoader.exists("res://scenes/ui/AnimationGallery2.tscn"))
+	var menu_source := FileAccess.get_file_as_string("res://scripts/ui/MainMenu.gd")
+	_check("main menu links all named galleries",
+		menu_source.contains(fighting_scene_path)
+		and menu_source.contains(hit_scene_path)
+		and menu_source.contains(fighter_pack_scene_path))
+	var menu := (load("res://scenes/ui/MainMenu.tscn") as PackedScene).instantiate()
+	menu._ready()
+	var menu_stack: VBoxContainer = null
+	var pending: Array[Node] = [menu]
+	while not pending.is_empty() and menu_stack == null:
+		var node: Node = pending.pop_back()
+		if node is VBoxContainer:
+			menu_stack = node as VBoxContainer
+		else:
+			pending.append_array(node.get_children())
+	_check("main menu gallery buttons fit the 720p viewport",
+		menu_stack != null and menu_stack.get_combined_minimum_size().y <= 720.0)
+	menu.free()
+	if not ResourceLoader.exists(hit_scene_path):
+		return
+	var gallery := (load(hit_scene_path) as PackedScene).instantiate()
+	var supports_export_listing := gallery.has_method("_paths_from_files")
+	_check("Gallery2 recognizes exported .fbx.import listings", supports_export_listing)
+	if supports_export_listing:
+		var exported_paths: Array[String] = gallery._paths_from_files(PackedStringArray([
+			"UE4M_HitReaction_Back_01.fbx.import",
+			"UE4M_HitReaction_Front_01.fbx.import",
+			"README.md",
+		]))
+		_check("Gallery2 maps exported listings back to FBX resource paths",
+			exported_paths == [
+				"res://characters/animation_gallery2/assets/anims/UE4M_HitReaction_Back_01.fbx",
+				"res://characters/animation_gallery2/assets/anims/UE4M_HitReaction_Front_01.fbx",
+			])
+	var paths: Array[String] = gallery._animation_paths()
+	if paths.is_empty():
+		print("  SKIP: licensed hit-reaction FBX assets not present (clean clone)")
+		gallery.free()
+		return
+	_check("Gallery2 imports all 97 unique UE4 no-root actions", paths.size() == 97)
+	var library: AnimationLibrary = gallery._build_library(paths)
+	_check("Gallery2 exposes one clip per imported FBX", library.get_animation_list().size() == 97)
+	var normalized := true
+	for clip_name in library.get_animation_list():
+		var animation := library.get_animation(clip_name)
+		for track in range(animation.get_track_count()):
+			if animation.track_get_type(track) in [
+				Animation.TYPE_POSITION_3D,
+				Animation.TYPE_ROTATION_3D,
+				Animation.TYPE_SCALE_3D,
+			]:
+				normalized = normalized and String(animation.track_get_path(track).get_concatenated_names()) == "Skeleton3D"
+	_check("Gallery2 strips control-rig tracks and targets the display skeleton", normalized)
+	gallery.free()
+	if not ResourceLoader.exists(fighter_pack_scene_path):
+		return
+	var fighter_gallery := (load(fighter_pack_scene_path) as PackedScene).instantiate()
+	var has_playback_speed := false
+	var has_spacing_x := false
+	var has_spacing_z := false
+	for property in fighter_gallery.get_property_list():
+		match String(property["name"]):
+			"playback_speed":
+				has_playback_speed = true
+			"spacing_x":
+				has_spacing_x = true
+			"spacing_z":
+				has_spacing_z = true
+	_check("FighterAnimationPack gallery exposes playback speed", has_playback_speed)
+	if has_playback_speed:
+		_check("FighterAnimationPack gallery runs at half speed",
+			is_equal_approx(float(fighter_gallery.get("playback_speed")), 0.5))
+	_check("FighterAnimationPack gallery exposes model spacing", has_spacing_x and has_spacing_z)
+	if has_spacing_x and has_spacing_z:
+		_check("FighterAnimationPack gallery uses wider model spacing",
+			is_equal_approx(float(fighter_gallery.get("spacing_x")), 3.6)
+			and is_equal_approx(float(fighter_gallery.get("spacing_z")), 4.4))
+	var fighter_paths: Array[String] = fighter_gallery._animation_paths()
+	if fighter_paths.is_empty():
+		print("  SKIP: licensed Fighter Animation Pack assets not present (clean clone)")
+		fighter_gallery.free()
+		return
+	_check("FighterAnimationPack gallery imports all 313 actions", fighter_paths.size() == 313)
+	var sample_paths: Array[String] = []
+	for i in range(mini(3, fighter_paths.size())):
+		sample_paths.append(fighter_paths[i])
+	var sample_library: AnimationLibrary = fighter_gallery._build_library(sample_paths)
+	_check("FighterAnimationPack gallery loads single-clip FBX animations",
+		sample_library.get_animation_list().size() == sample_paths.size())
+	fighter_gallery.free()
+
+func _test_vfx_gallery() -> void:
+	print("[VFX impact gallery]")
+	var scene_path := "res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"
+	_check("VFXImpactAndHit gallery scene exists", ResourceLoader.exists(scene_path))
+	var menu_source := FileAccess.get_file_as_string("res://scripts/ui/MainMenu.gd")
+	_check("main menu links VFXImpactAndHit gallery", menu_source.contains(scene_path))
+	if not ResourceLoader.exists(scene_path):
+		return
+	var gallery := (load(scene_path) as PackedScene).instantiate()
+	var supports_export_listing := gallery.has_method("_paths_from_files")
+	_check("VFX gallery recognizes exported .tscn.remap listings", supports_export_listing)
+	if supports_export_listing:
+		var exported_paths: Array[String] = gallery._paths_from_files(
+			"res://characters/vfx_gallery/assets/effects",
+			PackedStringArray(["VFX_A.tscn.remap", "VFX_B.tscn", "ignore.txt"]))
+		_check("VFX gallery maps exported listings back to scene paths",
+			exported_paths == [
+				"res://characters/vfx_gallery/assets/effects/VFX_A.tscn",
+				"res://characters/vfx_gallery/assets/effects/VFX_B.tscn",
+			])
+	var effect_paths: Array[String] = gallery._effect_paths()
+	if effect_paths.is_empty():
+		print("  SKIP: licensed VFX Impact and Hit assets not present (clean clone)")
+		gallery.free()
+		return
+	_check("VFX gallery imports all 63 effect scenes", effect_paths.size() == 63)
+	var samples_load := true
+	for i in range(mini(3, effect_paths.size())):
+		samples_load = samples_load and load(effect_paths[i]) is PackedScene
+	_check("VFX gallery effect scenes load", samples_load)
+	var sample_effect := (load(effect_paths[0]) as PackedScene).instantiate()
+	gallery._restart_effect(sample_effect)
+	var particles_found := false
+	var particles_continuous := true
+	var pending: Array[Node] = [sample_effect]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		if node is GPUParticles3D:
+			var particles := node as GPUParticles3D
+			particles_found = true
+			particles_continuous = particles_continuous and not particles.one_shot and particles.emitting
+		pending.append_array(node.get_children())
+	_check("VFX gallery keeps particle previews continuously visible",
+		particles_found and particles_continuous)
+	sample_effect.free()
+	gallery.free()
 
 func _test_move_list_overlay() -> void:
 	print("[move list overlay]")

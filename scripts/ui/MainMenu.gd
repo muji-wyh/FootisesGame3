@@ -15,24 +15,24 @@ func _ready() -> void:
 	add_child(center)
 
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 14)
+	vb.add_theme_constant_override("separation", 8)
 	vb.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(vb)
 
 	var title := Label.new()
 	title.text = "BRAWL ARENA"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 72)
+	title.add_theme_font_size_override("font_size", 56)
 	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.35))
 	vb.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "An original 2.5D fighter"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 22)
+	subtitle.add_theme_font_size_override("font_size", 18)
 	vb.add_child(subtitle)
 
-	vb.add_child(_spacer(20))
+	vb.add_child(_spacer(8))
 
 	var b1 := _button("LOCAL 2-PLAYER")
 	b1.pressed.connect(func(): _start(GameConst.Mode.LOCAL_2P))
@@ -46,19 +46,31 @@ func _ready() -> void:
 	b_training.pressed.connect(func(): _start(GameConst.Mode.TRAINING))
 	vb.add_child(b_training)
 
-	var b_gallery := _button("ANIMATION GALLERY")
-	b_gallery.pressed.connect(func(): Game.goto_scene("res://scenes/ui/AnimationGallery.tscn"))
+	var b_gallery := _button("GALLERY-FightingAnimsetPro")
+	b_gallery.pressed.connect(func(): Game.goto_scene("res://scenes/ui/GALLERY-FightingAnimsetPro.tscn"))
 	vb.add_child(b_gallery)
+
+	var b_gallery2 := _button("GALLERY-HitReactionAnimation")
+	b_gallery2.pressed.connect(func(): Game.goto_scene("res://scenes/ui/GALLERY-HitReactionAnimation.tscn"))
+	vb.add_child(b_gallery2)
+
+	var b_gallery3 := _button("GALLERY-FighterAnimationPack")
+	b_gallery3.pressed.connect(func(): Game.goto_scene("res://scenes/ui/GALLERY-FighterAnimationPack.tscn"))
+	vb.add_child(b_gallery3)
+
+	var b_gallery4 := _button("GALLERY-VFXImpactAndHit")
+	b_gallery4.pressed.connect(func(): Game.goto_scene("res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"))
+	vb.add_child(b_gallery4)
 
 	var b3 := _button("QUIT")
 	b3.pressed.connect(func(): get_tree().quit())
 	vb.add_child(b3)
 
-	vb.add_child(_spacer(20))
+	vb.add_child(_spacer(8))
 
 	var help := Label.new()
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	help.add_theme_font_size_override("font_size", 16)
+	help.add_theme_font_size_override("font_size", 14)
 	help.add_theme_color_override("font_color", Color(0.7, 0.72, 0.8))
 	help.text = "Move: WASD      Punch: U / I / O  (LP / MP / HP)      Kick: J / K / L  (LK / MK / HK)\nDouble-tap forward/back = dash   -   crouch & jump have their own attacks   -   ESC to menu"
 	vb.add_child(help)
@@ -72,8 +84,8 @@ func _start(mode: int) -> void:
 func _button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(320, 56)
-	b.add_theme_font_size_override("font_size", 28)
+	b.custom_minimum_size = Vector2(400, 44)
+	b.add_theme_font_size_override("font_size", 22)
 	return b
 
 func _spacer(h: int) -> Control:
