@@ -296,7 +296,12 @@ scene.frame_end = end
 This preserves target limb lengths, ignores source armature-object travel, and therefore
 keeps the baked clip in place.
 
-- [ ] **Step 4: Export only the Blaze armature and animation**
+- [ ] **Step 4: Push action to NLA and export only the Blaze armature and animation**
+
+**Important:** Exporting with `bake_anim_use_nla_strips=False` causes Blender to label the
+AnimStack `"Scene"` instead of `"BlazeArmature|Air_Combo_2_Blaze"`, so Godot reads the wrong
+action name. You must push the action to an NLA strip first and set
+`bake_anim_use_nla_strips=True` to get the correct AnimStack name in the exported FBX.
 
 Run:
 
@@ -310,6 +315,19 @@ bpy.ops.object.select_all(action="DESELECT")
 target.select_set(True)
 bpy.context.view_layer.objects.active = target
 
+# Push the baked action to an NLA strip so the FBX AnimStack gets the correct name.
+# Without this push (or with bake_anim_use_nla_strips=False), Blender names the
+# AnimStack "Scene" and Godot cannot find "Air_Combo_2_Blaze" at runtime.
+action = target.animation_data.action
+nla_tracks = target.animation_data.nla_tracks
+for track in list(nla_tracks):
+    nla_tracks.remove(track)
+track = nla_tracks.new()
+track.name = "Air_Combo_2_Blaze"
+strip = track.strips.new("Air_Combo_2_Blaze", int(action.frame_range[0]), action)
+strip.name = "Air_Combo_2_Blaze"
+target.animation_data.action = None  # unlink so NLA is active
+
 bpy.ops.export_scene.fbx(
     filepath=output,
     use_selection=True,
@@ -317,7 +335,7 @@ bpy.ops.export_scene.fbx(
     add_leaf_bones=False,
     bake_anim=True,
     bake_anim_use_all_actions=False,
-    bake_anim_use_nla_strips=False,
+    bake_anim_use_nla_strips=True,   # required: exports NLA strip name as AnimStack
     bake_anim_simplify_factor=0.0,
     path_mode="AUTO",
 )
