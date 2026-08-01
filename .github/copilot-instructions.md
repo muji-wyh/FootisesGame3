@@ -2,23 +2,20 @@
 
 ## Commands
 
-Use the Godot 4.7 binaries from the README on this machine:
+Use the Godot 4.7 CLI on this machine:
 
 ```powershell
 # Run in the editor / desktop
-& C:\uworks\tools\Godot_v4.7-stable_win64.exe --path C:\uworks\FootisesGame3
+godot4.7 --path C:\uworks\FootisesGame3
 
 # Refresh Godot's global class cache after adding class_name scripts or importing assets
-& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --import
+godot4.7 --headless --path C:\uworks\FootisesGame3 --import
 
 # Run the full headless combat / round / AI suite
-& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
+godot4.7 --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
 
 # Export the Web build
-& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
-
-# Serve the exported build with the required WASM MIME type and headers
-python tools\serve.py 8090
+godot4.7 --headless --path C:\uworks\FootisesGame3 --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
 ```
 
 The current test harness has no CLI test filter. To run one test, temporarily limit `tools\run_tests.gd::_initialize()` to the target `_test_*()` call plus `_finish()`, run the same headless command, then revert the local harness edit.
@@ -67,5 +64,3 @@ When adding or tuning a character, prefer data changes in `characters\<id>\<id>.
 For typed array properties such as `MoveData.cancel_into` and `MoveData.motion`, use `.assign(...)` rather than `Object.set(...)` with an untyped Array; `CharacterKit.make_move()` already handles this.
 
 Avoid naming enums or `class_name`s after Godot native classes; `GameConst.Btn` is named that way because `Button` shadows a native class.
-
-This repo has OpenSpec/Copilot workflow files in `.github\prompts\opsx-*.prompt.md`, `.github\skills\openspec-*`, and `openspec\config.yaml` (`spec-driven`). For OpenSpec changes, use the relevant `/opsx:*` prompt/skill flow or `openspec status` / `openspec instructions`, then read the listed context files before editing.

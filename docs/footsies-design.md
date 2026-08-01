@@ -4,9 +4,8 @@ This is the shared design direction for the game. It exists so that tuning, UX, 
 and training work all reinforce the same target instead of drifting toward "every medium is
 a good poke" or toward system-led offense that overrides the ground game.
 
-Treat this document as the reference contributors point at when proposing balance, system,
-or training changes. Source of truth for the formal requirements is
-`openspec/changes/refine-footsies-neutral-identity/specs/footsies-neutral/spec.md`.
+Treat this document as the source of truth contributors use when proposing balance, system,
+or training changes.
 
 ## 1. Grounded neutral comes first
 
@@ -104,26 +103,6 @@ current freeform sandbox. The minimum affordances footsies practice needs are:
    the player can practice stepping in and punishing the recovery.
 3. **Defensive-habit drills** — a dummy that can be set to stand-block, crouch-block, or
    alternate, so the player can test stand/low/overhead mix and confirm hit vs. block.
-
-### Proposed next change: `add-training-spacing-drills`
-
-A concrete, ready-to-promote follow-up (use the `openspec-propose` skill to turn this into a
-full change):
-
-- **Why** — the current training scene (`scripts/match/TrainingScene.gd`) is an idle dummy with
-  refilled resources; it cannot yet rehearse the spacing and whiff-punish loops this contract
-  cares about.
-- **What changes**
-  - Add a dummy **action script** so the dummy can: stand idle, hold a guard (stand/crouch/
-    alternate), or throw a chosen recovering normal on a fixed interval.
-  - Add **distance presets** (e.g. `st.MK` tip range, `st.HK` tip range, point-blank) that
-    snap both fighters to a fixed separation on reset.
-  - Add a lightweight **range/whiff readout** to the training overlay (hit vs. whiff vs. block
-    of the player's last poke) so spacing feedback is explicit.
-- **Capability** — modifies `training-mode` (the dummy is no longer only idle; the scene gains
-  repeatable spacing markers and a punish-rehearsal loop).
-- **Non-goals** — input recording/playback and frame-data overlays are out of scope; this
-  change is only the spacing + whiff-punish loop.
 
 ## 5. Targeted playtest checklist
 

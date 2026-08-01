@@ -66,21 +66,21 @@ shows a recoverable-health trail and a glow when the Super meter is full.
 
 ## Run it
 
-Godot 4.7 is installed at `C:\uworks\tools\Godot_v4.7-stable_win64.exe` on this machine.
+Godot 4.7 is available as `godot4.7` in the environment.
 
 ```powershell
 # Play in the editor / desktop
-& C:\uworks\tools\Godot_v4.7-stable_win64.exe --path C:\uworks\FootisesGame3
+godot4.7 --path C:\uworks\FootisesGame3
 
 # Run the headless combat/round/AI test suite
-& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
+godot4.7 --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
 ```
 
 ## Build & play in Chrome
 
 ```powershell
 # 1. Export the web build (templates already installed)
-& C:\uworks\tools\Godot_v4.7-stable_win64_console.exe --headless --path C:\uworks\FootisesGame3 `
+godot4.7 --headless --path C:\uworks\FootisesGame3 `
     --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
 
 # 2. Serve it (sets application/wasm + isolation headers)
