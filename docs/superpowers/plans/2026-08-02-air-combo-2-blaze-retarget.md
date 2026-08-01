@@ -120,13 +120,6 @@ godot4.7 --headless --path C:\uworks\FootisesGame3 --script res://tools/run_test
 
 Expected: failures report that `ember_lift` is missing; existing tests remain passing.
 
-- [ ] **Step 6: Commit the failing regression test**
-
-```powershell
-git add tools\run_tests.gd
-git commit -m "Test Blaze Ember Lift" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-```
-
 ---
 
 ### Task 2: Retarget Air Combo 2 in Blender
@@ -303,7 +296,7 @@ scene.frame_end = end
 This preserves target limb lengths, ignores source armature-object travel, and therefore
 keeps the baked clip in place.
 
-- [ ] **Step 4: Export only the Blaze armature and skinned meshes**
+- [ ] **Step 4: Export only the Blaze armature and animation**
 
 Run:
 
@@ -315,16 +308,12 @@ os.makedirs(os.path.dirname(output), exist_ok=True)
 
 bpy.ops.object.select_all(action="DESELECT")
 target.select_set(True)
-for obj in bpy.context.scene.objects:
-    if obj.type == "MESH" and obj.parent == target:
-        obj.select_set(True)
 bpy.context.view_layer.objects.active = target
 
 bpy.ops.export_scene.fbx(
     filepath=output,
     use_selection=True,
-    object_types={"ARMATURE", "MESH"},
-    use_mesh_modifiers=True,
+    object_types={"ARMATURE"},
     add_leaf_bones=False,
     bake_anim=True,
     bake_anim_use_all_actions=False,
@@ -412,7 +401,7 @@ Expected: all tests pass, including `[ember lift]` and the optional derived-clip
 - [ ] **Step 4: Commit the gameplay integration**
 
 ```powershell
-git add characters\blaze\blaze.gd
+git add characters\blaze\blaze.gd tools\run_tests.gd
 git commit -m "Add Blaze Ember Lift" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ```
 
