@@ -16,6 +16,9 @@ godot4.7 --headless --path C:\uworks\FootisesGame3 --script res://tools/run_test
 
 # Export the Web build
 godot4.7 --headless --path C:\uworks\FootisesGame3 --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
+
+# Serve the exported build with the required WASM MIME type and headers
+python tools\serve.py 8090
 ```
 
 The current test harness has no CLI test filter. To run one test, temporarily limit `tools\run_tests.gd::_initialize()` to the target `_test_*()` call plus `_finish()`, run the same headless command, then revert the local harness edit.
