@@ -130,6 +130,7 @@ func _initialize() -> void:
 	_test_cpu_ai()
 	_test_training_mode()
 	_test_blaze_roster()
+	_test_ember_lift()
 	_test_animation_ownership()
 	_test_animation_gallery2()
 	_test_vfx_gallery()
@@ -872,10 +873,45 @@ func _test_blaze_roster() -> void:
 	_check("blaze has 1 super", b.supers.size() == 1)
 	for removed in ["fireball", "uppercut", "hurricane", "od_fireball", "od_uppercut", "od_hurricane"]:
 		_check("removed move absent: " + removed, b.get_move(removed) == null)
-	for added in ["flame_step_l", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel"]:
+	for added in ["flame_step_l", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "ember_lift"]:
 		_check("combo move exists: " + added, b.get_move(added) != null)
 	_check("Ken-like stand MP timing", b.get_move("st_mp").startup == 7 and b.get_move("st_mp").active == 3)
 	_check("Ken-like cross-up air MK timing", b.get_move("air_mk").startup == 7 and b.get_move("air_mk").active == 6)
+
+func _test_ember_lift() -> void:
+	print("[ember lift]")
+	var blaze := CharacterLibrary.create("blaze")
+	var move := blaze.get_move("ember_lift")
+	var wheel := blaze.get_move("ember_wheel")
+	_check("Ember Lift is 214 + LK",
+		move != null and move.motion == MotionParser.QCB and move.button == GameConst.Btn.LK)
+	_check("Ember Lift is a grounded light launcher",
+		move != null and move.launch and not move.rises and move.hits == 2)
+	_check("Ember Lift stays lighter than Ember Wheel",
+		move != null and wheel != null
+		and move.damage < wheel.damage
+		and move.launch_velocity < wheel.launch_velocity
+		and move.recovery < wheel.recovery)
+	_check("Ember Lift owns the retargeted clip",
+		move != null and move.anim_clip == "Air_Combo_2_Blaze")
+
+	var ctx := _build()
+	var fighter: Fighter = ctx["f1"]
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(-1, -1), _neutral(), 2)
+	_step(ctx, _mk(-1, 0, GameConst.Btn.LK), _neutral(), 1)
+	_check("214 + LK starts Ember Lift",
+		fighter.current_move != null and fighter.current_move.id == "ember_lift")
+	ctx["arena"].queue_free()
+
+	var heavy := _build()
+	var heavy_fighter: Fighter = heavy["f1"]
+	_step(heavy, _mk(0, -1), _neutral(), 2)
+	_step(heavy, _mk(-1, -1), _neutral(), 2)
+	_step(heavy, _mk(-1, 0, GameConst.Btn.HK), _neutral(), 1)
+	_check("214 + HK still starts Ember Wheel",
+		heavy_fighter.current_move != null and heavy_fighter.current_move.id == "ember_wheel")
+	heavy["arena"].queue_free()
 
 func _test_animation_ownership() -> void:
 	print("[animation ownership]")
@@ -1372,6 +1408,10 @@ func _test_kb_library() -> void:
 		return
 	var lib := AnimatedFighterRig.build_library(blaze.rig)
 	_check("kb library exposes 200+ clips for the gallery", lib.get_animation_list().size() > 200)
+	var derived := "res://characters/blaze/assets/anims/retargeted/Air_Combo-2_Blaze.fbx"
+	if ResourceLoader.exists(derived):
+		_check("kb library exposes retargeted Air Combo 2",
+			lib.has_animation("Air_Combo_2_Blaze"))
 
 func _test_counter() -> void:
 	print("[counter hit]")
@@ -2682,6 +2722,9 @@ func _test_uppercut_rise() -> void:
 		any_rising_special = any_rising_special or m.rises
 	_check("Blaze has no shoryuken/rising special", not any_rising_special and b.get_move("uppercut") == null)
 	_check("new combo specials are grounded route tools", b.get_move("flame_step_m") != null and b.get_move("ember_wheel") != null)
+	var ember_lift := b.get_move("ember_lift")
+	_check("Ember Lift launches only the victim",
+		ember_lift != null and ember_lift.launch and not ember_lift.rises)
 
 func _test_rise_interruption_lands() -> void:
 	print("[rise interruption]")
