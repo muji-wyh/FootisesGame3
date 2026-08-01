@@ -303,6 +303,14 @@ AnimStack `"Scene"` instead of `"BlazeArmature|Air_Combo_2_Blaze"`, so Godot rea
 action name. You must push the action to an NLA strip first and set
 `bake_anim_use_nla_strips=True` to get the correct AnimStack name in the exported FBX.
 
+**Armature wrapper:** Blender's FBX exporter always creates a two-level hierarchy:
+`BlazeArmature (Node3D)` → `Skeleton3D (Skeleton3D)`. This results in track paths
+`BlazeArmature/Skeleton3D:<bone>` in the imported FBX, while the KB pack FBX files use
+`Skeleton3D:<bone>` (direct child). The mismatch is resolved by `_normalize_track_paths`
+in `AnimatedFighterRig.build_library`, which strips the armature prefix at graft time.
+**Do NOT rename the armature object** — the Blender FBX exporter always produces a two-level
+hierarchy regardless of object name, so only the code-side normalization fixes this.
+
 Run:
 
 ```python
@@ -391,12 +399,17 @@ Add before Ember Wheel:
 		"damage": 24, "hits": 2, "hit_gap": 4, "hitstun": 18, "blockstun": 10,
 		"hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 2.8,
 		"advance": 2.2, "launch": true, "launch_velocity": 4.8,
-		"meter_gain": 8, "hit_fx": HIT_FX + "Effect06.png", "sfx": "lk",
+		"meter_gain": 8, "hit_fx": HIT_FX + "Effect05.png", "sfx": "lk",
 		"anim_limb": "leg_r", "anim_extend": 0.8,
 		"anim_clip": "Air_Combo_2_Blaze",
-		"hit_offset": Vector3(0.60, 0.78, 0.0),
-		"hit_size": Vector3(0.54, 0.52, 0.66)}))
+		"hit_offset": Vector3(0.46, 0.78, 0.0),
+		"hit_size": Vector3(0.44, 0.52, 0.66)}))
 ```
+
+> **Note:** `Effect06.png` does not exist in the CartoonFX pack. Use `Effect05.png` (or any
+> texture present in `assets/cartoon_fx_pack/textures/`). The reach metric
+> `hit_offset.x + hit_size.x * 0.5` must be strictly less than Ember Wheel's (0.56 + 0.17 = 0.73).
+> With the values above: 0.46 + 0.22 = 0.68 < 0.73 ✓
 
 - [ ] **Step 2: Add the derived FBX to Blaze's animation sources**
 

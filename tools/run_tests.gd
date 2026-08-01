@@ -894,6 +894,9 @@ func _test_ember_lift() -> void:
 		and move.recovery < wheel.recovery)
 	_check("Ember Lift owns the retargeted clip",
 		move != null and move.anim_clip == "Air_Combo_2_Blaze")
+	_check("Ember Lift reach is strictly less than Ember Wheel reach",
+		move != null and wheel != null
+		and _reach(move) < _reach(wheel))
 
 	var ctx := _build()
 	var fighter: Fighter = ctx["f1"]
@@ -1412,6 +1415,34 @@ func _test_kb_library() -> void:
 	if ResourceLoader.exists(derived):
 		_check("kb library exposes retargeted Air Combo 2",
 			lib.has_animation("Air_Combo_2_Blaze"))
+		var ac2 := lib.get_animation("Air_Combo_2_Blaze")
+		_check("retargeted clip has nonzero tracks", ac2 != null and ac2.get_track_count() > 0)
+		# Verify every bone track resolves on Maskman's own Skeleton3D (the graft target).
+		var maskman_ps := load(blaze.model_path) as PackedScene
+		if maskman_ps != null:
+			var maskman_inst := maskman_ps.instantiate()
+			var skel: Skeleton3D = null
+			var q: Array[Node] = [maskman_inst]
+			while not q.is_empty() and skel == null:
+				var n: Node = q.pop_front()
+				if n is Skeleton3D:
+					skel = n as Skeleton3D
+				else:
+					q.append_array(n.get_children())
+			var all_resolve := true
+			var checked := 0
+			if ac2 != null and skel != null:
+				for t in range(ac2.get_track_count()):
+					var p: NodePath = ac2.track_get_path(t)
+					if p.get_subname_count() == 0:
+						continue
+					var bone_name: String = p.get_subname(0)
+					checked += 1
+					if skel.find_bone(bone_name) < 0:
+						all_resolve = false
+			_check("retargeted Air Combo 2 bone tracks resolve on Maskman skeleton",
+				checked > 0 and all_resolve)
+			maskman_inst.queue_free()
 
 func _test_counter() -> void:
 	print("[counter hit]")

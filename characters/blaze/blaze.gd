@@ -130,11 +130,11 @@ static func build() -> CharacterData:
 		"damage": 24, "hits": 2, "hit_gap": 4, "hitstun": 18, "blockstun": 10,
 		"hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 2.8,
 		"advance": 2.2, "launch": true, "launch_velocity": 4.8,
-		"meter_gain": 8, "hit_fx": HIT_FX + "Effect06.png", "sfx": "lk",
+		"meter_gain": 8, "hit_fx": HIT_FX + "Effect05.png", "sfx": "lk",
 		"anim_limb": "leg_r", "anim_extend": 0.8,
 		"anim_clip": "Air_Combo_2_Blaze",
-		"hit_offset": Vector3(0.60, 0.78, 0.0),
-		"hit_size": Vector3(0.54, 0.52, 0.66)}))
+		"hit_offset": Vector3(0.46, 0.78, 0.0),
+		"hit_size": Vector3(0.44, 0.52, 0.66)}))
 
 	# Ember Wheel: original corner-carry spin role, replacing the old generic tatsu. Its
 	# multi-hit launch carries to the corner, then cancels into the super for a juggle finish.
