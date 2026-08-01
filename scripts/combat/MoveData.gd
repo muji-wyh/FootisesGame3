@@ -57,7 +57,7 @@ extends Resource
 ## Optional victim reaction clip override when this move hits; "" -> resolve by hit context.
 @export var hit_reaction_clip: String = ""
 
-## Optional CartoonFXPack texture used by HitSpark for this move's impact effect.
+## Optional fallback impact texture used when the local VFX Impact and Hit pack is absent.
 @export var hit_fx: String = ""
 
 ## Hitbox geometry, facing-relative (+x points toward the opponent). Live during the

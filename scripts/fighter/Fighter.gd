@@ -100,7 +100,7 @@ var hit_crouch: bool = false       # victim was crouching when struck
 var hit_air: bool = false          # victim was airborne when struck
 var hit_from_back: bool = false    # victim was struck from behind (cross-up)
 var hit_reaction_clip: String = "" # per-move victim reaction override, if the move authored one
-var last_hit_fx: String = ""       # per-move impact texture for presentation
+var last_hit_fx: String = ""       # per-move fallback impact texture for presentation
 var last_hit_point := Vector3.ZERO # world-space contact point used by impact FX
 var last_counter: int = GameConst.Counter.NONE   # counter kind of the most recent hit taken
 var last_meaty: bool = false                     # the most recent hit taken was a meaty (wake-up) hit
@@ -834,6 +834,7 @@ func _apply_block(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -> 
 	_end_combo()   # a block drops any combo this fighter was being hit by
 	stun_timer = m.blockstun + bonus_hitstun
 	hit_strength = _strength_of(m) # ponytail: record block strength for dynamic slide friction
+	last_hit_fx = m.hit_fx
 	_goto(State.BLOCKSTUN)
 	if m.chip > 0:
 		_damage(m.chip)

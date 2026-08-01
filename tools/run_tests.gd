@@ -418,6 +418,8 @@ func _test_block() -> void:
 	_check("blocked jab deals no life damage (chip 0)", f2.health == hp_before)
 	_check("P2 entered blockstun", saw_blockstun)
 	_check("blocked jab creates spacing", f2.position.x - f1.position.x > start_sep + 0.35)
+	_check("blocked jab records its fallback impact texture",
+		f2.last_hit_fx == f1.character.get_move("st_lp").hit_fx)
 	ctx["arena"].queue_free()
 
 func _test_pushback_scaling() -> void:
@@ -938,8 +940,8 @@ func _test_animation_gallery2() -> void:
 		]))
 		_check("Gallery2 maps exported listings back to FBX resource paths",
 			exported_paths == [
-				"res://characters/animation_gallery2/assets/anims/UE4M_HitReaction_Back_01.fbx",
-				"res://characters/animation_gallery2/assets/anims/UE4M_HitReaction_Front_01.fbx",
+				"res://assets/third_party/hit_reaction_animation/anims/UE4M_HitReaction_Back_01.fbx",
+				"res://assets/third_party/hit_reaction_animation/anims/UE4M_HitReaction_Front_01.fbx",
 			])
 	var paths: Array[String] = gallery._animation_paths()
 	if paths.is_empty():
@@ -1010,13 +1012,14 @@ func _test_vfx_gallery() -> void:
 	var supports_export_listing := gallery.has_method("_paths_from_files")
 	_check("VFX gallery recognizes exported .tscn.remap listings", supports_export_listing)
 	if supports_export_listing:
+		var effect_root := "res://assets/third_party/vfx_impact_and_hit/effects"
 		var exported_paths: Array[String] = gallery._paths_from_files(
-			"res://characters/vfx_gallery/assets/effects",
+			effect_root,
 			PackedStringArray(["VFX_A.tscn.remap", "VFX_B.tscn", "ignore.txt"]))
 		_check("VFX gallery maps exported listings back to scene paths",
 			exported_paths == [
-				"res://characters/vfx_gallery/assets/effects/VFX_A.tscn",
-				"res://characters/vfx_gallery/assets/effects/VFX_B.tscn",
+				effect_root + "/VFX_A.tscn",
+				effect_root + "/VFX_B.tscn",
 			])
 	var effect_paths: Array[String] = gallery._effect_paths()
 	if effect_paths.is_empty():
@@ -1720,6 +1723,28 @@ func _test_impact_fx_smoke() -> void:
 		textured_spark._process(1.0 / 60.0)
 	_check("textured hit spark persists long enough to read", not textured_spark.is_queued_for_deletion())
 	textured_spark.free()
+	var vfx_root := "res://assets/third_party/vfx_impact_and_hit/effects/impact_1_1_0/"
+	var vfx_paths := [
+		vfx_root + "VFX_ImpactCross_1.1.0.tscn",
+		vfx_root + "VFX_ImpactClassic01_1.1.0.tscn",
+		vfx_root + "VFX_ImpactClassic03_1.1.0.tscn",
+		vfx_root + "VFX_ImpactToon_1.1.0.tscn",
+		vfx_root + "VFX_ImpactCrossCritical_1.1.0.tscn",
+		vfx_root + "VFX_ImpactCritical_1.1.0_Red.tscn",
+		vfx_root + "VFX_ImpactCritical_1.1.0_Yellow.tscn",
+	]
+	var vfx_installed := ResourceLoader.exists(vfx_paths[0])
+	if vfx_installed:
+		for path in vfx_paths:
+			_check("VFX Impact and Hit scene imported: " + path.get_file(), ResourceLoader.exists(path))
+		var scene_spark := HitSpark.new()
+		root.add_child(scene_spark)
+		scene_spark.setup(Color.WHITE, 0.68, vfx_paths[2])
+		_check("hit spark instances VFX Impact and Hit scenes",
+			scene_spark.get_node_or_null("VFX_ImpactClassic03_1_1_0") != null)
+		scene_spark.free()
+	else:
+		print("  SKIP: licensed VFX Impact and Hit assets not present (CartoonFX fallback)")
 	var blaze := CharacterLibrary.create("blaze")
 	var moves: Array = []
 	moves.append_array(blaze.normals)
@@ -1740,7 +1765,32 @@ func _test_impact_fx_smoke() -> void:
 	victim.hit_height = GameConst.HitHeight.MID
 	scene.camera = FightCamera.new()
 	scene.add_child(scene.camera)
+	victim.last_counter = GameConst.Counter.NONE
+	victim.last_meaty = false
+	victim.hit_strength = 1
+	victim.last_hit_fx = fx_path
 	victim.last_hit_point = Vector3(1.2, 1.35, 0.0)
+	var has_vfx_router := scene.has_method("_impact_fx_path")
+	_check("match routes every impact context through VFX Impact and Hit", has_vfx_router)
+	if has_vfx_router and vfx_installed:
+		victim.last_counter = GameConst.Counter.NONE
+		victim.last_meaty = false
+		victim.hit_strength = 0
+		_check("block uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, true)) == vfx_paths[0])
+		_check("light hit uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, false)) == vfx_paths[1])
+		victim.hit_strength = 1
+		_check("medium hit uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, false)) == vfx_paths[2])
+		victim.hit_strength = 2
+		_check("heavy hit uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, false)) == vfx_paths[3])
+		victim.last_counter = GameConst.Counter.COUNTER
+		_check("counter uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, false)) == vfx_paths[4])
+		victim.last_counter = GameConst.Counter.PUNISH
+		_check("punish counter uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, false)) == vfx_paths[5])
+		victim.last_counter = GameConst.Counter.NONE
+		victim.last_meaty = true
+		_check("meaty uses VFX Impact and Hit", String(scene.call("_impact_fx_path", victim, false)) == vfx_paths[6])
+		victim.last_meaty = false
+		victim.hit_strength = 1
 	scene._on_struck(victim, false)
 	_check("hit visual updates before spark spawn", rig.pose_count == 1 and scene.get_child_count() >= 2)
 	_check("medium impact arms readable directional camera punch",
@@ -1751,6 +1801,12 @@ func _test_impact_fx_smoke() -> void:
 		not heavy_p.has("flash") and float(heavy_p["shake"]) >= 0.3 and float(heavy_p["zoom"]) <= 0.12)
 	var impact_spark := scene.get_child(scene.get_child_count() - 1) as HitSpark
 	_check("hit spark spawns at the recorded contact point", impact_spark != null and impact_spark.position.distance_to(victim.last_hit_point) < 0.001)
+	if vfx_installed:
+		_check("spawned gameplay spark uses the routed medium VFX scene",
+			impact_spark != null and impact_spark.get_node_or_null("VFX_ImpactClassic03_1_1_0") != null)
+	else:
+		_check("spawned gameplay spark falls back to the move texture",
+			impact_spark != null and impact_spark._fx_quad != null)
 	scene.free()
 
 func _test_slowmo_director() -> void:

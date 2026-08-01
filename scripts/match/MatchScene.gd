@@ -21,6 +21,14 @@ var _dr_was := [false, false]   # per-fighter "was drive-rushing last frame" edg
 var _dr_tint_level: float = 0.0
 
 const DRIVE_RUSH_TINT_TARGET := 0.07
+const HIT_VFX_ROOT := "res://assets/third_party/vfx_impact_and_hit/effects/impact_1_1_0/"
+const HIT_VFX_BLOCK := HIT_VFX_ROOT + "VFX_ImpactCross_1.1.0.tscn"
+const HIT_VFX_LIGHT := HIT_VFX_ROOT + "VFX_ImpactClassic01_1.1.0.tscn"
+const HIT_VFX_MEDIUM := HIT_VFX_ROOT + "VFX_ImpactClassic03_1.1.0.tscn"
+const HIT_VFX_HEAVY := HIT_VFX_ROOT + "VFX_ImpactToon_1.1.0.tscn"
+const HIT_VFX_COUNTER := HIT_VFX_ROOT + "VFX_ImpactCrossCritical_1.1.0.tscn"
+const HIT_VFX_PUNISH := HIT_VFX_ROOT + "VFX_ImpactCritical_1.1.0_Red.tscn"
+const HIT_VFX_MEATY := HIT_VFX_ROOT + "VFX_ImpactCritical_1.1.0_Yellow.tscn"
 
 func _ready() -> void:
 	var stage := Stage.new()
@@ -140,8 +148,30 @@ func _on_struck(victim: Fighter, blocked: bool) -> void:
 	var spark := HitSpark.new()
 	add_child(spark)
 	spark.position = _spark_position(victim, atk, y)
-	spark.setup(col, sc, victim.last_hit_fx)
+	spark.setup(col, sc, _impact_fx_path(victim, blocked))
 	camera.shake(amp, fr, _shake_dir(victim, atk), zoom)
+
+func _impact_fx_path(victim: Fighter, blocked: bool) -> String:
+	var path := HIT_VFX_LIGHT
+	if blocked:
+		path = HIT_VFX_BLOCK
+	elif victim.last_meaty:
+		path = HIT_VFX_MEATY
+	else:
+		match victim.last_counter:
+			GameConst.Counter.PUNISH:
+				path = HIT_VFX_PUNISH
+			GameConst.Counter.COUNTER:
+				path = HIT_VFX_COUNTER
+			_:
+				match victim.hit_strength:
+					2:
+						path = HIT_VFX_HEAVY
+					1:
+						path = HIT_VFX_MEDIUM
+	if ResourceLoader.exists(path):
+		return path
+	return victim.last_hit_fx
 
 func _spark_position(victim: Fighter, atk: Fighter, fallback_y: float) -> Vector3:
 	if victim.last_hit_point != Vector3.ZERO:
