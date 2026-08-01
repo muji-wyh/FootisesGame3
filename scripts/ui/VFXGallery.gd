@@ -1,6 +1,6 @@
 extends "res://scripts/ui/AnimationGallery.gd"
 
-const EFFECT_ROOT := "res://characters/vfx_gallery/assets/effects"
+const EFFECT_ROOT := "res://assets/third_party/vfx_impact_and_hit/effects"
 const EFFECT_SCALE := 0.35
 const REPLAY_INTERVAL := 1.4
 
