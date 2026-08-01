@@ -1,9 +1,9 @@
 extends "res://scripts/ui/AnimationGallery.gd"
 
 @export var gallery_name := "GALLERY-HitReactionAnimation"
-@export_file("*.fbx") var display_model_path := "res://characters/animation_gallery2/assets/model.fbx"
-@export_dir var animation_dir := "res://characters/animation_gallery2/assets/anims"
-@export_dir var texture_dir := "res://characters/animation_gallery2/assets/tex/"
+@export_file("*.fbx") var display_model_path := "res://assets/third_party/hit_reaction_animation/model.fbx"
+@export_dir var animation_dir := "res://assets/third_party/hit_reaction_animation/anims"
+@export_dir var texture_dir := "res://assets/third_party/hit_reaction_animation/tex/"
 @export var animation_library_name := "hit"
 @export var display_yaw := -90.0
 @export_range(0.1, 2.0, 0.05) var playback_speed := 1.0

@@ -5,9 +5,9 @@
 [node name="GALLERY-FighterAnimationPack" type="Node3D"]
 script = ExtResource("1")
 gallery_name = "GALLERY-FighterAnimationPack"
-display_model_path = "res://characters/fighter_animation_gallery/assets/model.fbx"
-animation_dir = "res://characters/fighter_animation_gallery/assets/anims"
-texture_dir = "res://characters/fighter_animation_gallery/assets/tex/"
+display_model_path = "res://assets/third_party/fighter_animation_pack/model.fbx"
+animation_dir = "res://assets/third_party/fighter_animation_pack/anims"
+texture_dir = "res://assets/third_party/fighter_animation_pack/tex/"
 animation_library_name = "fighter"
 playback_speed = 0.5
 spacing_x = 3.6

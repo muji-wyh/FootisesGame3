@@ -40,6 +40,16 @@ characters/**/assets/**/*.FBX.import
 characters/**/assets/**/*.tga.import
 characters/**/assets/**/*.png.import
 characters/**/assets/**/*.tscn.import
+assets/third_party/**/*.fbx
+assets/third_party/**/*.FBX
+assets/third_party/**/*.tga
+assets/third_party/**/*.png
+assets/third_party/**/*.tscn
+assets/third_party/**/*.fbx.import
+assets/third_party/**/*.FBX.import
+assets/third_party/**/*.tga.import
+assets/third_party/**/*.png.import
+assets/third_party/**/*.tscn.import
 _probe/
 
 
