@@ -1430,18 +1430,26 @@ func _test_kb_library() -> void:
 				else:
 					q.append_array(n.get_children())
 			var all_resolve := true
+			var all_normalized := true
 			var checked := 0
 			if ac2 != null and skel != null:
 				for t in range(ac2.get_track_count()):
+					var ty := ac2.track_get_type(t)
+					if ty != Animation.TYPE_POSITION_3D \
+					and ty != Animation.TYPE_ROTATION_3D \
+					and ty != Animation.TYPE_SCALE_3D:
+						continue
 					var p: NodePath = ac2.track_get_path(t)
 					if p.get_subname_count() == 0:
 						continue
-					var bone_name: String = p.get_subname(0)
 					checked += 1
+					if String(p.get_concatenated_names()) != "Skeleton3D":
+						all_normalized = false
+					var bone_name: String = p.get_subname(0)
 					if skel.find_bone(bone_name) < 0:
 						all_resolve = false
-			_check("retargeted Air Combo 2 bone tracks resolve on Maskman skeleton",
-				checked > 0 and all_resolve)
+			_check("retargeted Air Combo 2 3D tracks normalize to Skeleton3D and resolve on Maskman skeleton",
+				checked > 0 and all_normalized and all_resolve)
 			maskman_inst.queue_free()
 
 func _test_counter() -> void:
