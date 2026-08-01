@@ -1,6 +1,7 @@
 # Godot 4 .gitignore
 
 .idea/
+.superpowers/
 
 # Godot-specific import cache and generated files
 .godot/
