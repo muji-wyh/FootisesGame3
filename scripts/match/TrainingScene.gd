@@ -25,6 +25,7 @@ var _box_view: MeshInstance3D
 var _box_mesh: ImmediateMesh
 var _box_material: StandardMaterial3D
 var _speed_scale: float = 1.0
+var _frame_meter: FrameMeter
 var _built: bool = false
 
 func _ready() -> void:
@@ -102,6 +103,8 @@ func _physics_process(delta: float) -> void:
 	_recover_training_hp()
 	if _box_view.visible:
 		_draw_boxes()
+	if _frame_meter.visible:
+		_frame_meter.sample([f1, f2])
 
 func _on_training_ko(_loser_side: int) -> void:
 	pass
@@ -149,15 +152,18 @@ func _build_training_overlay() -> void:
 	_training_overlay = CanvasLayer.new()
 	add_child(_training_overlay)
 	var label := Label.new()
-	label.position = Vector2(270, 112)
-	label.size = Vector2(740, 48)
+	label.position = Vector2(190, 112)
+	label.size = Vector2(900, 48)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(0.76, 0.9, 1.0))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 5)
-	label.text = "TRAINING: idle dummy  |  TAB move list  |  1 hitboxes  |  2 slow 30%  |  ESC menu"
+	label.text = "TRAINING: idle dummy  |  TAB moves  |  1 hitboxes  |  2 slow 30%  |  3 frame meter  |  ESC menu"
 	_training_overlay.add_child(label)
+	_frame_meter = FrameMeter.new()
+	_frame_meter.visible = false
+	_training_overlay.add_child(_frame_meter)
 
 # --- hitbox viewer ---------------------------------------------------------
 # Drawn from the same AABBs the simulation collides with (Fighter.hurtboxes /
@@ -214,10 +220,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_2:
 			toggle_slow_speed()
 			return
+		if event.keycode == KEY_3:
+			toggle_frame_meter()
+			return
 	super._unhandled_input(event)
 
 func toggle_slow_speed() -> void:
 	_speed_scale = 1.0 if is_slow_speed() else SLOW_SPEED_SCALE
+	# Engine.time_scale alone only shrinks the physics delta -- Godot keeps running 60 ticks a
+	# second, and every gameplay timer here counts ticks, so startup/active/recovery would still
+	# fly past at full speed while the model crawled. Dropping the tick rate slows the frame data
+	# itself, and because delta is time_scale / tick_rate (0.3 / 18) each tick still gets a whole
+	# 1/60 step, so nothing in the simulation notices. Gating ticks by hand would instead eat
+	# inputs, since Godot clears "just pressed" on every physics frame, run or not.
+	Engine.physics_ticks_per_second = int(round(GameConst.TICK_RATE * _speed_scale))
 
 func is_slow_speed() -> bool:
 	return _speed_scale < 1.0
+
+func _exit_tree() -> void:
+	Engine.physics_ticks_per_second = GameConst.TICK_RATE
+	super._exit_tree()
+
+func toggle_frame_meter() -> void:
+	_frame_meter.visible = not _frame_meter.visible
+	if _frame_meter.visible:
+		_frame_meter.reset()   # start from the action being read, not whatever scrolled by earlier
+
+func is_frame_meter_visible() -> bool:
+	return _frame_meter != null and _frame_meter.visible

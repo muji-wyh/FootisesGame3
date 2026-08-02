@@ -891,6 +891,70 @@ func _test_training_mode() -> void:
 			training_fx_spawned = true
 			break
 	_check("training scene spawns Green Rush mode ghost trail", training_fx_spawned)
+	# Frame meter (3): the numbers ARE the feature, so they are checked against the character's
+	# own tuning data and against the independently measured advantage -- a meter that drew
+	# plausible-looking cells while miscounting would quietly teach the wrong frame data.
+	_check("training frame meter starts hidden", not scene.is_frame_meter_visible())
+	var meter_input := Manual.new()
+	scene.f1.controller = meter_input
+	var meter_hk: MoveData = scene.f1.character.get_move("st_hk")
+	scene.f1.reset_for_round()
+	scene.f2.reset_for_round()
+	scene.arena.set_active(true)
+	scene.f1.position.x = -3.0
+	scene.f2.position.x = 3.0
+	scene.toggle_frame_meter()
+	meter_input.frame = _mk(0, 0, GameConst.Btn.HK)
+	scene._physics_process(DELTA)
+	meter_input.frame = _neutral()
+	for i in range(meter_hk.total_frames() + 4):
+		scene._physics_process(DELTA)
+	_check("frame meter cells match the move's own startup/active/recovery data",
+		scene._frame_meter.phase_count(0, FrameMeter.Phase.STARTUP) == meter_hk.startup
+		and scene._frame_meter.phase_count(0, FrameMeter.Phase.ACTIVE) == meter_hk.active
+		and scene._frame_meter.phase_count(0, FrameMeter.Phase.RECOVERY) == meter_hk.recovery)
+	_check("frame meter publishes startup and total once the action ends",
+		scene._frame_meter.startup_frames(0) == meter_hk.startup
+		and scene._frame_meter.total_frames(0) == meter_hk.total_frames())
+	_check("an idle dummy leaves its own row blank",
+		scene._frame_meter.phase_count(1, FrameMeter.Phase.STARTUP) == 0
+		and scene._frame_meter.phase_count(1, FrameMeter.Phase.STUN) == 0)
+	_check("a whiff never reports an advantage", not scene._frame_meter.has_advantage(0))
+	scene.toggle_frame_meter()
+	scene.toggle_frame_meter()
+	_check("toggling the frame meter clears the old strip",
+		scene._frame_meter.phase_count(0, FrameMeter.Phase.STARTUP) == 0)
+	scene.f1.reset_for_round()
+	scene.f2.reset_for_round()
+	scene.arena.set_active(true)
+	scene.f1.position.x = -0.45
+	scene.f2.position.x = 0.45
+	meter_input.frame = _mk(0, 0, GameConst.Btn.HK)
+	scene._physics_process(DELTA)
+	meter_input.frame = _neutral()
+	for i in range(160):
+		scene._physics_process(DELTA)
+		if scene._frame_meter.has_advantage(0):
+			break
+	# -2 is the value measured by stepping the arena directly: the dummy leaves hitstun two
+	# ticks before Blaze leaves st.HK's recovery.
+	_check("frame meter reports st.HK's measured on-hit advantage",
+		scene._frame_meter.has_advantage(0) and scene._frame_meter.advantage(0) == -2)
+	# Hitstop is real time, but no move frame advances during it -- counting it would report
+	# this 35F move as 50F on hit and 35F on whiff.
+	_check("hitstop does not inflate the reported move length",
+		scene._frame_meter.total_frames(0) == meter_hk.total_frames()
+		and scene._frame_meter.startup_frames(0) == meter_hk.startup)
+	_check("frozen ticks are still drawn, in their own colour",
+		scene._frame_meter.phase_count(0, FrameMeter.Phase.FREEZE) > 0)
+	_check("both rows stay on the same timeline through a freeze",
+		scene._frame_meter.cell_count(0) == scene._frame_meter.cell_count(1))
+	_check("the dummy's row records the hitstun it was actually in",
+		scene._frame_meter.phase_count(1, FrameMeter.Phase.STUN) > 0)
+	scene.toggle_frame_meter()
+	_check("training frame meter hides when toggled off", not scene.is_frame_meter_visible())
+	scene.f1.reset_for_round()
+	scene.f2.reset_for_round()
 	# Slow-motion toggle (2): a persistent training speed, unlike the transient dips the match
 	# already fires. Two things it must not do: compound with those dips, or leak out of the scene.
 	_check("training starts at full speed", not scene.is_slow_speed())
@@ -898,6 +962,13 @@ func _test_training_mode() -> void:
 	scene._physics_process(DELTA)
 	_check("training 2 key drops speed to 30%",
 		scene.is_slow_speed() and is_equal_approx(Engine.time_scale, TrainingScene.SLOW_SPEED_SCALE))
+	# time_scale only shrinks the physics delta; Godot keeps running 60 ticks a second. Since all
+	# frame data here is counted in ticks, the toggle has to drop the tick rate too, or a move's
+	# startup would still blow past at full speed while the model crawled.
+	_check("slow mode slows the frame data itself, not just on-screen movement",
+		Engine.physics_ticks_per_second == int(round(GameConst.TICK_RATE * TrainingScene.SLOW_SPEED_SCALE)))
+	_check("a slowed tick is still a whole 1/60 step for the simulation",
+		is_equal_approx(Engine.time_scale / float(Engine.physics_ticks_per_second), 1.0 / float(GameConst.TICK_RATE)))
 	scene._slowmo.request(0.35, 12, true)
 	scene._physics_process(DELTA)
 	_check("a dramatic dip does not compound with the slow toggle",
@@ -907,11 +978,14 @@ func _test_training_mode() -> void:
 	scene._physics_process(DELTA)
 	_check("training 2 key restores full speed",
 		not scene.is_slow_speed() and is_equal_approx(Engine.time_scale, 1.0))
+	_check("full speed restores the normal tick rate",
+		Engine.physics_ticks_per_second == GameConst.TICK_RATE)
 	scene.toggle_slow_speed()
 	scene._physics_process(DELTA)
 	scene._exit_tree()
 	_check("leaving training restores normal time flow even while slowed",
-		is_equal_approx(Engine.time_scale, 1.0))
+		is_equal_approx(Engine.time_scale, 1.0)
+		and Engine.physics_ticks_per_second == GameConst.TICK_RATE)
 	scene.queue_free()
 	game.set("mode", old_mode)
 	game.set("p1_char_id", old_p1)
