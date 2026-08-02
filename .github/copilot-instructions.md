@@ -29,15 +29,15 @@ For gameplay or presentation changes, use the smallest check that covers the cha
 
 1. Run the headless harness command above for simulation/camera/HUD regressions.
 2. Export Web again with the command above.
-3. Serve `web-build\` on the requested port, for example:
+3. Serve `web-build\` on the default port:
    ```powershell
-   python tools\serve.py 8000
+   python tools\serve.py
    ```
-4. Use Chrome DevTools MCP to open `http://localhost:8000/`.
-5. Godot renders UI inside a canvas, so DOM selectors are not useful. Use canvas focus plus keyboard/clicks:
-   - Main menu: choose `TRAINING`.
-   - Character select: choose `FIGHT!`.
-   - In Training, click/focus the canvas, then use `WASD` and `U/I/O/J/K/L` to reproduce the change.
+4. Use Chrome DevTools MCP to open `http://localhost:8080/testblaze` — this deep link skips
+   the menus and boots straight into a Blaze vs Blaze training session.
+5. Godot renders UI inside a canvas, so DOM selectors are not useful. Click/focus the canvas,
+   then use `WASD` and `U/I/O/J/K/L` to reproduce the change. Open `http://localhost:8080/`
+   instead when you specifically need to validate the menu or character-select flow.
 6. Check DevTools console/network for errors and capture screenshots or canvas samples when validating visual effects.
 
 ## Architecture
