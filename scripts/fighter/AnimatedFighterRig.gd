@@ -16,7 +16,7 @@ extends Node3D
 ## Attack playback rate bounds. The wind-up is stretched over the move's startup frames, so a
 ## slow mocap wind-up would otherwise blur; capping it trades wind-up length for readability.
 const ATTACK_MIN_SPEED := 0.6
-const ATTACK_MAX_SPEED := 1.6
+const ATTACK_MAX_SPEED := 1.9
 
 var ok: bool = false
 var _facing_pivot: Node3D
