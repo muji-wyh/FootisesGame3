@@ -1910,10 +1910,17 @@ func _test_impact_fx_smoke() -> void:
 		scene_spark.setup(Color.WHITE, 0.68, vfx_paths[2])
 		var fx_node := scene_spark.get_node_or_null("VFX_ImpactClassic03_1_1_0")
 		_check("hit spark instances VFX Impact and Hit scenes", fx_node != null)
+		# At the authored rate the spark burst trails the shockwave by 8-14 frames, so the effect
+		# reads as arriving after the hit instead of with it.
+		var slow_emitter := ""
+		for particles in fx_node.find_children("*", "GPUParticles3D", true, false):
+			if not is_equal_approx((particles as GPUParticles3D).speed_scale, HitSpark.VFX_SPEED):
+				slow_emitter = particles.name
+		_check("impact VFX plays fast enough to land inside the hit reaction", slow_emitter == "")
 		# Instancing one of these costs ~80ms in the Web build, right on the contact frame, so
 		# every hit dropped frames. They have to be reused, not rebuilt.
 		HitSpark.clear_fx_pool()
-		for i in range(int(HitSpark.VFX_SCENE_LIFE * 60.0) + 2):
+		for i in range(int(HitSpark.LIFE * 60.0) + 2):
 			scene_spark._process(1.0 / 60.0)
 		_check("a spent spark hands its particle instance back instead of destroying it",
 			HitSpark.fx_pool_size() == 1)

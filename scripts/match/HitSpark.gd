@@ -18,8 +18,13 @@ const RING_SCALE_END := 2.20
 const FX_QUAD_SIZE := 1.35
 const FX_SCALE_START := 0.90
 const FX_SCALE_END := 2.35
-const VFX_SCENE_LIFE := 0.65
 const VFX_SCENE_SCALE := 0.18
+## The impact art is a 9-frame flipbook stretched over the particle lifetime, so at the authored
+## rate the shockwave ring lands on the contact frame but the spark burst that follows it only
+## shows up 8-14 frames later, once the attacker is already recovering. That reads as the effect
+## lagging the hit. Playing it at double speed folds the sparks back into the ring so the whole
+## impact registers as one event inside the hit reaction.
+const VFX_SPEED := 2.0
 const RING_RINGS := 16
 const RING_SEGMENTS := 8
 
@@ -68,17 +73,17 @@ static var _fx_pool := {}   # scene path -> Array[Node3D] of idle instances
 
 static func _take_fx(path: String, scene: PackedScene) -> Node3D:
 	var idle: Array = _fx_pool.get(path, [])
-	if not idle.is_empty():
-		var pooled: Node3D = idle.pop_back()
-		_restart_particles(pooled)
-		return pooled
-	return scene.instantiate() as Node3D
+	var node: Node3D = idle.pop_back() if not idle.is_empty() else scene.instantiate() as Node3D
+	_prime_particles(node)
+	return node
 
-static func _restart_particles(node: Node) -> void:
+static func _prime_particles(node: Node) -> void:
 	if node is GPUParticles3D:
-		(node as GPUParticles3D).restart()
+		var particles := node as GPUParticles3D
+		particles.speed_scale = VFX_SPEED
+		particles.restart()
 	for child in node.get_children():
-		_restart_particles(child)
+		_prime_particles(child)
 
 ## Free every idle instance. Pooled nodes sit outside the tree, so without this they would
 ## outlive the match that made them.
@@ -148,8 +153,7 @@ func _process(delta: float) -> void:
 		_fx_quad.scale = Vector3(fs, fs, fs)
 		_fx_mat.albedo_color.a = minf(1.0, fade * 1.25)
 		_fx_mat.emission_energy_multiplier = 4.0 * fade
-	var total_life := VFX_SCENE_LIFE if _fx_scene != null else LIFE
-	if _t >= total_life:
+	if _t >= LIFE:
 		_release_fx()
 		queue_free()
 
