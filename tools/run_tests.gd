@@ -1823,8 +1823,17 @@ func _test_hitstop_tiers() -> void:
 	var heavy := _peak_hitstop(GameConst.Btn.HP)
 	_check("heavy hit freezes longer than light", int(heavy["vic"]) > int(light["vic"]))
 	_check("attacker + victim freeze match (symmetric hitstop)", int(heavy["vic"]) == int(heavy["atk"]))
-	_check("light hits have obvious impact freeze", int(light["vic"]) == 13)
-	_check("heavy hits have obvious impact freeze", int(heavy["vic"]) == 19)
+	_check("light hits have obvious impact freeze", int(light["vic"]) == 9)
+	_check("heavy hits have obvious impact freeze", int(heavy["vic"]) == 15)
+	# The stacked worst case (heavy punish counter on a meaty) is the one that reads as a hang.
+	var f := Fighter.new()
+	var blaze := CharacterLibrary.create("blaze")
+	f.setup(blaze, Manual.new(), GameConst.Side.P1, 0.0)
+	f.hit_strength = 2
+	f.last_counter = GameConst.Counter.PUNISH
+	f.last_meaty = true
+	var worst: int = blaze.get_move("st_hp").hitstop + f._hitstop_bonus()
+	_check("worst-case impact freeze stays readable", worst <= 20)
 
 func _test_impact_fx_smoke() -> void:
 	print("[impact fx smoke]")
@@ -2704,8 +2713,9 @@ func _test_drive_rush() -> void:
 	_check("DRC accepts two punches buffered during hitstop", buffered_drc_started_in_hitstop and hitstop_buffered_drc)
 	_check("hitstop-buffered DRC spent ~3 bars", ha.drive <= hda - Fighter.DRC_COST + 60)
 	ctxh["arena"].queue_free()
-	# Heavy punish-counter hitstop exceeds the DRC input buffer window; a two-punch input at
-	# the start of freeze must still survive until the attacker advances again.
+	# A freeze longer than the DRC input buffer window (forced below, since real hitstop stays
+	# well under it): a two-punch input at the start of freeze must still survive until the
+	# attacker advances again.
 	var ctxp := _build()
 	var pa: Fighter = ctxp["f1"]
 	var pb: Fighter = ctxp["f2"]

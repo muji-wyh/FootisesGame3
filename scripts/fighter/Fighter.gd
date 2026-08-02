@@ -56,7 +56,6 @@ const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green 
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
-const HITSTOP_FEEL_BONUS := 4       # ponytail: one global hitstop feel knob; per-move overrides if tuning needs diverge
 const IMPACT_SHAKE_AMP := 0.02      # ponytail: one knob for the visual-only impact vibration (world units at the hit frame)
 const IMPACT_SHAKE_TICKS := 12.0    # ticks the vibration takes to decay back to centre
 const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
@@ -783,7 +782,7 @@ func receive_attack(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -
 		_apply_block(m, attacker_facing, bonus_hitstun)
 	else:
 		_apply_hit(m, attacker_facing, bonus_hitstun)
-	var stop := m.hitstop + HITSTOP_FEEL_BONUS
+	var stop := m.hitstop
 	if not blocked:
 		stop += _hitstop_bonus()
 	apply_hitstop(stop)
@@ -792,6 +791,7 @@ func receive_attack(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -
 
 ## Extra impact freeze (frames) for heavier and counter hits, layered on a move's base
 ## hitstop so big / counter blows land harder. Read from this victim's just-set context.
+## Kept small: the freeze is a read cue, and anything past ~20 frames total reads as a hang.
 func _hitstop_bonus() -> int:
 	var b := 0
 	match hit_strength:
@@ -801,11 +801,11 @@ func _hitstop_bonus() -> int:
 			b = 3
 	match last_counter:
 		GameConst.Counter.COUNTER:
-			b += 3
+			b += 2
 		GameConst.Counter.PUNISH:
-			b += 6
+			b += 3
 	if last_meaty:
-		b += 3   # meaty hits land with extra impact freeze
+		b += 2   # meaty hits land with extra impact freeze
 	return b
 
 func _is_blocking(m: MoveData, attacker_facing: int) -> bool:
@@ -1181,7 +1181,7 @@ func extend_stun(frames: int) -> void:
 func mark_connected(blocked: bool, m: MoveData) -> void:
 	move_hits_done += 1
 	move_hit_cooldown = m.hit_gap
-	var stop := m.hitstop + HITSTOP_FEEL_BONUS
+	var stop := m.hitstop
 	if not blocked and opponent != null and is_instance_valid(opponent):
 		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
 	hitstop = stop
