@@ -132,7 +132,7 @@ static func build() -> CharacterData:
 		"advance": 2.2, "launch": true, "launch_velocity": 4.8,
 		"meter_gain": 8, "hit_fx": HIT_FX + "Effect05.png", "sfx": "lk",
 		"anim_limb": "leg_r", "anim_extend": 0.8,
-		"anim_clip": "Air_Combo_2_Blaze",
+		"anim_clip": "KB_m_KickUppercut_R",
 		"hit_offset": Vector3(0.46, 0.78, 0.0),
 		"hit_size": Vector3(0.44, 0.52, 0.66)}))
 
@@ -197,7 +197,6 @@ static func _rig() -> RigConfig:
 		ASSETS + "anims/KB_Hits.fbx",
 		ASSETS + "anims/KB_KOs.fbx",
 		ASSETS + "anims/KB_Specials.fbx",
-		ASSETS + "anims/retargeted/Air_Combo-2_Blaze.fbx",
 	]
 	r.lib_name = "kb"
 	r.skip_clips = ["BindPose", "tpose", "Take 001"]

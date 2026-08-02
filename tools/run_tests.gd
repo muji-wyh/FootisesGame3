@@ -892,8 +892,6 @@ func _test_ember_lift() -> void:
 		and move.damage < wheel.damage
 		and move.launch_velocity < wheel.launch_velocity
 		and move.recovery < wheel.recovery)
-	_check("Ember Lift owns the retargeted clip",
-		move != null and move.anim_clip == "Air_Combo_2_Blaze")
 	_check("Ember Lift reach is strictly less than Ember Wheel reach",
 		move != null and wheel != null
 		and _reach(move) < _reach(wheel))
@@ -1411,46 +1409,15 @@ func _test_kb_library() -> void:
 		return
 	var lib := AnimatedFighterRig.build_library(blaze.rig)
 	_check("kb library exposes 200+ clips for the gallery", lib.get_animation_list().size() > 200)
-	var derived := "res://characters/blaze/assets/anims/retargeted/Air_Combo-2_Blaze.fbx"
-	if ResourceLoader.exists(derived):
-		_check("kb library exposes retargeted Air Combo 2",
-			lib.has_animation("Air_Combo_2_Blaze"))
-		var ac2 := lib.get_animation("Air_Combo_2_Blaze")
-		_check("retargeted clip has nonzero tracks", ac2 != null and ac2.get_track_count() > 0)
-		# Verify every bone track resolves on Maskman's own Skeleton3D (the graft target).
-		var maskman_ps := load(blaze.model_path) as PackedScene
-		if maskman_ps != null:
-			var maskman_inst := maskman_ps.instantiate()
-			var skel: Skeleton3D = null
-			var q: Array[Node] = [maskman_inst]
-			while not q.is_empty() and skel == null:
-				var n: Node = q.pop_front()
-				if n is Skeleton3D:
-					skel = n as Skeleton3D
-				else:
-					q.append_array(n.get_children())
-			var all_resolve := true
-			var all_normalized := true
-			var checked := 0
-			if ac2 != null and skel != null:
-				for t in range(ac2.get_track_count()):
-					var ty := ac2.track_get_type(t)
-					if ty != Animation.TYPE_POSITION_3D \
-					and ty != Animation.TYPE_ROTATION_3D \
-					and ty != Animation.TYPE_SCALE_3D:
-						continue
-					var p: NodePath = ac2.track_get_path(t)
-					if p.get_subname_count() == 0:
-						continue
-					checked += 1
-					if String(p.get_concatenated_names()) != "Skeleton3D":
-						all_normalized = false
-					var bone_name: String = p.get_subname(0)
-					if skel.find_bone(bone_name) < 0:
-						all_resolve = false
-			_check("retargeted Air Combo 2 3D tracks normalize to Skeleton3D and resolve on Maskman skeleton",
-				checked > 0 and all_normalized and all_resolve)
-			maskman_inst.queue_free()
+	# Every authored move must name a clip the library actually has, so a deleted or renamed
+	# source FBX fails loudly instead of silently falling back to the default jab.
+	var missing: Array[String] = []
+	for move_id in blaze.moves.keys():
+		var m: MoveData = blaze.moves[move_id]
+		if m.anim_clip != "" and not lib.has_animation(m.anim_clip):
+			missing.append("%s -> %s" % [move_id, m.anim_clip])
+	_check("every Blaze move clip resolves in the kb library (missing: %s)" % [missing],
+		missing.is_empty())
 
 func _test_counter() -> void:
 	print("[counter hit]")

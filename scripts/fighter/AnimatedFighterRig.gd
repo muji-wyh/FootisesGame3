@@ -281,24 +281,12 @@ static func build_library(cfg: RigConfig) -> AnimationLibrary:
 				if clip_name in cfg.skip_clips or lib.has_animation(clip_name):
 					continue
 				var anim: Animation = ap.get_animation(clip_name).duplicate(true)
-				_normalize_track_paths(anim)
 				_strip_root_motion(anim, cfg.root_bones, clip_name in cfg.grounded_clips)
 				if clip_name in cfg.looped_clips:
 					anim.loop_mode = Animation.LOOP_LINEAR
 				lib.add_animation(clip_name, anim)
 		inst.free()
 	return lib
-
-## Remap track paths from Blender-exported retargets to match the KB pack hierarchy.
-## Blender wraps its armature as "ArmatureName/Skeleton3D:bone" but KB FBX (and Maskman)
-## use "Skeleton3D:bone" (skeleton direct child of scene root). Strip any prefix.
-static func _normalize_track_paths(anim: Animation) -> void:
-	for i in range(anim.get_track_count()):
-		var p: NodePath = anim.track_get_path(i)
-		var names: String = p.get_concatenated_names()
-		if "/" in names and names.ends_with("Skeleton3D") and p.get_subname_count() > 0:
-			var bone: String = p.get_subname(0)
-			anim.track_set_path(i, NodePath("Skeleton3D:" + bone))
 
 ## Cancel the root bone's travel so clips play in place. Most clips keep vertical bob; grounded
 ## override clips also freeze root Y so the fighter never appears to hop.

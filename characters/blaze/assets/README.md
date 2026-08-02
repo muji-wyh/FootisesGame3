@@ -74,17 +74,6 @@ must be **retargeted**. The robust path is Godot's editor retargeter:
 > This is an editor (GUI) workflow; it can't be done blind/headless reliably. Until it's set
 > up, those characters use the Maskman reskin so the build still ships.
 
-## Local restoration
-
-If this machine already has the licensed Fighter Animation Pack installed, the derived Blaze
-retarget can be restored at:
-
-`characters/blaze/assets/anims/retargeted/Air_Combo-2_Blaze.fbx`
-`# Blender-baked Maskman clip; action name: Air_Combo_2_Blaze`
-
-This file is derived from the licensed pack, stays gitignored, and should be regenerated or
-copied from a private legal backup on another machine.
-
 ## Texture note (web)
 The packs ship **4K–8K TGA** textures (3–5 GB total) — impractical for a web build. This
 project uses solid tinted materials instead, keeping the export small. To use real textures,
