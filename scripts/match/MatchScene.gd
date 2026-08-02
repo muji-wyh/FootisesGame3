@@ -19,6 +19,7 @@ var _post_match_timer: int = 0
 var _slowmo := SlowMoDirector.new()
 var _dr_was := [false, false]   # per-fighter "was drive-rushing last frame" edge tracker
 var _dr_tint_level: float = 0.0
+var _hit_vfx_warm: Array = []   # holds the impact VFX resident (see _enter_tree)
 
 const DRIVE_RUSH_TINT_TARGET := 0.07
 const HIT_VFX_ROOT := "res://assets/third_party/vfx_impact_and_hit/effects/impact_1_1_0/"
@@ -29,6 +30,26 @@ const HIT_VFX_HEAVY := HIT_VFX_ROOT + "VFX_ImpactToon_1.1.0.tscn"
 const HIT_VFX_COUNTER := HIT_VFX_ROOT + "VFX_ImpactCrossCritical_1.1.0.tscn"
 const HIT_VFX_PUNISH := HIT_VFX_ROOT + "VFX_ImpactCritical_1.1.0_Red.tscn"
 const HIT_VFX_MEATY := HIT_VFX_ROOT + "VFX_ImpactCritical_1.1.0_Yellow.tscn"
+const HIT_VFX_ALL := [HIT_VFX_BLOCK, HIT_VFX_LIGHT, HIT_VFX_MEDIUM, HIT_VFX_HEAVY,
+	HIT_VFX_COUNTER, HIT_VFX_PUNISH, HIT_VFX_MEATY]
+const HIT_VFX_WARM_SCALE := 0.05   # a speck on screen, but big enough to rasterize pixels
+
+## An impact VFX is read from disk and has its particle shaders compiled the first time it is
+## drawn. That lands on the frame the hit connects, and on the Web build it stalls the main
+## thread for ~850ms, so the first hit of every type reads as a dropped frame. Pay it once here
+## instead, by spawning each spark too small to see and letting it play out, which compiles the
+## shaders. The sparks free themselves, so the loaded scenes are kept for the whole match:
+## ResourceLoader caches weakly, and the scene owns the materials every instance shares, which
+## in turn own the compiled shaders. Runs from _enter_tree so the training scene warms up too
+## (it builds itself and never calls MatchScene._ready).
+func _enter_tree() -> void:
+	for path in HIT_VFX_ALL:
+		if ResourceLoader.exists(path):
+			_hit_vfx_warm.append(load(path))
+		var warm := HitSpark.new()
+		add_child(warm)
+		warm.position = Vector3(0.0, 1.0, 0.0)
+		warm.setup(Color.WHITE, HIT_VFX_WARM_SCALE, path)
 
 func _ready() -> void:
 	var stage := Stage.new()
@@ -271,6 +292,7 @@ func _physics_process(delta: float) -> void:
 func _exit_tree() -> void:
 	_slowmo.reset()
 	Engine.time_scale = 1.0
+	HitSpark.clear_fx_pool()   # pooled particle instances live outside the tree; see HitSpark
 
 func _on_match_over(winner_side: int) -> void:
 	_match_over = true

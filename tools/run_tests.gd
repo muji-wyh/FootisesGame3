@@ -1865,6 +1865,18 @@ func _test_impact_fx_smoke() -> void:
 		core != null and ring != null
 		and (core.material_override as StandardMaterial3D).no_depth_test
 		and (ring.material_override as StandardMaterial3D).no_depth_test)
+	# Rebuilding these per hit regenerated the torus on the contact frame, which cost ~100ms in
+	# the Web build. Every spark has the same geometry, so they have to come from one shared mesh.
+	var spark2 := HitSpark.new()
+	root.add_child(spark2)
+	spark2.setup(Color(0.2, 0.6, 1.0), 0.7)
+	_check("hit sparks share one core mesh instead of rebuilding it per hit",
+		(spark2.get_child(0) as MeshInstance3D).mesh == core.mesh)
+	_check("hit sparks share one ring mesh instead of rebuilding it per hit",
+		(spark2.get_child(1) as MeshInstance3D).mesh == ring.mesh)
+	_check("hit spark ring is cheap to tessellate",
+		(ring.mesh as TorusMesh).rings <= 24 and (ring.mesh as TorusMesh).ring_segments <= 12)
+	spark2.free()
 	spark.free()
 	var fx_path := "res://assets/cartoon_fx_pack/textures/Effect01.png"
 	_check("CartoonFXPack spark texture imported", ResourceLoader.exists(fx_path))
@@ -1896,9 +1908,33 @@ func _test_impact_fx_smoke() -> void:
 		var scene_spark := HitSpark.new()
 		root.add_child(scene_spark)
 		scene_spark.setup(Color.WHITE, 0.68, vfx_paths[2])
-		_check("hit spark instances VFX Impact and Hit scenes",
-			scene_spark.get_node_or_null("VFX_ImpactClassic03_1_1_0") != null)
-		scene_spark.free()
+		var fx_node := scene_spark.get_node_or_null("VFX_ImpactClassic03_1_1_0")
+		_check("hit spark instances VFX Impact and Hit scenes", fx_node != null)
+		# Instancing one of these costs ~80ms in the Web build, right on the contact frame, so
+		# every hit dropped frames. They have to be reused, not rebuilt.
+		HitSpark.clear_fx_pool()
+		for i in range(int(HitSpark.VFX_SCENE_LIFE * 60.0) + 2):
+			scene_spark._process(1.0 / 60.0)
+		_check("a spent spark hands its particle instance back instead of destroying it",
+			HitSpark.fx_pool_size() == 1)
+		var reuse_spark := HitSpark.new()
+		root.add_child(reuse_spark)
+		reuse_spark.setup(Color.WHITE, 0.68, vfx_paths[2])
+		_check("the next hit reuses the pooled particle instance",
+			reuse_spark.get_node_or_null("VFX_ImpactClassic03_1_1_0") == fx_node
+			and HitSpark.fx_pool_size() == 0)
+		var other_spark := HitSpark.new()
+		root.add_child(other_spark)
+		other_spark.setup(Color.WHITE, 0.68, vfx_paths[3])
+		_check("a different VFX still gets its own instance",
+			other_spark.get_node_or_null("VFX_ImpactToon_1_1_0") != null)
+		reuse_spark._release_fx()
+		other_spark._release_fx()
+		_check("pooled instances are keyed per VFX", HitSpark.fx_pool_size() == 2)
+		reuse_spark.free()
+		other_spark.free()
+		HitSpark.clear_fx_pool()
+		_check("clearing the pool frees the idle instances", HitSpark.fx_pool_size() == 0)
 	else:
 		print("  SKIP: licensed VFX Impact and Hit assets not present (CartoonFX fallback)")
 	var blaze := CharacterLibrary.create("blaze")
@@ -1964,6 +2000,56 @@ func _test_impact_fx_smoke() -> void:
 		_check("spawned gameplay spark falls back to the move texture",
 			impact_spark != null and impact_spark._fx_quad != null)
 	scene.free()
+	# Loading a VFX scene / compiling its particle shaders on the frame a hit connects stalls
+	# the Web build long enough to read as a dropped frame, so entering the tree must pre-spawn
+	# a throwaway spark for every VFX the router can return. (The harness root is not "in tree"
+	# during _initialize, so the callback is invoked directly, as the other scene tests do.)
+	var warmed := MatchScene.new()
+	root.add_child(warmed)
+	_check("warm-up is wired to the tree-entry callback", warmed.has_method("_enter_tree"))
+	warmed._enter_tree()
+	var warm_sparks := 0
+	var warm_scenes := 0
+	for child in warmed.get_children():
+		if child is HitSpark:
+			warm_sparks += 1
+			if (child as HitSpark)._fx_scene != null:
+				warm_scenes += 1
+	_check("entering a match warms every impact VFX up front",
+		warm_sparks == MatchScene.HIT_VFX_ALL.size() and warm_sparks == 7)
+	if vfx_installed:
+		_check("warm-up actually instances the VFX scenes (so their shaders compile)",
+			warm_scenes == 7)
+		_check("warm-up sparks are a speck, but big enough to rasterize",
+			MatchScene.HIT_VFX_WARM_SCALE * HitSpark.VFX_SCENE_SCALE < 0.02
+			and MatchScene.HIT_VFX_WARM_SCALE * HitSpark.VFX_SCENE_SCALE > 0.001)
+		# ResourceLoader caches weakly, so dropping the loaded scene would re-pay the disk read on
+		# the first real hit. And a disabled warm spark never emits, so nothing would be drawn and
+		# no shader would compile -- both halves have to hold for the warm-up to be worth anything.
+		var warm_live := 0
+		for child in warmed.get_children():
+			if child is HitSpark and child.process_mode == Node.PROCESS_MODE_INHERIT:
+				warm_live += 1
+		_check("warm-up sparks are left running so their particles actually draw", warm_live == 7)
+		_check("warm-up keeps the loaded VFX scenes referenced",
+			warmed._hit_vfx_warm.size() == 7 and warmed._hit_vfx_warm[0] is PackedScene)
+	warmed.free()
+	# The warm list has to cover every path the router can pick, or that hit type still stalls.
+	if vfx_installed:
+		var router := MatchScene.new()
+		var missed := ""
+		for ctx in [[0, GameConst.Counter.NONE, false, true], [0, GameConst.Counter.NONE, false, false],
+				[1, GameConst.Counter.NONE, false, false], [2, GameConst.Counter.NONE, false, false],
+				[1, GameConst.Counter.COUNTER, false, false], [1, GameConst.Counter.PUNISH, false, false],
+				[1, GameConst.Counter.NONE, true, false]]:
+			victim.hit_strength = int(ctx[0])
+			victim.last_counter = int(ctx[1])
+			victim.last_meaty = bool(ctx[2])
+			var routed := String(router.call("_impact_fx_path", victim, bool(ctx[3])))
+			if not MatchScene.HIT_VFX_ALL.has(routed):
+				missed = routed
+		_check("every routed impact VFX is in the warm list", missed == "")
+		router.free()
 
 func _test_slowmo_director() -> void:
 	print("[slow-mo director]")
