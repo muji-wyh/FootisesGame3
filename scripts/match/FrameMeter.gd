@@ -13,10 +13,14 @@ extends Control
 ## press tick is state_frame 0. Hitstop is drawn in its own colour rather than folded into the
 ## active run: those ticks are real time both players spend frozen, but no move frame advanced
 ## during them, so counting them would report a 35F move as 50F.
+##
+## Neutral ticks are not recorded. The strip is a record of one exchange -- it fills left to
+## right while anyone is acting, freezes when everyone is actionable again so the numbers can
+## still be read, and is wiped by the next action.
 
 enum Phase { NONE, STARTUP, ACTIVE, RECOVERY, STUN, FREEZE }
 
-const CAPACITY := 72                    ## ticks kept on screen (1.2s at 60Hz)
+const CAPACITY := 72                    ## ticks one exchange can show before it stops filling
 const CELL := Vector2(15.0, 15.0)
 const CELL_STEP := 17.0
 const ORIGIN := Vector2(28.0, 634.0)    ## top-left of P1's strip in the 1280x720 viewport
@@ -43,6 +47,7 @@ var _adv: Array = [0, 0]
 var _adv_shown: Array = [false, false]
 var _free_tick: Array = [0, 0]
 var _attacker: int = -1
+var _recording: bool = false
 var _tick: int = 0
 
 func _init() -> void:
@@ -61,6 +66,7 @@ func reset() -> void:
 	_adv_shown = [false, false]
 	_free_tick = [0, 0]
 	_attacker = -1
+	_recording = false
 	_tick = 0
 	queue_redraw()
 
@@ -69,6 +75,13 @@ func reset() -> void:
 func sample(fighters: Array) -> void:
 	_tick += 1
 	var phases := [_phase(fighters[0]), _phase(fighters[1])]
+	# The strip records one exchange, not a rolling window: it fills left to right and then stays
+	# put so the numbers can still be read after the action. Someone acting again once both are
+	# neutral starts a new exchange, which wipes it and refills from the left.
+	var acting: bool = phases[0] != Phase.NONE or phases[1] != Phase.NONE
+	if acting and not _recording:
+		_cells = [PackedByteArray(), PackedByteArray()]
+	_recording = acting
 	for i in range(2):
 		var f: Fighter = fighters[i]
 		var ph: int = phases[i]
@@ -85,6 +98,10 @@ func sample(fighters: Array) -> void:
 			_free_tick[i] = _tick
 			if _prev[i] != Phase.STUN:
 				_publish(i)
+		# Startup is final the moment the hitbox goes live, so report it then rather than making
+		# the reader wait for the whole move to finish.
+		if ph == Phase.ACTIVE and _prev[i] != Phase.ACTIVE:
+			_startup_f[i] = _counts[i][0]
 		if advanced and (ph == Phase.STARTUP or ph == Phase.ACTIVE or ph == Phase.RECOVERY):
 			var c: Array = _counts[i]
 			c[ph - 1] += 1
@@ -98,10 +115,11 @@ func sample(fighters: Array) -> void:
 		_prev[i] = ph
 		_prev_move[i] = mv
 		var row: PackedByteArray = _cells[i]
-		row.append(Phase.FREEZE if (not advanced and ph != Phase.NONE) else ph)
-		if row.size() > CAPACITY:
-			row.remove_at(0)
-		_cells[i] = row
+		# Once the strip is full the exchange has outrun the display; keep the readable prefix
+		# rather than scrolling, and let the next exchange start clean.
+		if acting and row.size() < CAPACITY:
+			row.append(Phase.FREEZE if (not advanced and ph != Phase.NONE) else ph)
+			_cells[i] = row
 	if _attacker >= 0 and phases[0] == Phase.NONE and phases[1] == Phase.NONE:
 		var d := 1 - _attacker
 		_adv[_attacker] = _free_tick[d] - _free_tick[_attacker]

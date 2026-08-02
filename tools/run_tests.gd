@@ -907,7 +907,13 @@ func _test_training_mode() -> void:
 	meter_input.frame = _mk(0, 0, GameConst.Btn.HK)
 	scene._physics_process(DELTA)
 	meter_input.frame = _neutral()
-	for i in range(meter_hk.total_frames() + 4):
+	for i in range(meter_hk.startup):
+		scene._physics_process(DELTA)
+	# state_frame is now == startup, so the hitbox is live and the startup count is final.
+	_check("startup is reported the moment the hitbox goes live, not when the move ends",
+		scene._frame_meter.startup_frames(0) == meter_hk.startup
+		and scene._frame_meter.total_frames(0) == 0)
+	for i in range(meter_hk.active + meter_hk.recovery + 4):
 		scene._physics_process(DELTA)
 	_check("frame meter cells match the move's own startup/active/recovery data",
 		scene._frame_meter.phase_count(0, FrameMeter.Phase.STARTUP) == meter_hk.startup
@@ -920,6 +926,25 @@ func _test_training_mode() -> void:
 		scene._frame_meter.phase_count(1, FrameMeter.Phase.STARTUP) == 0
 		and scene._frame_meter.phase_count(1, FrameMeter.Phase.STUN) == 0)
 	_check("a whiff never reports an advantage", not scene._frame_meter.has_advantage(0))
+	# The strip is a record of one exchange, not a rolling window: idling for longer than it can
+	# hold must not scroll the action away, because the whole point is reading it afterwards.
+	for i in range(FrameMeter.CAPACITY + 20):
+		scene._physics_process(DELTA)
+	_check("the strip stays put after the action ends instead of scrolling away",
+		scene._frame_meter.cell_count(0) == meter_hk.total_frames()
+		and scene._frame_meter.phase_count(0, FrameMeter.Phase.STARTUP) == meter_hk.startup)
+	# ...and the next action wipes it and refills from the left, rather than appending forever.
+	var meter_mk: MoveData = scene.f1.character.get_move("st_mk")
+	meter_input.frame = _mk(0, 0, GameConst.Btn.MK)
+	scene._physics_process(DELTA)
+	meter_input.frame = _neutral()
+	for i in range(meter_mk.startup - 1):
+		scene._physics_process(DELTA)
+	_check("a new action wipes the strip and refills from the left",
+		scene._frame_meter.cell_count(0) == meter_mk.startup
+		and scene._frame_meter.phase_count(0, FrameMeter.Phase.STARTUP) == meter_mk.startup)
+	for i in range(meter_mk.total_frames()):
+		scene._physics_process(DELTA)
 	scene.toggle_frame_meter()
 	scene.toggle_frame_meter()
 	_check("toggling the frame meter clears the old strip",
