@@ -13,6 +13,11 @@ extends Node3D
 ## is otherwise generic. Hit-reaction clips are resolved per-hit by direction/height/strength
 ## (see _resolve_hit_clip); knockdown / get-up clips by cause (see _knockdown_clip/_wakeup_clip).
 
+## Attack playback rate bounds. The wind-up is stretched over the move's startup frames, so a
+## slow mocap wind-up would otherwise blur; capping it trades wind-up length for readability.
+const ATTACK_MIN_SPEED := 0.6
+const ATTACK_MAX_SPEED := 1.6
+
 var ok: bool = false
 var _facing_pivot: Node3D
 var _model: Node3D
@@ -102,11 +107,38 @@ func pose(f: Fighter) -> void:
 func _pose_attack(f: Fighter) -> void:
 	if f.current_move != _cur_move or f.state_frame == 0:
 		_cur_move = f.current_move
-		var clip := _move_clip(f.current_move)
-		_play_fitted(clip, f.current_move.total_frames(), 0.05)
+		_play_attack(_move_clip(f.current_move), f.current_move)
+
+## Play an attack clip so its strike lands on the move's first active frame, at close to real
+## time. Fitting the WHOLE clip into the move (as _play_fitted does) is wrong for attacks: the
+## Kubold clips are real-time mocap running 0.6-3.6s of wind-up, strike and return to guard,
+## while a 35F move is 0.58s, so every attack played back at 3-4x and read as a blur. Seeking
+## in instead drops the part nobody watches -- the long settle back to guard, which the blend
+## to idle covers anyway. Needs the clip's measured impact point (RigConfig.clip_impacts);
+## without one there is no way to know which part of the clip is the strike, so fall back to
+## squeezing the lot in.
+func _play_attack(clip: String, m: MoveData) -> void:
+	var frac := float(_cfg.clip_impacts.get(clip, 0.0))
+	if frac <= 0.0:
+		_play_fitted(clip, m.total_frames(), 0.05)
+		return
+	var t := attack_timing(_length(clip), frac, m.startup)
+	_play(clip, 0.05, t.x, false)
+	_player.seek(t.y, true)
+
+## Speed (x) and clip start time (y) for an attack: stretch the wind-up over the move's startup
+## frames so the strike lands on the first active frame, refusing to blur past ATTACK_MAX_SPEED
+## (past that we show less wind-up instead). Static and pure so the timing can be checked
+## without the licensed model.
+static func attack_timing(clip_len: float, impact_frac: float, startup: int) -> Vector2:
+	var impact := clip_len * clampf(impact_frac, 0.0, 1.0)
+	var startup_dur := maxf(1.0, float(startup)) / GameConst.TICK_RATE
+	var spd := clampf(impact / startup_dur, ATTACK_MIN_SPEED, ATTACK_MAX_SPEED)
+	return Vector2(spd, maxf(0.0, impact - startup_dur * spd))
 
 ## Play a one-shot clip time-scaled to span `ticks` simulation frames (so a long mocap
-## clip fits the move/knockdown/wake-up window). Speed is clamped to stay readable.
+## clip fits the knockdown / wake-up / hit-reaction window). Those clips all start at the
+## moment of impact, so unlike attacks they have nothing to seek past.
 func _play_fitted(clip: String, ticks: int, blend: float) -> void:
 	var dur := maxf(0.1, float(ticks) / GameConst.TICK_RATE)
 	var len := _length(clip)

@@ -212,6 +212,17 @@ static func _rig() -> RigConfig:
 	}
 	r.looped_clips = ["KB_Idle_1", "KB_Idle_3", "KB_WalkFwd1", "KB_WalkBwd", "KB_crouch_Idle"]
 	r.default_move_clip = "KB_p_Jab_R_1"
+	# Measured with tools/probe_impact.gd: the frame where the striking hand/foot has travelled
+	# furthest from where it started. Re-measure rather than hand-tune if a clip is swapped.
+	r.clip_impacts = {
+		"KB_p_Jab_R_1": 0.22, "KB_m_Uppercut_R": 0.22, "KB_m_Overhand_R": 0.31,
+		"KB_p_LowKick_R_1": 0.17, "KB_m_MidKick_R": 0.22, "KB_m_HighKickRound_R_1": 0.18,
+		"KB_crouch_p_Jab_L": 0.17, "KB_crouch_p_Jab_R": 0.17, "KB_crouch_p_Uppercut_R": 0.33,
+		"KB_crouch_p_LowKick_L": 0.17, "KB_crouch_p_LowKickRound_R": 0.28,
+		"KB_crouch_m_LowKickRound_R": 0.36, "KB_JumpPunch": 0.22, "KB_m_Hook_R": 0.45,
+		"KB_JumpKick": 0.57, "KB_p_MidKickFront_L": 0.21, "KB_p_HighKick_R_1": 0.23,
+		"KB_m_KickUppercut_R": 0.31, "KB_Superpunch": 0.50,
+	}
 	r.drive_rush_startup_clips = ["KB_SkipFwd_1", "KB_Dodge_R", "KB_WalkFwd1"]
 	r.drive_rush_clips = ["KB_SkipFwd_1", "KB_WalkFwd1"]
 	r.surface_textures = {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}

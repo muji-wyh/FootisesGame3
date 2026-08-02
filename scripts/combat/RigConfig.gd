@@ -21,6 +21,12 @@ extends Resource
 @export var state_clips: Dictionary = {}
 @export var looped_clips: Array[String] = []
 @export var default_move_clip: String = ""
+## Attack clip -> where the strike lands in it, as a fraction of the clip's length. Measured off
+## the clip (the frame where the striking hand/foot has travelled furthest), not guessed: these
+## are real-time mocap, so the strike lands early (0.17-0.5) and the rest is the settle back to
+## guard. A clip that is missing here plays the old way -- the whole thing squeezed into the
+## move, which runs 2-4x too fast. See AnimatedFighterRig._play_attack.
+@export var clip_impacts: Dictionary = {}
 @export var drive_rush_startup_clips: Array[String] = []   # first few DRIVE_RUSH frames
 @export var drive_rush_clips: Array[String] = []   # fallback chain for the DRIVE_RUSH state
 

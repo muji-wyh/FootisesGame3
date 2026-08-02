@@ -978,6 +978,36 @@ func _test_training_mode() -> void:
 		scene._frame_meter.phase_count(1, FrameMeter.Phase.STUN) > 0)
 	scene.toggle_frame_meter()
 	_check("training frame meter hides when toggled off", not scene.is_frame_meter_visible())
+	# Attack playback: the mocap clips are real-time (a 35F move is 0.58s, its clip is 2.18s), so
+	# fitting the whole clip in played every attack at ~3.7x. Seek in instead and land the strike
+	# on the first active frame.
+	# Attack playback: the mocap clips are real-time (a 35F move is 0.58s, its clip is 2.18s), so
+	# fitting the whole clip in played every attack at ~3.7x. Seek in instead and land the strike
+	# on the first active frame.
+	var hk_clip_len := 2.18333
+	var hk_frac := 0.18
+	var hk_t := AnimatedFighterRig.attack_timing(hk_clip_len, hk_frac, meter_hk.startup)
+	_check("a wind-up far longer than the startup window is capped, not blurred",
+		is_equal_approx(hk_t.x, AnimatedFighterRig.ATTACK_MAX_SPEED))
+	_check("the strike lands on the move's first active frame",
+		is_equal_approx(hk_t.y + (float(meter_hk.startup) / GameConst.TICK_RATE) * hk_t.x,
+			hk_clip_len * hk_frac))
+	# A clip whose wind-up is shorter than the startup window has nothing to seek past, so it
+	# starts at 0 and slows down instead of leaving the strike early.
+	var short_t := AnimatedFighterRig.attack_timing(0.20, 0.5, 20)
+	_check("a short wind-up starts at the top of the clip rather than before it",
+		short_t.y == 0.0 and is_equal_approx(short_t.x, AnimatedFighterRig.ATTACK_MIN_SPEED))
+	# Without a measured impact the rig cannot know which part of the clip is the strike and
+	# falls back to the old squeeze-it-all-in playback, so an unmeasured clip is a silent
+	# regression rather than a crash. Catch it here instead.
+	var rig_cfg: RigConfig = scene.f1.character.rig
+	var unmeasured: Array = []
+	for mv in scene.f1.character.moves.values():
+		var mv_clip: String = mv.anim_clip if mv.anim_clip != "" else rig_cfg.default_move_clip
+		if not rig_cfg.clip_impacts.has(mv_clip):
+			unmeasured.append(mv.id)
+	_check("every attack clip has a measured impact point (see tools/probe_impact.gd)",
+		unmeasured.is_empty())
 	scene.f1.reset_for_round()
 	scene.f2.reset_for_round()
 	# Slow-motion toggle (2): a persistent training speed, unlike the transient dips the match
