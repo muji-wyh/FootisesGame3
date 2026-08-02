@@ -283,6 +283,13 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("Ember Wheel (214+HK) hitbox fits the spin animation",
 		ember_wheel.hit_size.x <= 0.36 and ember_wheel.hit_size.y <= 0.44
 		and ember_wheel.hit_offset.x + ember_wheel.hit_size.x * 0.5 <= 0.76)
+	# Flame Surge is a cancel route, not a neutral tool, so its box has to stay a rising fist:
+	# it used to be the largest box in the kit outside the dedicated anti-air and out-reached
+	# st.MK, which let the launcher take over the spacing st.MK is supposed to rule.
+	var flame_surge := blaze.get_move("flame_surge")
+	_check("Flame Surge (236+MP) hitbox fits the uppercut animation",
+		flame_surge.hit_size.x <= 0.46 and flame_surge.hit_size.y <= 0.68
+		and _reach(flame_surge) <= 0.93 and _reach(flame_surge) < _reach(st_mk))
 	_check("stand LK/MK/HK ranges scale up light -> medium -> heavy",
 		st_lk.hit_offset.x + st_lk.hit_size.x * 0.5 < st_mk.hit_offset.x + st_mk.hit_size.x * 0.5
 		and st_mk.hit_offset.x + st_mk.hit_size.x * 0.5 < st_hk.hit_offset.x + st_hk.hit_size.x * 0.5)
