@@ -862,6 +862,25 @@ func _test_training_mode() -> void:
 	_check("training resources stay full", scene.f1.meter == scene.f1.character.max_meter and scene.f1.drive == scene.f1.character.max_drive)
 	scene.f2.combo_changed.emit(2, 99)
 	_check("training combo HUD updates live", scene.hud._combo_label[0].text.contains("2 HITS") and scene.hud._combo_label[0].modulate.a > 0.9)
+	# Hitbox viewer (1): it has to draw the very AABBs the simulation collides with, otherwise
+	# it is worse than useless -- a viewer that lies sends tuning in the wrong direction.
+	_check("training hitbox viewer starts hidden", not scene.is_box_view_visible())
+	scene.f1._start_move(scene.f1.character.get_move("st_hp"))
+	while not scene.f1.has_active_hitbox():
+		scene._physics_process(DELTA)
+	scene.toggle_box_view()
+	_check("training hitbox viewer draws when toggled on",
+		scene.is_box_view_visible() and scene._box_mesh.get_surface_count() == 1)
+	var drawn_verts: PackedVector3Array = scene._box_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var drawn := AABB(drawn_verts[0], Vector3.ZERO)
+	for v in drawn_verts:
+		drawn = drawn.expand(v)
+	_check("training hitbox viewer covers the live hurtboxes and hitbox",
+		drawn.encloses(scene.f1.hurtboxes()[0]) and drawn.encloses(scene.f2.hurtboxes()[0])
+		and drawn.encloses(scene.f1.active_hitbox()))
+	scene.toggle_box_view()
+	_check("training hitbox viewer clears when toggled off",
+		not scene.is_box_view_visible() and scene._box_mesh.get_surface_count() == 0)
 	scene.f1.state = Fighter.State.GREEN_RUSH
 	scene.f1.green_rush_timer = Fighter.GREEN_RUSH_MODE_TICKS
 	scene.f1.state_frame = 0

@@ -8,9 +8,19 @@ const RESET_DELAY_TICKS := 45
 const HP_RECOVERY_DELAY_TICKS := 90
 const HP_RECOVERY_PER_TICK := 12
 
+## Wireframe box overlay (toggled with 1). Endpoint indices of an AABB pair up so that the
+## 12 edges are the pairs differing in exactly one axis bit: 4 = x, 2 = y, 1 = z.
+const BOX_EDGES := [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7]
+const BOX_HURT_COLOR := Color(0.3, 0.75, 1.0)
+const BOX_HIT_COLOR := Color(1.0, 0.28, 0.28)
+const BOX_PUSH_COLOR := Color(1.0, 0.85, 0.25)
+
 var _reset_timer: int = 0
 var _hp_recovery_timers := [0, 0]
 var _training_overlay: CanvasLayer
+var _box_view: MeshInstance3D
+var _box_mesh: ImmediateMesh
+var _box_material: StandardMaterial3D
 var _built: bool = false
 
 func _ready() -> void:
@@ -63,6 +73,7 @@ func _build_training(game_override: Node = null) -> void:
 	audio.start_bgm()
 
 	_build_training_overlay()
+	_build_box_view()
 	_refill_training_resources()
 
 func _physics_process(delta: float) -> void:
@@ -83,6 +94,8 @@ func _physics_process(delta: float) -> void:
 	Engine.time_scale = _slowmo.scale
 	_refill_training_resources()
 	_recover_training_hp()
+	if _box_view.visible:
+		_draw_boxes()
 
 func _on_training_ko(_loser_side: int) -> void:
 	pass
@@ -130,12 +143,65 @@ func _build_training_overlay() -> void:
 	_training_overlay = CanvasLayer.new()
 	add_child(_training_overlay)
 	var label := Label.new()
-	label.position = Vector2(430, 112)
-	label.size = Vector2(420, 48)
+	label.position = Vector2(330, 112)
+	label.size = Vector2(620, 48)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(0.76, 0.9, 1.0))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 5)
-	label.text = "TRAINING: idle dummy  |  TAB move list  |  ESC menu"
+	label.text = "TRAINING: idle dummy  |  TAB move list  |  1 hitboxes  |  ESC menu"
 	_training_overlay.add_child(label)
+
+# --- hitbox viewer ---------------------------------------------------------
+# Drawn from the same AABBs the simulation collides with (Fighter.hurtboxes /
+# active_hitbox / PUSHBOX_HALF, Projectile.aabb), so what is on screen is what hits.
+
+func _build_box_view() -> void:
+	_box_material = StandardMaterial3D.new()
+	_box_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_box_material.vertex_color_use_as_albedo = true
+	_box_material.no_depth_test = true   # boxes stay readable through the fighter models
+	_box_mesh = ImmediateMesh.new()
+	_box_view = MeshInstance3D.new()
+	_box_view.name = "BoxView"
+	_box_view.mesh = _box_mesh
+	_box_view.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_box_view.visible = false
+	add_child(_box_view)
+
+func toggle_box_view() -> void:
+	_box_view.visible = not _box_view.visible
+	if _box_view.visible:
+		_draw_boxes()
+	else:
+		_box_mesh.clear_surfaces()
+
+func is_box_view_visible() -> bool:
+	return _box_view != null and _box_view.visible
+
+func _draw_boxes() -> void:
+	_box_mesh.clear_surfaces()
+	_box_mesh.surface_begin(Mesh.PRIMITIVE_LINES, _box_material)
+	for f in arena.fighters:
+		for hurt in f.hurtboxes():
+			_add_box(hurt, BOX_HURT_COLOR)
+		var hit := f.active_hitbox()
+		if hit.size != Vector3.ZERO:
+			_add_box(hit, BOX_HIT_COLOR)
+		var half := Fighter.PUSHBOX_HALF
+		_add_box(AABB(f.position - Vector3(half, 0.0, half), Vector3(half * 2.0, 0.04, half * 2.0)), BOX_PUSH_COLOR)
+	for p in arena.projectiles:
+		_add_box(p.aabb(), BOX_HIT_COLOR)
+	_box_mesh.surface_end()
+
+func _add_box(box: AABB, color: Color) -> void:
+	_box_mesh.surface_set_color(color)
+	for i in BOX_EDGES:
+		_box_mesh.surface_add_vertex(box.get_endpoint(i))
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_1:
+		toggle_box_view()
+		return
+	super._unhandled_input(event)
