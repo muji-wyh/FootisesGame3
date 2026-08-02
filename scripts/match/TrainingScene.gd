@@ -15,12 +15,16 @@ const BOX_HURT_COLOR := Color(0.3, 0.75, 1.0)
 const BOX_HIT_COLOR := Color(1.0, 0.28, 0.28)
 const BOX_PUSH_COLOR := Color(1.0, 0.85, 0.25)
 
+## Speed the 2 key drops training to, for reading startup/active frames by eye.
+const SLOW_SPEED_SCALE := 0.3
+
 var _reset_timer: int = 0
 var _hp_recovery_timers := [0, 0]
 var _training_overlay: CanvasLayer
 var _box_view: MeshInstance3D
 var _box_mesh: ImmediateMesh
 var _box_material: StandardMaterial3D
+var _speed_scale: float = 1.0
 var _built: bool = false
 
 func _ready() -> void:
@@ -91,7 +95,9 @@ func _physics_process(delta: float) -> void:
 	_update_drive_rush(delta)
 	camera.track(f1.position, f2.position)
 	_slowmo.tick()
-	Engine.time_scale = _slowmo.scale
+	# Slower of the two wins rather than multiplying, so a KO/punish dip taken while the 2 key
+	# is on does not compound into a 9% crawl.
+	Engine.time_scale = minf(_slowmo.scale, _speed_scale)
 	_refill_training_resources()
 	_recover_training_hp()
 	if _box_view.visible:
@@ -143,14 +149,14 @@ func _build_training_overlay() -> void:
 	_training_overlay = CanvasLayer.new()
 	add_child(_training_overlay)
 	var label := Label.new()
-	label.position = Vector2(330, 112)
-	label.size = Vector2(620, 48)
+	label.position = Vector2(270, 112)
+	label.size = Vector2(740, 48)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Color(0.76, 0.9, 1.0))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 5)
-	label.text = "TRAINING: idle dummy  |  TAB move list  |  1 hitboxes  |  ESC menu"
+	label.text = "TRAINING: idle dummy  |  TAB move list  |  1 hitboxes  |  2 slow 30%  |  ESC menu"
 	_training_overlay.add_child(label)
 
 # --- hitbox viewer ---------------------------------------------------------
@@ -201,7 +207,17 @@ func _add_box(box: AABB, color: Color) -> void:
 		_box_mesh.surface_add_vertex(box.get_endpoint(i))
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_1:
-		toggle_box_view()
-		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_1:
+			toggle_box_view()
+			return
+		if event.keycode == KEY_2:
+			toggle_slow_speed()
+			return
 	super._unhandled_input(event)
+
+func toggle_slow_speed() -> void:
+	_speed_scale = 1.0 if is_slow_speed() else SLOW_SPEED_SCALE
+
+func is_slow_speed() -> bool:
+	return _speed_scale < 1.0

@@ -891,6 +891,27 @@ func _test_training_mode() -> void:
 			training_fx_spawned = true
 			break
 	_check("training scene spawns Green Rush mode ghost trail", training_fx_spawned)
+	# Slow-motion toggle (2): a persistent training speed, unlike the transient dips the match
+	# already fires. Two things it must not do: compound with those dips, or leak out of the scene.
+	_check("training starts at full speed", not scene.is_slow_speed())
+	scene.toggle_slow_speed()
+	scene._physics_process(DELTA)
+	_check("training 2 key drops speed to 30%",
+		scene.is_slow_speed() and is_equal_approx(Engine.time_scale, TrainingScene.SLOW_SPEED_SCALE))
+	scene._slowmo.request(0.35, 12, true)
+	scene._physics_process(DELTA)
+	_check("a dramatic dip does not compound with the slow toggle",
+		is_equal_approx(Engine.time_scale, TrainingScene.SLOW_SPEED_SCALE))
+	scene._slowmo.reset()
+	scene.toggle_slow_speed()
+	scene._physics_process(DELTA)
+	_check("training 2 key restores full speed",
+		not scene.is_slow_speed() and is_equal_approx(Engine.time_scale, 1.0))
+	scene.toggle_slow_speed()
+	scene._physics_process(DELTA)
+	scene._exit_tree()
+	_check("leaving training restores normal time flow even while slowed",
+		is_equal_approx(Engine.time_scale, 1.0))
 	scene.queue_free()
 	game.set("mode", old_mode)
 	game.set("p1_char_id", old_p1)
