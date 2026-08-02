@@ -139,6 +139,7 @@ func _initialize() -> void:
 	_test_multihit()
 	_test_move_sfx()
 	_test_animated_rig()
+	_test_impact_shake()
 	_test_six_buttons()
 	_test_dash()
 	_test_air_attack()
@@ -1259,7 +1260,71 @@ func _test_animated_rig() -> void:
 	arig.pose(f)
 	arig._player.advance(0.03)
 	_check("same-move cancel restarts the clip", arig._player.current_animation_position < before_restart)
+	# A clip started DURING hitstop must snap into pose: the player is frozen (speed_scale 0),
+	# so a crossfade can never progress and the victim would otherwise hold its pre-impact
+	# pose for the whole freeze, only jumping into the reaction once the freeze releases.
+	# A clip started DURING hitstop must snap into pose: the player is frozen (speed_scale 0),
+	# so a crossfade can never progress and the victim collapses toward a stale/rest pose for
+	# the whole freeze instead of holding the hit reaction.
+	f.on_ground = true
+	f.stun_timer = 16
+	f.state = Fighter.State.HITSTUN
+	var hit_clip: String = arig._resolve_hit_clip(f)
+	arig._player.speed_scale = 1.0
+	arig._player.play(arig._cfg.lib_name + "/" + hit_clip, 0.0)
+	arig._player.seek(0.0, true)
+	var want_pose := _skel_sig(arig._skel)
+	f.state = Fighter.State.ATTACK
+	f.state_frame = 0
+	f.hitstop = 0
+	arig.pose(f)
+	arig._player.advance(0.12)
+	var parked_pose := _skel_sig(arig._skel)
+	f.state = Fighter.State.HITSTUN
+	f.hitstop = 8
+	arig.pose(f)
+	arig._player.advance(0.016)   # the next engine frame, still frozen (speed_scale 0)
+	var frozen_pose := _skel_sig(arig._skel)
+	_check("hit reaction leaves the pre-impact pose during hitstop", absf(frozen_pose - parked_pose) > 0.0001)
+	_check("hit reaction reaches its own pose during hitstop", absf(frozen_pose - want_pose) < 0.0001)
 	arig.queue_free()
+
+## Cheap signature of the whole skeleton pose, so a test can assert the rig actually moved.
+func _skel_sig(sk: Skeleton3D) -> float:
+	var s := 0.0
+	for i in sk.get_bone_count():
+		var q := sk.get_bone_pose_rotation(i)
+		s += q.x + q.y * 2.0 + q.z * 3.0 + q.w * 5.0
+	return s
+
+func _test_impact_shake() -> void:
+	print("[impact shake]")
+	var blaze := CharacterLibrary.create("blaze")
+	var f := Fighter.new()
+	f.setup(blaze, Manual.new(), GameConst.Side.P1, 0.0)
+	_check("no shake outside hitstop", f._impact_shake_x() == 0.0)
+	f.state = Fighter.State.HITSTUN
+	f.hitstop = 6
+	f.hit_strength = 0
+	var light: float = absf(f._impact_shake_x())
+	f.hit_strength = 2
+	var heavy: float = absf(f._impact_shake_x())
+	_check("hitstop shakes the rig", light > 0.0)
+	_check("heavier hits shake harder", heavy > light)
+	# Alternating each tick is what reads as a vibration rather than a lean.
+	var a := f._impact_shake_x()
+	f.hitstop = 5
+	var b := f._impact_shake_x()
+	_check("shake alternates direction each tick", a * b < 0.0)
+	# It must fade out so the rig lands back on centre when the freeze releases.
+	f.hitstop = 1
+	_check("shake decays as hitstop drains", absf(f._impact_shake_x()) < heavy)
+	f.hitstop = 6
+	var victim: float = absf(f._impact_shake_x())
+	f.state = Fighter.State.ATTACK
+	_check("attacker shakes less than the victim", absf(f._impact_shake_x()) < victim)
+	f.hitstop = 0
+	_check("shake returns to centre after hitstop", f._impact_shake_x() == 0.0)
 
 func _test_six_buttons() -> void:
 	print("[six buttons]")

@@ -57,6 +57,8 @@ const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
 const HITSTOP_FEEL_BONUS := 4       # ponytail: one global hitstop feel knob; per-move overrides if tuning needs diverge
+const IMPACT_SHAKE_AMP := 0.02      # ponytail: one knob for the visual-only impact vibration (world units at the hit frame)
+const IMPACT_SHAKE_TICKS := 12.0    # ticks the vibration takes to decay back to centre
 const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
 const DRIVE_RUSH_CARRY_TICKS := 10  # ticks that carry momentum lasts
 const DRIVE_RUSH_BRAKE_TICKS := 10     # max skid frames after a back-back interrupt (safety cap)
@@ -331,8 +333,26 @@ func update_facing() -> void:
 		facing = want
 
 func update_visual() -> void:
-	if rig and rig.has_method("pose"):
+	if rig == null:
+		return
+	if rig.has_method("pose"):
 		rig.call("pose", self)
+	if rig is Node3D:
+		(rig as Node3D).position.x = _impact_shake_x()
+
+## Visual-only impact vibration during hitstop, so the freeze reads as a crunch instead of
+## two motionless statues. Offsets the rig node only — `position` (the simulation value) is
+## untouched, so frame data and hit results are unaffected.
+func _impact_shake_x() -> float:
+	if hitstop <= 0:
+		return 0.0
+	var amp := IMPACT_SHAKE_AMP * 0.35              # attacker: just a recoil buzz
+	if state == State.HITSTUN:
+		amp = IMPACT_SHAKE_AMP * (1.0 + 0.5 * hit_strength)
+	elif state == State.BLOCKSTUN:
+		amp = IMPACT_SHAKE_AMP * 0.5
+	var fade: float = minf(float(hitstop) / IMPACT_SHAKE_TICKS, 1.0)
+	return (1.0 if hitstop % 2 == 0 else -1.0) * amp * fade
 
 # --- neutral / movement ----------------------------------------------------
 

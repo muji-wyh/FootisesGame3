@@ -20,6 +20,7 @@ var _player: AnimationPlayer
 var _cur_clip: String = ""
 var _cur_move: MoveData = null
 var _grounded: bool = false
+var _frozen: bool = false   # hitstop is freezing the AnimationPlayer this tick (see _play)
 var _skel: Skeleton3D
 var _cfg: RigConfig   # per-character visual/rig configuration (CharacterData.rig)
 
@@ -60,7 +61,8 @@ func _state(key: String) -> String:
 func pose(f: Fighter) -> void:
 	if not ok:
 		return
-	_player.speed_scale = 0.0 if f.hitstop > 0 else 1.0
+	_frozen = f.hitstop > 0
+	_player.speed_scale = 0.0 if _frozen else 1.0
 	# Ground using the real (animated) idle pose - but only once the rig is in the tree and
 	# the AnimationPlayer has actually posed the skeleton (not during the early build call).
 	if not _grounded and is_inside_tree() and f.state == Fighter.State.IDLE:
@@ -244,7 +246,10 @@ func _play(clip: String, blend: float, speed: float = 1.0, loop: bool = false) -
 	var anim := _player.get_animation(full)
 	anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
 	var restarting_same := _player.current_animation == full
-	_player.play(full, blend, speed)
+	# A crossfade cannot progress while hitstop freezes the player (speed_scale 0), so a clip
+	# starting mid-freeze must snap — otherwise the fighter holds its pre-impact pose for the
+	# whole hitstop and only reacts once the freeze releases.
+	_player.play(full, 0.0 if _frozen else blend, speed)
 	if restarting_same:
 		_player.seek(0.0, true)
 	if _player.is_inside_tree():
