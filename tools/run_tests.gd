@@ -285,11 +285,17 @@ func _test_blaze_mp_hp_range() -> void:
 		and ember_wheel.hit_offset.x + ember_wheel.hit_size.x * 0.5 <= 0.76)
 	# Flame Surge is a cancel route, not a neutral tool, so its box has to stay a rising fist:
 	# it used to be the largest box in the kit outside the dedicated anti-air and out-reached
-	# st.MK, which let the launcher take over the spacing st.MK is supposed to rule.
+	# st.MK, which let the launcher take over the spacing st.MK is supposed to rule. Cinder Lash
+	# is the reference -- the other single-arm punch launcher -- so Flame Surge is held to the
+	# same volume rather than to a number picked on its own.
 	var flame_surge := blaze.get_move("flame_surge")
+	var surge_volume := flame_surge.hit_size.x * flame_surge.hit_size.y * flame_surge.hit_size.z
+	var lash_volume := cinder_lash.hit_size.x * cinder_lash.hit_size.y * cinder_lash.hit_size.z
 	_check("Flame Surge (236+MP) hitbox fits the uppercut animation",
-		flame_surge.hit_size.x <= 0.46 and flame_surge.hit_size.y <= 0.68
-		and _reach(flame_surge) <= 0.93 and _reach(flame_surge) < _reach(st_mk))
+		flame_surge.hit_size.x <= 0.40 and flame_surge.hit_size.y <= 0.54
+		and _reach(flame_surge) <= 0.84 and _reach(flame_surge) < _reach(st_mk))
+	_check("Flame Surge box is no bulkier than the other arm launcher (Cinder Lash)",
+		surge_volume <= lash_volume * 1.1)
 	_check("stand LK/MK/HK ranges scale up light -> medium -> heavy",
 		st_lk.hit_offset.x + st_lk.hit_size.x * 0.5 < st_mk.hit_offset.x + st_mk.hit_size.x * 0.5
 		and st_mk.hit_offset.x + st_mk.hit_size.x * 0.5 < st_hk.hit_offset.x + st_hk.hit_size.x * 0.5)

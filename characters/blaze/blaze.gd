@@ -158,7 +158,7 @@ static func build() -> CharacterData:
 		"damage": 30, "hits": 2, "hit_gap": 4, "hitstun": 20, "blockstun": 12, "hitstop": 11,
 		"guard": GameConst.Guard.MID, "knockback": 3.6, "advance": 4.2, "launch": true, "launch_velocity": 6.4,
 		"meter_gain": 11, "hit_fx": HIT_FX + "Effect08.png", "sfx": "mp", "anim_limb": "arm_r", "anim_extend": 0.9, "anim_clip": "KB_m_Uppercut_R",
-		"hit_offset": Vector3(0.68, 1.00, 0.0), "hit_size": Vector3(0.44, 0.64, 0.56),
+		"hit_offset": Vector3(0.62, 1.02, 0.0), "hit_size": Vector3(0.38, 0.52, 0.46),
 		"cancel_into": ["super_inferno"]}))
 
 
