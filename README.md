@@ -89,6 +89,10 @@ python tools/serve.py 8090
 # 3. Open http://localhost:8090/ in Chrome
 ```
 
+Test shortcut: **http://localhost:8090/testblaze** skips the menus and boots straight into
+a Blaze vs Blaze training session. `/#testblaze` and `/?testblaze` work the same way, for
+hosts that don't rewrite paths.
+
 ### Deploy to Azure Static Web Apps
 
 `web-build/` is a static Godot Web export. The easiest Azure hosting path is Azure Static

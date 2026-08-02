@@ -129,6 +129,7 @@ func _initialize() -> void:
 	_test_timeout_draw()
 	_test_cpu_ai()
 	_test_training_mode()
+	_test_boot_deep_link()
 	_test_blaze_roster()
 	_test_ember_lift()
 	_test_animation_ownership()
@@ -858,6 +859,41 @@ func _test_training_mode() -> void:
 			break
 	_check("training scene spawns Green Rush mode ghost trail", training_fx_spawned)
 	scene.queue_free()
+	game.set("mode", old_mode)
+	game.set("p1_char_id", old_p1)
+	game.set("p2_char_id", old_p2)
+
+func _test_boot_deep_link() -> void:
+	print("[boot deep link]")
+	var game := root.get_node("Game")
+	var old_mode: int = int(game.get("mode"))
+	var old_p1: String = String(game.get("p1_char_id"))
+	var old_p2: String = String(game.get("p2_char_id"))
+	var main = load("res://scripts/ui/Main.gd").new()
+
+	game.set("mode", GameConst.Mode.LOCAL_2P)
+	game.set("p1_char_id", "")
+	game.set("p2_char_id", "")
+	_check("a plain URL still boots the main menu",
+		main.apply_boot_link("http://localhost:8090/") == "res://scenes/ui/MainMenu.tscn")
+	_check("a plain URL leaves the match config untouched",
+		int(game.get("mode")) == GameConst.Mode.LOCAL_2P
+		and String(game.get("p1_char_id")) == "")
+
+	# Path, hash and query spellings all resolve, so the link survives whichever host serves it.
+	for url in ["http://localhost:8090/testblaze", "http://localhost:8090/#testblaze",
+			"http://localhost:8090/?testblaze"]:
+		game.set("mode", GameConst.Mode.LOCAL_2P)
+		game.set("p1_char_id", "")
+		game.set("p2_char_id", "")
+		_check("%s boots straight into training" % url,
+			main.apply_boot_link(url) == "res://scenes/match/Training.tscn")
+		_check("%s sets up Blaze vs Blaze" % url,
+			int(game.get("mode")) == GameConst.Mode.TRAINING
+			and String(game.get("p1_char_id")) == "blaze"
+			and String(game.get("p2_char_id")) == "blaze")
+
+	main.free()
 	game.set("mode", old_mode)
 	game.set("p1_char_id", old_p1)
 	game.set("p2_char_id", old_p2)

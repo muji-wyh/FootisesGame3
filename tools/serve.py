@@ -27,6 +27,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
+    def do_GET(self):
+        # Deep links such as /testblaze are client-side routes with no file behind them.
+        # Serve the game shell for any extensionless path; the browser keeps the original
+        # URL, so the game can still read it from window.location.
+        if "." not in self.path.split("?", 1)[0].rsplit("/", 1)[-1]:
+            self.path = "/index.html"
+        super().do_GET()
+
     def end_headers(self):
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
