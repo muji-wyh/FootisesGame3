@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 
+# ponytail: one calibrated tolerance is enough; split units only if real exports require it.
 DEFAULT_TOLERANCE = 2e-5
 WEIGHT_TOLERANCE = 1e-4
 NONZERO_WEIGHT = 1e-8

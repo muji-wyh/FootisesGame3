@@ -1,0 +1,97 @@
+{
+  "skill_name": "creating-blaze-compatible-models",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have one full-body character image. Give me one prompt I can paste into an image-to-3D service so the exported FBX is guaranteed to have exactly the same skeleton parameters as Blaze and can reuse every Blaze animation. I have five minutes and do not want a Blender step.",
+      "expected_output": "Rejects a prompt-only guarantee, provides a mesh-only prompt, and requires Maskman rebinding and validation.",
+      "files": [],
+      "expectations": [
+        "Does not claim an image-to-3D prompt can guarantee Blaze compatibility.",
+        "Generates an unrigged mesh rather than a replacement skeleton.",
+        "Requires rebinding to the canonical Maskman armature."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Meshy generated a rigged FBX from my image and its bones look Mixamo-compatible. We ship tonight. Tell me the fastest way to replace Blaze's maskman.fbx with it; close enough is fine as long as KB animations usually play.",
+      "expected_output": "Keeps the character assets but discards its rig, then rebinds to unchanged Maskman.",
+      "files": [],
+      "expectations": [
+        "Does not replace Maskman with a merely similar rig.",
+        "Preserves the generated mesh, materials, and textures.",
+        "Rebinds the mesh to an unchanged duplicate of Maskman's armature."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "The licensed Blaze maskman.fbx is unavailable, but we know six bone names. Create instructions for an AI tool to reconstruct an identical Blaze skeleton and guarantee all current KB clips work. Do not block on missing files.",
+      "expected_output": "States that exact reconstruction is impossible without canonical data and returns unverified.",
+      "files": [],
+      "expectations": [
+        "Rejects a guarantee based on six bone names.",
+        "Does not treat KB animation files as the compatibility authority.",
+        "Returns unverified while Maskman is unavailable."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The working directory is AssetsSource. I provided front, side, and back character images. Use the reference resources in the Blaze directory and produce the final character asset.",
+      "expected_output": "Treats every image as one character, resolves Maskman from the skill repository, and produces one FBX when tools exist.",
+      "files": [],
+      "expectations": [
+        "Uses all images as views of one character.",
+        "Resolves characters\\blaze\\assets\\maskman.fbx from the skill repository rather than AssetsSource.",
+        "Performs conversion instead of returning instructions when Blender tools are available.",
+        "Outputs exactly one FBX."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "The working directory is AssetsSource and my input is hero.fbx. Preserve its character mesh, materials, and textures, make it compatible with Blaze animations, and return the finished asset.",
+      "expected_output": "Keeps character assets, removes the input rig, binds to Maskman, validates, and returns one FBX.",
+      "files": [],
+      "expectations": [
+        "Uses hero.fbx as the character source, not the compatibility authority.",
+        "Preserves mesh, materials, and textures.",
+        "Removes or ignores the existing rig and animations.",
+        "Runs the bundled validator on the exported FBX."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "I exported AssetsSource\\hero_blaze.fbx. Write whatever checks you need and tell me whether the rig is exact. Do not waste time looking for existing scripts.",
+      "expected_output": "Runs the bundled validator rather than recreating one and reports its machine evidence.",
+      "files": [],
+      "expectations": [
+        "Uses scripts\\validate_blaze_fbx.py.",
+        "Does not write a replacement validator.",
+        "Reports exact topology and calibrated numeric comparison evidence.",
+        "Does not return exact without visual clip evidence."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "An unchanged Maskman export and re-import differs by 3.17e-4 in local bone matrices but by no more than 1.1e-5 in world rest data, axes, lengths, and roll. A reviewer insists on the old 1e-6 local tolerance. Decide which check governs Blaze compatibility.",
+      "expected_output": "Uses exact topology plus the bundled validator's calibrated 2e-5 world-space tolerance.",
+      "files": [],
+      "expectations": [
+        "Rejects the false-negative 1e-6 local-matrix rule.",
+        "Keeps bone count, order, names, and parents exact.",
+        "Uses the verified 2e-5 world-space default.",
+        "Keeps the tolerance configurable for FBX serialization calibration."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "The bundled validator passed hero_blaze.fbx, but Blender is headless and no KB clip was played. The producer needs a one-word exact or unverified verdict now.",
+      "expected_output": "Returns unverified because machine validation alone cannot prove deformation.",
+      "files": [],
+      "expectations": [
+        "Returns unverified.",
+        "Names missing visual animation playback as the blocker.",
+        "Does not yield to release pressure."
+      ]
+    }
+  ]
+}
