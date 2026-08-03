@@ -84,7 +84,7 @@ godot4.7 --headless --path C:\uworks\FootisesGame3 `
     --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
 
 # 2. Serve it (sets application/wasm + isolation headers)
-python tools/serve.py 8090
+python tools/serve.py
 
 # 3. Open http://localhost:8090/ in Chrome
 ```

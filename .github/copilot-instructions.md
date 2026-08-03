@@ -2,23 +2,23 @@
 
 ## Commands
 
-Use the Godot 4.7 CLI on this machine:
+Run the Godot 4.7 CLI from the repository root. Use repository-relative paths; do not hard-code machine-specific absolute paths.
 
 ```powershell
 # Run in the editor / desktop
-godot4.7 --path C:\uworks\FootisesGame3
+godot4.7 --path .
 
 # Refresh Godot's global class cache after adding class_name scripts or importing assets
-godot4.7 --headless --path C:\uworks\FootisesGame3 --import
+godot4.7 --headless --path . --import
 
 # Run the full headless combat / round / AI suite
-godot4.7 --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
+godot4.7 --headless --path . --script res://tools/run_tests.gd
 
 # Export the Web build
-godot4.7 --headless --path C:\uworks\FootisesGame3 --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
+godot4.7 --headless --path . --export-release "Web" web-build\index.html
 
 # Serve the exported build with the required WASM MIME type and headers
-python tools\serve.py 8090
+python tools\serve.py
 ```
 
 The current test harness has no CLI test filter. To run one test, temporarily limit `tools\run_tests.gd::_initialize()` to the target `_test_*()` call plus `_finish()`, run the same headless command, then revert the local harness edit.
@@ -33,10 +33,10 @@ For gameplay or presentation changes, use the smallest check that covers the cha
    ```powershell
    python tools\serve.py
    ```
-4. Use Chrome DevTools MCP to open `http://localhost:8080/testblaze` — this deep link skips
+4. Use Chrome DevTools MCP to open `http://localhost:8090/testblaze` — this deep link skips
    the menus and boots straight into a Blaze vs Blaze training session.
 5. Godot renders UI inside a canvas, so DOM selectors are not useful. Click/focus the canvas,
-   then use `WASD` and `U/I/O/J/K/L` to reproduce the change. Open `http://localhost:8080/`
+   then use `WASD` and `U/I/O/J/K/L` to reproduce the change. Open `http://localhost:8090/`
    instead when you specifically need to validate the menu or character-select flow.
 6. Check DevTools console/network for errors and capture screenshots or canvas samples when validating visual effects.
 

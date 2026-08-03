@@ -1,19 +1,18 @@
 """Tiny static server for the exported web build (Brawl Arena).
 
-    python tools/serve.py [port]      # default 8080
+    python tools/serve.py             # port 8090
 
 Serves web-build/ with the correct WASM MIME type and cross-origin isolation headers.
 The game is exported in no-threads mode, so the isolation headers are not strictly
 required - but they are harmless and make the server work for threaded builds too.
-Open http://localhost:8080/ in Chrome.
+Open http://localhost:8090/ in Chrome.
 """
 import http.server
 import os
 import socketserver
-import sys
 
 DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web-build"))
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+PORT = 8090
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
