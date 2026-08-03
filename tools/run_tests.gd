@@ -302,6 +302,21 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("crouch LK/MK/HK ranges scale up light -> medium -> heavy",
 		cr_lk.hit_offset.x + cr_lk.hit_size.x * 0.5 < cr_mk.hit_offset.x + cr_mk.hit_size.x * 0.5
 		and cr_mk.hit_offset.x + cr_mk.hit_size.x * 0.5 < cr_hk.hit_offset.x + cr_hk.hit_size.x * 0.5)
+	var cr_lp := blaze.get_move("cr_lp")
+	var cr_mp := blaze.get_move("cr_mp")
+	var cr_hp := blaze.get_move("cr_hp")
+	var cr_mp_bottom := cr_mp.hit_offset.y - cr_mp.hit_size.y * 0.5
+	var cr_mp_top := cr_mp.hit_offset.y + cr_mp.hit_size.y * 0.5
+	_check("crouch MP hitbox fits its jab animation",
+		cr_mp.hit_size.x <= 0.42 and cr_mp.hit_size.y <= 0.32
+		and _reach(cr_mp) > _reach(cr_lp) and _reach(cr_mp) <= 0.88
+		and cr_mp_bottom <= 1.11 and cr_mp_top >= 1.13)
+	var cr_hp_bottom := cr_hp.hit_offset.y - cr_hp.hit_size.y * 0.5
+	var cr_hp_top := cr_hp.hit_offset.y + cr_hp.hit_size.y * 0.5
+	_check("crouch HP hitbox is a close vertical uppercut",
+		cr_hp.hit_size.x <= 0.44 and cr_hp.hit_size.y <= 0.90
+		and _reach(cr_hp) <= 0.56
+		and cr_hp_bottom <= 1.15 and cr_hp_top >= 1.88)
 
 ## Footsies-first button identity (see docs/footsies-design.md). Asserts the *role*
 ## relationships between Blaze's grounded normals, not only raw frame/range numbers, so a
