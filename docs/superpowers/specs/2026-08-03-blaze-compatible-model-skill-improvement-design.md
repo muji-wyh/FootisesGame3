@@ -22,7 +22,7 @@ Make `creating-blaze-compatible-models` produce portable, machine-checked eviden
 - Add `scripts\validate_blaze_fbx.py`.
   - Resolve the canonical FBX from the skill's repository location unless `--reference` is supplied.
   - Import reference and candidate with identical Blender FBX settings in a clean scene.
-  - Require exactly one candidate armature, at least one skinned mesh, exact bone count/order/names/parents, and the six required foot/root bones.
+  - Require exactly one candidate armature, its exact object name/parent path, at least one skinned mesh, exact bone count/order/names/parents, and the six required foot/root bones.
   - Compare armature transforms and bone world-space rest data with a configurable default tolerance of `2e-5`.
   - Reject all candidate actions/NLA animation.
   - Require every mesh vertex to have one to four normalized bone influences.

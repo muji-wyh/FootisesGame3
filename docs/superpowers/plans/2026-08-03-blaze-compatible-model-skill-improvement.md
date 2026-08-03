@@ -60,7 +60,13 @@ assert not check_candidate(bad_weights)["passed"]
 
 - [ ] **Step 2: Run the regression check and verify RED**
 
-Run the test through Blender. Expected: import failure because `validate_blaze_fbx.py` and its functions do not exist.
+Run the test through Blender:
+
+```powershell
+blender --background --python-exit-code 1 --python .github\skills\creating-blaze-compatible-models\scripts\test_validate_blaze_fbx.py
+```
+
+Expected: import failure because `validate_blaze_fbx.py` and its functions do not exist.
 
 - [ ] **Step 3: Implement the minimal validator**
 
@@ -91,11 +97,11 @@ def validate_files(reference_path: Path, candidate_path: Path, tolerance: float 
     }
 ```
 
-`load_snapshot()` must import into a temporary Blender scene, restore the caller's scene, and remove only data blocks created by the import. Snapshot actual edit-bone roll, world-space rest matrices and axes, exact order/names/parents, imported actions, armature modifiers, and per-vertex bone weights.
+`load_snapshot()` must import into a temporary Blender scene, restore the caller's scene, and remove only data blocks created by the import. Snapshot the armature object name/parent path, actual edit-bone roll, world-space rest matrices and axes, exact bone order/names/parents, imported actions, armature modifiers, and per-vertex bone weights.
 
 - [ ] **Step 4: Run the Blender regression check and verify GREEN**
 
-Expected: unchanged Maskman round-trip passes armature comparison; deliberate rig, animation, and weight mutations fail.
+Run the same `--python-exit-code 1` command. Expected: unchanged Maskman round-trip passes armature comparison; deliberate rig, animation, and weight mutations fail.
 
 - [ ] **Step 5: Commit the validator**
 

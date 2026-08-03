@@ -4,7 +4,9 @@ import argparse
 import json
 import math
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 
 
 # ponytail: one calibrated tolerance is enough; split units only if real exports require it.
@@ -31,6 +33,7 @@ DATA_BLOCKS = (
     "cameras",
     "lights",
     "curves",
+    "scenes",
 )
 
 
@@ -58,13 +61,34 @@ def _flatten_axes(matrix) -> list[float]:
 
 
 def _max_delta(left: list[float], right: list[float]) -> float:
-    if len(left) != len(right):
+    if (
+        len(left) != len(right)
+        or not all(math.isfinite(value) for value in left)
+        or not all(math.isfinite(value) for value in right)
+    ):
         return math.inf
     return max((abs(a - b) for a, b in zip(left, right)), default=0.0)
 
 
+def _absolute_delta(left: float, right: float) -> float:
+    if not math.isfinite(left) or not math.isfinite(right):
+        return math.inf
+    return abs(left - right)
+
+
 def _angle_delta(left: float, right: float) -> float:
+    if not math.isfinite(left) or not math.isfinite(right):
+        return math.inf
     return abs((left - right + math.pi) % (2.0 * math.pi) - math.pi)
+
+
+def _require_tolerance(tolerance: float) -> None:
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("tolerance must be finite and greater than zero")
+
+
+def _report_number(value: float):
+    return value if math.isfinite(value) else "non-finite"
 
 
 def _check(name: str, passed: bool, detail=None) -> dict:
@@ -99,7 +123,7 @@ def _remove_imported_data(collections: dict, before: dict) -> None:
                     items.remove(item)
 
 
-def load_snapshot(path: Path) -> dict:
+def _load_snapshot_in_process(path: Path) -> dict:
     import bpy
 
     path = Path(path).resolve()
@@ -115,11 +139,17 @@ def load_snapshot(path: Path) -> dict:
     selected_objects = list(bpy.context.selected_objects)
     original_mode = active_object.mode if active_object is not None else "OBJECT"
     original_frame = bpy.context.scene.frame_current
+    window = bpy.context.window
+    if window is None:
+        raise RuntimeError("FBX validation requires a Blender window context")
+    original_scene = window.scene
+    original_view_layer = window.view_layer
 
     if active_object is not None and original_mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
 
     try:
+        window.scene = bpy.data.scenes.new("BlazeFbxValidation")
         bpy.ops.object.select_all(action="DESELECT")
         bpy.ops.import_scene.fbx(
             filepath=str(path),
@@ -145,6 +175,7 @@ def load_snapshot(path: Path) -> dict:
             "path": str(path),
             "armature_count": len(armatures),
             "armature_name": None,
+            "armature_parent_path": [],
             "armature_matrix": [],
             "bone_order": [],
             "bones": {},
@@ -174,8 +205,15 @@ def load_snapshot(path: Path) -> dict:
                     if strip.action is not None:
                         nla_actions.append(strip.action.name)
 
+        armature_parent_path = []
+        parent = armature.parent
+        while parent is not None:
+            armature_parent_path.append(parent.name)
+            parent = parent.parent
+
         snapshot.update({
             "armature_name": armature.name,
+            "armature_parent_path": list(reversed(armature_parent_path)),
             "armature_matrix": _flatten_matrix(armature.matrix_world),
             "bone_order": [bone.name for bone in armature.data.bones],
             "actions": new_actions,
@@ -206,11 +244,14 @@ def load_snapshot(path: Path) -> dict:
             }
             vertices = []
             for vertex in mesh.data.vertices:
-                weights = [
-                    float(group.weight)
-                    for group in vertex.groups
-                    if group.group in bone_groups and group.weight > NONZERO_WEIGHT
-                ]
+                weights = []
+                for group in vertex.groups:
+                    weight = float(group.weight)
+                    if (
+                        group.group in bone_groups
+                        and (not math.isfinite(weight) or weight > NONZERO_WEIGHT)
+                    ):
+                        weights.append(weight)
                 vertices.append({"index": vertex.index, "weights": weights})
             snapshot["meshes"].append({
                 "name": mesh.name,
@@ -222,6 +263,8 @@ def load_snapshot(path: Path) -> dict:
     finally:
         if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
+        window.scene = original_scene
+        window.view_layer = original_view_layer
         _remove_imported_data(collections, before)
         _restore_blender_state(
             active_object,
@@ -231,7 +274,49 @@ def load_snapshot(path: Path) -> dict:
         )
 
 
+def load_snapshot(path: Path) -> dict:
+    import bpy
+
+    path = Path(path).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"FBX not found: {path}")
+
+    with tempfile.TemporaryDirectory(prefix="blaze-fbx-validator-") as temp_dir:
+        output_path = Path(temp_dir) / "snapshot.json"
+        command = [
+            bpy.app.binary_path,
+            "--background",
+            "--factory-startup",
+            "--python-exit-code",
+            "1",
+            "--python",
+            str(Path(__file__).resolve()),
+            "--",
+            "--snapshot",
+            str(path),
+            "--output",
+            str(output_path),
+        ]
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0 or not output_path.is_file():
+            detail = "\n".join(
+                part.strip()
+                for part in (result.stdout, result.stderr)
+                if part.strip()
+            )
+            raise RuntimeError(
+                f"Blender snapshot failed for {path}: {detail[-2000:]}"
+            )
+        return json.loads(output_path.read_text(encoding="utf-8"))
+
+
 def compare_armatures(reference: dict, candidate: dict, tolerance: float) -> dict:
+    _require_tolerance(tolerance)
     checks = []
     checks.append(_check(
         "one_reference_armature",
@@ -246,6 +331,22 @@ def compare_armatures(reference: dict, candidate: dict, tolerance: float) -> dic
     if reference["armature_count"] != 1 or candidate["armature_count"] != 1:
         return {"passed": False, "checks": checks}
 
+    checks.append(_check(
+        "armature_name",
+        reference["armature_name"] == candidate["armature_name"],
+        {
+            "reference": reference["armature_name"],
+            "candidate": candidate["armature_name"],
+        },
+    ))
+    checks.append(_check(
+        "armature_parent_path",
+        reference["armature_parent_path"] == candidate["armature_parent_path"],
+        {
+            "reference": reference["armature_parent_path"],
+            "candidate": candidate["armature_parent_path"],
+        },
+    ))
     reference_order = reference["bone_order"]
     candidate_order = candidate["bone_order"]
     reference_names = set(reference_order)
@@ -319,8 +420,9 @@ def compare_armatures(reference: dict, candidate: dict, tolerance: float) -> dic
                 reference_bone["axes"],
                 candidate_bone["axes"],
             ),
-            "world_length": abs(
-                reference_bone["world_length"] - candidate_bone["world_length"]
+            "world_length": _absolute_delta(
+                reference_bone["world_length"],
+                candidate_bone["world_length"],
             ),
             "roll": _angle_delta(
                 reference_bone["roll"],
@@ -347,9 +449,15 @@ def compare_armatures(reference: dict, candidate: dict, tolerance: float) -> dic
         not numeric_errors,
         {
             "tolerance": tolerance,
-            "max_deltas": max_deltas,
+            "max_deltas": {
+                name: _report_number(delta)
+                for name, delta in max_deltas.items()
+            },
             "failure_count": len(numeric_errors),
-            "examples": numeric_errors[:20],
+            "examples": [
+                {**error, "delta": _report_number(error["delta"])}
+                for error in numeric_errors[:20]
+            ],
         },
     ))
 
@@ -394,6 +502,13 @@ def check_candidate(candidate: dict) -> dict:
         vertex_count += len(mesh["vertices"])
         for vertex in mesh["vertices"]:
             weights = vertex["weights"]
+            if not all(math.isfinite(weight) for weight in weights):
+                weight_errors.append({
+                    "mesh": mesh["name"],
+                    "vertex": vertex["index"],
+                    "issue": "nonfinite_weight",
+                })
+                continue
             if not 1 <= len(weights) <= 4:
                 weight_errors.append({
                     "mesh": mesh["name"],
@@ -445,8 +560,7 @@ def validate_files(
     candidate_path: Path,
     tolerance: float = DEFAULT_TOLERANCE,
 ) -> dict:
-    if tolerance <= 0:
-        raise ValueError("tolerance must be greater than zero")
+    _require_tolerance(tolerance)
 
     reference_path = Path(reference_path).resolve()
     candidate_path = Path(candidate_path).resolve()
@@ -473,6 +587,24 @@ def _user_args(argv: list[str]) -> list[str]:
     return argv[1:]
 
 
+def _run_snapshot_mode(argv: list[str]) -> int | None:
+    args = _user_args(argv)
+    if not args or args[0] != "--snapshot":
+        return None
+    if len(args) != 4 or args[2] != "--output":
+        raise ValueError("snapshot mode requires --snapshot <fbx> --output <json>")
+
+    import bpy
+
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    snapshot = _load_snapshot_in_process(Path(args[1]))
+    Path(args[3]).write_text(
+        json.dumps(snapshot, indent=2, allow_nan=False),
+        encoding="utf-8",
+    )
+    return 0
+
+
 def _parse_args(argv: list[str]):
     parser = argparse.ArgumentParser(
         description="Validate a candidate FBX against Blaze's Maskman armature.",
@@ -484,13 +616,21 @@ def _parse_args(argv: list[str]):
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parse_args(sys.argv if argv is None else argv)
+    argv = sys.argv if argv is None else argv
+    snapshot_result = _run_snapshot_mode(argv)
+    if snapshot_result is not None:
+        return snapshot_result
+    args = _parse_args(argv)
     try:
         report = validate_files(args.reference, args.candidate, args.tolerance)
     except (FileNotFoundError, RuntimeError, ValueError) as error:
-        print(json.dumps({"passed": False, "error": str(error)}, indent=2))
+        print(json.dumps(
+            {"passed": False, "error": str(error)},
+            indent=2,
+            allow_nan=False,
+        ))
         return 2
-    print(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2, allow_nan=False))
     return 0 if report["passed"] else 1
 
 

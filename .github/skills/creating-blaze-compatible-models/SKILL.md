@@ -39,7 +39,7 @@ blender --background --python "<skill-dir>\scripts\validate_blaze_fbx.py" -- --c
 
 When only Blender MCP is available, load `scripts\validate_blaze_fbx.py` in Blender Python and call `validate_files(default_reference_path(), candidate_path)`.
 
-The validator requires exact bone count, order, names, and parents; checks world-space rest data at its FBX-round-trip-calibrated default `2e-5`; rejects animation; and rejects missing, unnormalized, or fifth-plus vertex influences. `--tolerance` calibrates serialization only; it cannot excuse a visibly different rig.
+The validator requires the exact armature object name and parent path plus exact bone count, order, names, and parents; checks world-space rest data at its FBX-round-trip-calibrated default `2e-5`; rejects animation; and rejects missing, unnormalized, or fifth-plus vertex influences. `--tolerance` calibrates serialization only; it cannot excuse a visibly different rig.
 
 7. Visually play idle, movement, crouch, jump, attack, hit, knockdown, and get-up clips. Inspect shoulders, hips, fingers, hair, feet, and loose clothing.
 
