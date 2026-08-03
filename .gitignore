@@ -16,6 +16,7 @@
 # Imported translations and temp files
 *.translation
 *.tmp
+__pycache__/
 
 # OS / editor cruft
 .DS_Store
