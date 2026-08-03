@@ -1956,9 +1956,6 @@ func _test_okizeme() -> void:
 func _test_reaction_clips() -> void:
 	print("[reaction clip resolution]")
 	var blaze := CharacterLibrary.create("blaze")
-	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
-		print("  SKIP: model assets not present (clean clone)")
-		return
 	var arig := AnimatedFighterRig.new()
 	root.add_child(arig)
 	arig.build(blaze)
@@ -1991,6 +1988,15 @@ func _test_reaction_clips() -> void:
 	f.hit_strength = 0
 	_check("crouch hit -> crouch-hit clip", arig._resolve_hit_clip(f).begins_with("KB_crouch_Hit"))
 	f.hit_crouch = false
+	f.hit_strength = 0
+	f.hit_height = GameConst.HitHeight.MID
+	f.hit_reaction_clip = ""
+	f.state = Fighter.State.HITSTUN
+	f.stun_timer = 13
+	f.hitstop = 0
+	arig.pose(f)
+	_check("grounded hit reactions play at authored speed instead of fitting the whole clip",
+		is_equal_approx(arig._player.get_playing_speed(), 1.0))
 	# Knockdown by cause.
 	f.knockdown_kind = GameConst.Knockdown.UPPER
 	_check("upper knockdown -> UpperKO", arig._knockdown_clip(f) == "KB_UpperKO")

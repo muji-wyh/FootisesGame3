@@ -97,7 +97,8 @@ func pose(f: Fighter) -> void:
 	if f.state == Fighter.State.HITSTUN and f.on_ground:
 		var hc := _resolve_hit_clip(f)
 		if hc != _cur_clip:
-			_play_fitted(hc, f.stun_timer, 0.05)
+			# Keep grounded hit reactions at authored speed; the next state blends them out.
+			_play(hc, 0.05, 1.0, false)
 		return
 
 	var target := _state_clip(f)
