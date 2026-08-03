@@ -1956,6 +1956,9 @@ func _test_okizeme() -> void:
 func _test_reaction_clips() -> void:
 	print("[reaction clip resolution]")
 	var blaze := CharacterLibrary.create("blaze")
+	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
+		print("  SKIP: model assets not present (clean clone)")
+		return
 	var arig := AnimatedFighterRig.new()
 	root.add_child(arig)
 	arig.build(blaze)
