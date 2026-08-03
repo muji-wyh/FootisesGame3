@@ -66,22 +66,22 @@ shows a recoverable-health trail and a glow when the Super meter is full.
 
 ## Run it
 
-Godot 4.7 is available as `godot4.7` in the environment.
+Godot 4.7 is available as `godot4.7` in the environment. Run these commands from the
+repository root.
 
 ```powershell
 # Play in the editor / desktop
-godot4.7 --path C:\uworks\FootisesGame3
+godot4.7 --path .
 
 # Run the headless combat/round/AI test suite
-godot4.7 --headless --path C:\uworks\FootisesGame3 --script res://tools/run_tests.gd
+godot4.7 --headless --path . --script res://tools/run_tests.gd
 ```
 
 ## Build & play in Chrome
 
 ```powershell
 # 1. Export the web build (templates already installed)
-godot4.7 --headless --path C:\uworks\FootisesGame3 `
-    --export-release "Web" C:\uworks\FootisesGame3\web-build\index.html
+godot4.7 --headless --export-release "Web" web-build\index.html --path .
 
 # 2. Serve it (sets application/wasm + isolation headers)
 python tools/serve.py
@@ -144,7 +144,7 @@ $token = az staticwebapp secrets list `
     --query "properties.apiKey" `
     -o tsv
 
-swa deploy C:\uworks\FootisesGame3\web-build `
+swa deploy web-build `
     --deployment-token $token `
     --env production
 ```

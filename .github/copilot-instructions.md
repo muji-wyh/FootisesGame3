@@ -15,7 +15,7 @@ godot4.7 --headless --path . --import
 godot4.7 --headless --path . --script res://tools/run_tests.gd
 
 # Export the Web build
-godot4.7 --headless --path . --export-release "Web" web-build\index.html
+godot4.7 --headless --export-release "Web" web-build\index.html --path .
 
 # Serve the exported build with the required WASM MIME type and headers
 python tools\serve.py
