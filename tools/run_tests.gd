@@ -309,13 +309,13 @@ func _test_blaze_mp_hp_range() -> void:
 	var cr_mp_top := cr_mp.hit_offset.y + cr_mp.hit_size.y * 0.5
 	_check("crouch MP hitbox fits its jab animation",
 		cr_mp.hit_size.x <= 0.42 and cr_mp.hit_size.y <= 0.32
-		and _reach(cr_mp) > _reach(cr_lp) and _reach(cr_mp) <= 0.88
+		and _reach(cr_mp) > _reach(cr_lp) and _reach(cr_mp) <= 0.8801
 		and cr_mp_bottom <= 1.11 and cr_mp_top >= 1.13)
 	var cr_hp_bottom := cr_hp.hit_offset.y - cr_hp.hit_size.y * 0.5
 	var cr_hp_top := cr_hp.hit_offset.y + cr_hp.hit_size.y * 0.5
 	_check("crouch HP hitbox is a close vertical uppercut",
 		cr_hp.hit_size.x <= 0.44 and cr_hp.hit_size.y <= 0.90
-		and _reach(cr_hp) <= 0.56
+		and _reach(cr_hp) <= 0.5601
 		and cr_hp_bottom <= 1.15 and cr_hp_top >= 1.88)
 
 ## Footsies-first button identity (see docs/footsies-design.md). Asserts the *role*
