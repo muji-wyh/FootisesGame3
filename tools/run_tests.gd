@@ -307,16 +307,21 @@ func _test_blaze_mp_hp_range() -> void:
 	var cr_hp := blaze.get_move("cr_hp")
 	var cr_mp_bottom := cr_mp.hit_offset.y - cr_mp.hit_size.y * 0.5
 	var cr_mp_top := cr_mp.hit_offset.y + cr_mp.hit_size.y * 0.5
+	# Reach caps include a small tolerance for float32 addition.
 	_check("crouch MP hitbox fits its jab animation",
-		cr_mp.hit_size.x <= 0.42 and cr_mp.hit_size.y <= 0.32
+		cr_mp.hit_size.x >= 0.30 and cr_mp.hit_size.x <= 0.42
+		and cr_mp.hit_size.y >= 0.20 and cr_mp.hit_size.y <= 0.32
+		and cr_mp.hit_size.z >= 0.50 and cr_mp.hit_size.z <= 0.6001
 		and _reach(cr_mp) > _reach(cr_lp) and _reach(cr_mp) <= 0.8801
-		and cr_mp_bottom <= 1.11 and cr_mp_top >= 1.13)
+		and cr_mp_bottom >= 0.80 and cr_mp_bottom <= 1.11 and cr_mp_top >= 1.13)
 	var cr_hp_bottom := cr_hp.hit_offset.y - cr_hp.hit_size.y * 0.5
 	var cr_hp_top := cr_hp.hit_offset.y + cr_hp.hit_size.y * 0.5
 	_check("crouch HP hitbox is a close vertical uppercut",
-		cr_hp.hit_size.x <= 0.44 and cr_hp.hit_size.y <= 0.90
+		cr_hp.hit_size.x >= 0.30 and cr_hp.hit_size.x <= 0.44
+		and cr_hp.hit_size.y >= 0.70 and cr_hp.hit_size.y <= 0.90
+		and cr_hp.hit_size.z >= 0.50 and cr_hp.hit_size.z <= 0.64
 		and _reach(cr_hp) <= 0.5601
-		and cr_hp_bottom <= 1.15 and cr_hp_top >= 1.88)
+		and cr_hp_bottom >= 0.90 and cr_hp_bottom <= 1.15 and cr_hp_top >= 1.88)
 
 ## Footsies-first button identity (see docs/footsies-design.md). Asserts the *role*
 ## relationships between Blaze's grounded normals, not only raw frame/range numbers, so a
