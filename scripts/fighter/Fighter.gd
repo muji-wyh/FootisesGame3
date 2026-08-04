@@ -72,7 +72,11 @@ const CORNER_PUSHBACK_TRANSFER := 0.30  # ponytail: share of the wall-eaten slid
 ## decays by this every stun tick. THE knob for knockback distance -- lower is a shorter,
 ## snappier push that keeps the initial impact pop. Read by both the victim's slide and the
 ## attacker's corner estimate, so the two can never disagree.
-const SLIDE_FRICTION: Array[float] = [0.835, 0.875, 0.885]
+## Not monotonic on purpose: this is the settle RATE, not the distance. Heavies carry by far
+## the biggest impulse (and the longest hitstun), so they need the tightest settle to land near
+## the mediums instead of blowing spacing wide open. Distance still rises with strength --
+## `_test_hit_strength` pins that.
+const SLIDE_FRICTION: Array[float] = [0.835, 0.875, 0.845]
 
 ## Combo damage scaling (SF6-style): the n-th hit of a combo deals this fraction of its
 ## damage. Gentle and only kicks in past hit 3 so single moves / short strings are unscaled.

@@ -476,7 +476,7 @@ func _test_pushback_scaling() -> void:
 	_check("crouch heavies route into combo enders", b.get_move("cr_hp").cancel_into.has("ember_wheel") and b.get_move("cr_hk").cancel_into.has("super_inferno"))
 	var sf6_like_kb := {
 		"st_lp": [3.4, 3.8], "st_mp": [4.1, 4.5], "st_hp": [5.8, 6.3],
-		"st_lk": [3.1, 3.5], "st_mk": [4.6, 5.0], "st_hk": [6.4, 7.0],
+		"st_lk": [3.1, 3.5], "st_mk": [4.6, 5.0], "st_hk": [5.8, 6.2],
 		"cr_lp": [3.2, 3.6], "cr_mp": [3.9, 4.3], "cr_hp": [5.3, 5.8],
 		"cr_lk": [2.9, 3.3], "cr_mk": [4.3, 4.8], "cr_hk": [6.0, 6.6],
 		"air_lp": [2.9, 3.3], "air_mp": [4.2, 4.6], "air_hp": [5.7, 6.3],
@@ -1715,8 +1715,16 @@ func _test_hit_strength() -> void:
 	# Lights decay faster than mediums/heavies for a short, crisp slide.
 	_check("light hitstun uses the light slide friction",
 		is_equal_approx(next_vel, initial_vel * Fighter.SLIDE_FRICTION[0]))
-	_check("slide friction rises with hit strength",
-		Fighter.SLIDE_FRICTION[0] < Fighter.SLIDE_FRICTION[1] and Fighter.SLIDE_FRICTION[1] < Fighter.SLIDE_FRICTION[2])
+	# Friction is the settle RATE, not the distance (heavies settle fastest because they carry
+	# the biggest impulse). The contract that matters is that a heavier button in the same
+	# family pushes further.
+	var bz := CharacterLibrary.create("blaze")
+	for fam in [["st_lp", "st_mp", "st_hp"], ["st_lk", "st_mk", "st_hk"]]:
+		var dist: Array[float] = []
+		for i in range(3):
+			var mv: MoveData = bz.get_move(fam[i])
+			dist.append(Fighter.slide_distance(mv.knockback, Fighter.SLIDE_FRICTION[i], mv.hitstun))
+		_check("%s family pushback rises light -> medium -> heavy" % fam[2], dist[0] < dist[1] and dist[1] < dist[2])
 	ctx["arena"].queue_free()
 
 func _test_kb_library() -> void:
