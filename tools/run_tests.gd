@@ -2903,6 +2903,31 @@ func _test_drive_rush() -> void:
 	_check("DRC accepts overlapping staggered two-punch input", staggered_drc)
 	_check("staggered DRC spent ~3 bars", sa.drive <= sdrive - Fighter.DRC_COST + 60)
 	ctxs["arena"].queue_free()
+	# Regression: a DRC chord pressed within GREEN_RUSH_CHORD_BUFFER of a punch normal starting was
+	# stolen by the raw-Green-Rush rescue -- the normal was aborted for 1 bar and the DRC never
+	# happened. The rescue now only covers a chord this normal was itself half of.
+	var ctxi := _build()
+	var ia: Fighter = ctxi["f1"]
+	var ib: Fighter = ctxi["f2"]
+	ia.position.x = -0.7
+	ib.position.x = 0.6
+	var idrive: int = ia.drive
+	_step(ctxi, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_check("st.HP started for the immediate-DRC case",
+		ia.current_move != null and ia.current_move.id == "st_hp")
+	_step(ctxi, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	_check("an immediate DRC chord does not abort the normal into a raw rush",
+		ia.state == Fighter.State.ATTACK and not ia.green_rush_active())
+	var immediate_drc := false
+	for i in range(40):
+		_step(ctxi, _neutral(), _neutral(), 1)
+		if ia.state == Fighter.State.DRIVE_RUSH:
+			immediate_drc = true
+			break
+	_check("a DRC pressed immediately after st.HP is not swallowed", immediate_drc)
+	_check("the immediate DRC spent the DRC cost, not the raw rush cost",
+		ia.drive <= idrive - Fighter.DRC_COST + 60)
+	ctxi["arena"].queue_free()
 	# A sequential string (press LP, release, press MP -- no overlap) during a connected normal
 	# must NOT DRC; it is just a combo attempt. Regression: LP-then-MP used to false-trigger a DRC.
 	var ctxq := _build()
@@ -3268,6 +3293,77 @@ func _test_input_buffer() -> void:
 			saw_lp = true
 	_check("buffered attack fires on the first actionable frame", saw_lp)
 	ctx["arena"].queue_free()
+	# A press made DEEP in recovery -- far outside both the cancel window and INPUT_BUFFER --
+	# must still come out on the first actionable frame instead of being silently eaten.
+	var ctx2 := _build()
+	var g1: Fighter = ctx2["f1"]
+	var g2: Fighter = ctx2["f2"]
+	g1.position.x = -4.0
+	g2.position.x = 5.0
+	_step(ctx2, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_step(ctx2, _neutral(), _neutral(), 12)
+	var frames_left := hp.total_frames() - g1.state_frame
+	_step(ctx2, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_check("the deep press really was outside every buffer",
+		frames_left > Fighter.CANCEL_BUFFER and frames_left > Fighter.INPUT_BUFFER
+		and g1.current_move != null and g1.current_move.id == "st_hp")
+	var deep_lp := false
+	for i in range(frames_left + 6):
+		_step(ctx2, _neutral(), _neutral(), 1)
+		if g1.current_move != null and g1.current_move.id == "st_lp":
+			deep_lp = true
+			break
+	_check("a press deep in recovery is not swallowed", deep_lp)
+	ctx2["arena"].queue_free()
+	# st.MK is a pure poke with no cancel routes: pressing HP after it connects must NOT chain
+	# cancel, but the press must survive recovery rather than vanish.
+	var ctx3 := _build()
+	var k1: Fighter = ctx3["f1"]
+	var k2: Fighter = ctx3["f2"]
+	k1.position.x = -0.7
+	k2.position.x = 0.6
+	var k_hp: int = k2.health
+	_step(ctx3, _mk(0, 0, GameConst.Btn.MK), _neutral(), 1)
+	for i in range(14):
+		if k2.health < k_hp:
+			break
+		_step(ctx3, _neutral(), _neutral(), 1)
+	_check("st.MK connected", k2.health < k_hp)
+	for i in range(20):
+		if k1.hitstop == 0:
+			break
+		_step(ctx3, _neutral(), _neutral(), 1)
+	_step(ctx3, _neutral(), _neutral(), Fighter.CANCEL_BUFFER + 1)
+	_step(ctx3, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_check("no chain cancel outside the cancel window",
+		k1.current_move != null and k1.current_move.id == "st_mk")
+	var late_hp := false
+	for i in range(30):
+		_step(ctx3, _neutral(), _neutral(), 1)
+		if k1.current_move != null and k1.current_move.id == "st_hp":
+			late_hp = true
+			break
+	_check("a press with no cancel route still comes out after recovery", late_hp)
+	ctx3["arena"].queue_free()
+	# The carry is capped: a press made near the START of a long move is mashing, not a follow-up,
+	# and must stay dropped so no phantom move fires half a second later.
+	var ctx4 := _build()
+	var e1: Fighter = ctx4["f1"]
+	var e2: Fighter = ctx4["f2"]
+	e1.position.x = -4.0
+	e2.position.x = 5.0
+	_step(ctx4, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_step(ctx4, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_check("the early press is older than the carry cap",
+		hp.total_frames() - e1.state_frame > Fighter.MOVE_END_BUFFER)
+	var phantom_lp := false
+	for i in range(hp.total_frames() + 8):
+		_step(ctx4, _neutral(), _neutral(), 1)
+		if e1.current_move != null and e1.current_move.id == "st_lp":
+			phantom_lp = true
+			break
+	_check("a press near the start of a long move stays dropped", not phantom_lp)
+	ctx4["arena"].queue_free()
 
 func _test_overdrive() -> void:
 	print("[overdrive removed]")

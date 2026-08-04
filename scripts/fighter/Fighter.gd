@@ -56,6 +56,7 @@ const RAW_DRIVE_RUSH_COST := 1000    # Drive spent by a neutral two-punch green 
 const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars of 1000)
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
+const MOVE_END_BUFFER := 20         # ticks an unconsumed press made during a move survives to fire when the move ends
 const IMPACT_SHAKE_AMP := 0.02      # ponytail: one knob for the visual-only impact vibration (world units at the hit frame)
 const IMPACT_SHAKE_TICKS := 12.0    # ticks the vibration takes to decay back to centre
 const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
@@ -292,6 +293,12 @@ func _is_live_two_punch_chord(inp: InputFrame) -> bool:
 func _is_green_rush_chord(inp: InputFrame) -> bool:
 	return _is_live_two_punch_chord(inp)
 
+## Rescue for a raw Green Rush whose two punches landed a frame or two apart: the first punch
+## already started a normal, so abort it and give the rush the player actually asked for.
+## It must stay a RESCUE, not a thief -- it only applies when this normal was itself HALF of the
+## chord: exactly two punches held, one of them the normal's own button. A separate chord pressed
+## on top of a deliberate normal (st.HP, then LP+MP) is a DRC attempt, and stealing it here
+## swallowed the DRC for the first GREEN_RUSH_CHORD_BUFFER frames of every punch normal.
 func _can_confirm_raw_green_rush_from_attack(inp: InputFrame) -> bool:
 	if drive_rush_pending or current_move == null:
 		return false
@@ -300,6 +307,9 @@ func _can_confirm_raw_green_rush_from_attack(inp: InputFrame) -> bool:
 	if (current_move.button & DRC_PUNCH_MASK) == 0:
 		return false
 	if move_hits_done > 0 or state_frame > GREEN_RUSH_CHORD_BUFFER:
+		return false
+	var punches := inp.held & DRC_PUNCH_MASK
+	if _bit_count(punches) != 2 or (punches & current_move.button) == 0:
 		return false
 	return _is_green_rush_chord(inp)
 
@@ -706,6 +716,7 @@ func _step_attack(_inp: InputFrame) -> void:
 	if is_air:
 		# Air normals keep horizontal momentum; gravity + landing end the move.
 		if on_ground:
+			_carry_press_past_move()
 			current_move = null
 			_goto(State.IDLE)
 			return
@@ -744,10 +755,24 @@ func _step_attack(_inp: InputFrame) -> void:
 				_start_move(nxt)
 				return
 	if state_frame >= m.total_frames():
+		_carry_press_past_move()
 		current_move = null
 		drive_rush_pending = false
 		green_rush_pending = false
 		_goto(State.IDLE if on_ground else State.JUMP)
+
+## An attack press made during a move but never consumed (pressed outside the cancel window, or
+## on a button the move has no cancel route for) used to rot: by the time recovery ended it was
+## older than INPUT_BUFFER, so the neutral buffer dropped it and the player got nothing at all.
+## Re-arm it on the move's last frame so the button actually pressed comes out on the first
+## actionable frame instead of being swallowed. The cancel window itself is untouched -- this
+## runs only as the move ends, so it cannot turn an early press into a chain cancel.
+## MOVE_END_BUFFER caps the wait, which also rejects any press older than this move (_start_move()
+## parks the age at 999): a stray press during the 74-frame super stays dropped rather than firing
+## a phantom move half a second later.
+func _carry_press_past_move() -> void:
+	if _cancel_btn != 0 and _cancel_age <= MOVE_END_BUFFER:
+		_cancel_age = 0
 
 ## Choose a buffered cancel target. Uses the hitstop-aware cancel buffer (a press within the
 ## last CANCEL_BUFFER advancing ticks) rather than a frame-fresh press, and only allows moves
