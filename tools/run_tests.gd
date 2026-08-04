@@ -271,6 +271,8 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("stand MP hitbox is tighter than the stock default", st_mp.hit_offset.x < 0.9 and st_mp.hit_size.x < 0.9)
 	_check("stand HP hitbox is tighter than the stock default", st_hp.hit_size.x < 0.9)
 	_check("stand HP still reaches farther than stand MP", st_hp.hit_offset.x + st_hp.hit_size.x * 0.5 > st_mp.hit_offset.x + st_mp.hit_size.x * 0.5)
+	_check("stand HP hitbox is centered at shoulder height",
+		st_hp.hit_offset.y >= 1.35 and st_hp.hit_offset.y <= 1.45)
 	# Flame Step H (236+HK) hitbox must stay proportionate to the model: not wider/taller than the
 	# character hurtbox (~0.84 wide). Regression: it used to be 0.90 wide -- bigger than the model.
 	var flame_step_h := blaze.get_move("flame_step_h")
