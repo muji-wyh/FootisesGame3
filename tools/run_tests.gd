@@ -3067,6 +3067,78 @@ func _test_drive_rush() -> void:
 	_check("DRC accepts two punches buffered during hitstop", buffered_drc_started_in_hitstop and hitstop_buffered_drc)
 	_check("hitstop-buffered DRC spent ~3 bars", ha.drive <= hda - Fighter.DRC_COST + 60)
 	ctxh["arena"].queue_free()
+	# A refused DRC chord must not leak out as a stray attack. The player asked for a rush; when
+	# the poke whiffs there is nothing to cancel, and re-arming the press at the end of recovery
+	# used to turn the chord into an unwanted st.LP on the most vulnerable frame.
+	var ctxz := _build()
+	var za: Fighter = ctxz["f1"]
+	var zb: Fighter = ctxz["f2"]
+	za.position.x = -4.0
+	zb.position.x = 5.0
+	_step(ctxz, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	_step(ctxz, _neutral(), _neutral(), 11)
+	_step(ctxz, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var zleak := false
+	for i in range(40):
+		_step(ctxz, _neutral(), _neutral(), 1)
+		if za.current_move and za.current_move.id != "st_hp":
+			zleak = true
+			break
+	_check("refused DRC chord does not leak a stray attack", not zleak)
+	ctxz["arena"].queue_free()
+	# A stale motion must not let a single-button special cancel steal the chord. Cancels validate
+	# motions over DRC_INPUT_BUFFER ticks, far wider than neutral's window, so a quarter-circle
+	# left over from walking in could eat the DRC and fire a fireball instead.
+	var ctxstl := _build()
+	var stla: Fighter = ctxstl["f1"]
+	var stlb: Fighter = ctxstl["f2"]
+	stla.position.x = -0.7
+	stlb.position.x = 0.6
+	_step(ctxstl, _mk(0, -1, 0), _neutral(), 1)
+	_step(ctxstl, _mk(1, -1, 0), _neutral(), 1)
+	_step(ctxstl, _mk(1, 0, 0), _neutral(), 1)
+	_step(ctxstl, _neutral(), _neutral(), 10)
+	_step(ctxstl, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	var stl_normal := stla.state == Fighter.State.ATTACK and stla.current_move and stla.current_move.id == "st_mp"
+	var stlhp: int = stlb.health
+	for i in range(14):
+		if stlb.health < stlhp:
+			break
+		_step(ctxstl, _neutral(), _neutral(), 1)
+	_step(ctxstl, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var stlrush := false
+	for i in range(24):
+		_step(ctxstl, _neutral(), _neutral(), 1)
+		if stla.state == Fighter.State.DRIVE_RUSH:
+			stlrush = true
+			break
+		if stla.current_move and stla.current_move.id != "st_mp":
+			break
+	_check("stale motion does not steal the DRC chord", stl_normal and stlrush)
+	ctxstl["arena"].queue_free()
+	# An unaffordable DRC must not eat the input: _consume_drc_input() clears the buffer as a side
+	# effect, so checking Drive only after consuming threw the chord away with no feedback.
+	var ctxw := _build()
+	var wa: Fighter = ctxw["f1"]
+	var wb: Fighter = ctxw["f2"]
+	wa.position.x = -0.7
+	wb.position.x = 0.6
+	_step(ctxw, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	var whp: int = wb.health
+	for i in range(14):
+		if wb.health < whp:
+			break
+		_step(ctxw, _neutral(), _neutral(), 1)
+	wa.drive = Fighter.DRC_COST - 20
+	_step(ctxw, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var wrush := false
+	for i in range(24):
+		_step(ctxw, _neutral(), _neutral(), 1)
+		if wa.state == Fighter.State.DRIVE_RUSH:
+			wrush = true
+			break
+	_check("DRC input survives until Drive can pay for it", wrush)
+	ctxw["arena"].queue_free()
 	# A freeze longer than the DRC input buffer window (forced below, since real hitstop stays
 	# well under it): a two-punch input at the start of freeze must still survive until the
 	# attacker advances again.

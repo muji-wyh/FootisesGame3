@@ -746,7 +746,8 @@ func _step_attack(_inp: InputFrame) -> void:
 			if special_cancel:
 				_start_move(special_cancel)
 				return
-		if m.kind != GameConst.MoveKind.SUPER and _consume_drc_input() and spend_drive(DRC_COST):
+		if m.kind != GameConst.MoveKind.SUPER and drive >= DRC_COST \
+				and _consume_drc_input() and spend_drive(DRC_COST):
 			_start_drive_rush()
 			return
 		if not m.cancel_into.is_empty():
@@ -771,8 +772,13 @@ func _step_attack(_inp: InputFrame) -> void:
 ## parks the age at 999): a stray press during the 74-frame super stays dropped rather than firing
 ## a phantom move half a second later.
 func _carry_press_past_move() -> void:
-	if _cancel_btn != 0 and _cancel_age <= MOVE_END_BUFFER:
-		_cancel_age = 0
+	if _cancel_btn == 0 or _cancel_age > MOVE_END_BUFFER:
+		return
+	# A two-punch chord was a DRC request, not an attack. If the DRC did not happen (the move
+	# whiffed, or Drive could not pay) drop it instead of leaking a stray jab out of recovery.
+	if _is_live_two_punch_chord(_cancel_frame):
+		return
+	_cancel_age = 0
 
 ## Choose a buffered cancel target. Uses the hitstop-aware cancel buffer (a press within the
 ## last CANCEL_BUFFER advancing ticks) rather than a frame-fresh press, and only allows moves
@@ -788,6 +794,12 @@ func _select_cancel(from_move: MoveData, allow_normals: bool = true) -> MoveData
 					and m.multi_button != 0 and _bit_count(btn & m.multi_button) >= 2 \
 					and drive >= m.drive_cost and _cancel_motion_ok(m):
 				return m
+		# A live two-punch chord is a DRC request. Overdrives above legitimately want two buttons,
+		# but a single-button special/super must not claim it: _cancel_motion_ok() accepts motions
+		# up to DRC_INPUT_BUFFER old, far wider than neutral's window, so an old walk-in motion
+		# could turn the chord into a fireball and wipe the DRC buffer with it.
+		if _is_live_two_punch_chord(_cancel_frame):
+			return null
 		for m in character.supers:
 			if (btn & m.button) and from_move.cancel_into.has(m.id) and meter >= m.meter_cost and _cancel_motion_ok(m):
 				return m
