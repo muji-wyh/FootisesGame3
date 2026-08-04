@@ -65,7 +65,14 @@ const DRIVE_RUSH_BRAKE_FRICTION := 0.6 # per-tick forward-momentum decay during 
 const DRIVE_RUSH_BRAKE_STOP := 0.2     # speed below which the skid ends early and control returns
 const BURNOUT_TICKS := 90           # ticks Drive regen is suspended after the gauge empties (SF6 Burnout)
 const DRC_PUNCH_MASK := GameConst.Btn.LP | GameConst.Btn.MP | GameConst.Btn.HP
-const HIT_RECOIL_RATIO := 0.035     # SF6-like open-space separation without breaking close confirms
+const HIT_RECOIL_RATIO := 0.28      # share of the victim's slide the attacker gives back on an open-space hit
+const CORNER_PUSHBACK_TRANSFER := 0.30  # ponytail: share of the wall-eaten slide handed to the attacker; 1.0 = the corner buys no ground
+
+## Per-strength hitstun slide friction (light, medium, heavy): the victim's knockback velocity
+## decays by this every stun tick. THE knob for knockback distance -- lower is a shorter,
+## snappier push that keeps the initial impact pop. Read by both the victim's slide and the
+## attacker's corner estimate, so the two can never disagree.
+const SLIDE_FRICTION: Array[float] = [0.835, 0.875, 0.885]
 
 ## Combo damage scaling (SF6-style): the n-th hit of a combo deals this fraction of its
 ## damage. Gentle and only kicks in past hit 3 so single moves / short strings are unscaled.
@@ -961,12 +968,13 @@ func _counter_kind() -> int:
 		return GameConst.Counter.COUNTER
 	return GameConst.Counter.NONE
 
+## Ground slide distance for a knockback velocity: every stun tick multiplies the velocity by
+## `friction` before the position integral, and the slide is cut short when stun ends.
+static func slide_distance(v0: float, friction: float, ticks: int) -> float:
+	return v0 * friction * (1.0 - pow(friction, ticks)) / (1.0 - friction) / float(GameConst.TICK_RATE)
+
 func _step_stun() -> void:
-	var friction := STUN_FRICTION
-	match hit_strength:
-		0: friction = 0.86  # ponytail: light attacks decay faster for a short, crisp slide
-		1: friction = 0.90  # ponytail: standard medium slide
-		2: friction = 0.93  # ponytail: heavy/special/supers slide further and feel heavier
+	var friction: float = SLIDE_FRICTION[hit_strength]
 	velocity.x *= friction
 	if not on_ground:
 		return   # airborne: wait until landing (handled in _apply_physics)
@@ -1197,41 +1205,32 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 			k_mult = 1.15
 
 	var final_knockback := base_knockback * k_mult
-	var self_push := 0.0
 
-	if blocked:
-		# Attacker gets 22% of the blocked knockback as standard block recoil
-		self_push = final_knockback * 0.22
-	else:
-		self_push = final_knockback * HIT_RECOIL_RATIO
+	# Strength-based slide friction, shared by the victim's slide estimate below and the
+	# attacker's own recoil slide, so heavier hits slide further.
+	var friction: float = SLIDE_FRICTION[_strength_of(m)]
 
-	# Strength-based slide friction, shared by the victim's corner-distance estimate below and
-	# the attacker's own recoil slide, so heavier hits slide further.
-	var friction := STUN_FRICTION
-	match _strength_of(m):
-		0: friction = 0.86
-		1: friction = 0.90
-		2: friction = 0.93
+	# How far the victim actually slides from this contact (the same model their own stun step
+	# integrates), so open-space recoil and corner transfer are shares of a real distance.
+	var v_vic := final_knockback * (0.5 if blocked else 1.0)
+	var s_vic := slide_distance(v_vic, friction, m.blockstun if blocked else m.hitstun)
 
-	# Corner Pushback Transfer: if the victim is blocked by the wall, transfer the untraveled
-	# distance directly to the attacker.
+	# Block pushback stays a share of raw knockback on purpose: it exists to end blockstrings by
+	# shoving the ATTACKER out, not to mirror the defender's (much shorter) slide.
+	var self_push := (final_knockback * 0.22) if blocked else (s_vic * HIT_RECOIL_RATIO)
+
+	# Direction the victim was actually pushed; an air cross-up hits away from raw facing, and
+	# using facing there would recoil the attacker INTO the victim and mis-pick the wall.
+	var hit_dir := active_attack_facing(opponent)
+
+	# Corner Pushback Transfer: the distance the wall steals from the victim is handed back to
+	# the attacker only in part, so cornering still buys ground.
 	if opponent != null and is_instance_valid(opponent):
-		var v_vic_initial := final_knockback
-		if blocked:
-			v_vic_initial *= 0.5
-
-		# Expected victim slide distance in units (60 Hz tick)
-		var s_vic := v_vic_initial * (1.0 / (1.0 - friction)) / 60.0
-		var expected_final_x := opponent.position.x + facing * s_vic
+		var expected_final_x := opponent.position.x + hit_dir * s_vic
 		var lim := 7.0 - PUSHBOX_HALF # FIGHT_BOUNDS_HALF_WIDTH - PUSHBOX_HALF
-		var blocked_dist := 0.0
-		if expected_final_x > lim:
-			blocked_dist = expected_final_x - lim
-		elif expected_final_x < -lim:
-			blocked_dist = -lim - expected_final_x
-
+		var blocked_dist := maxf(expected_final_x - lim, -lim - expected_final_x)
 		if blocked_dist > 0.0:
-			self_push += blocked_dist
+			self_push += blocked_dist * CORNER_PUSHBACK_TRANSFER
 
 	# Multi-hit scaling: if this is an early hit of a multi-hit move, scale down self-push
 	if opponent != null and is_instance_valid(opponent):
@@ -1244,7 +1243,7 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 	# frames (integrated in _apply_physics). Total slide distance still equals self_push.
 	if self_push > 0.0:
 		_recoil_friction = friction
-		_recoil_vel += -facing * self_push * (1.0 - friction) * 60.0
+		_recoil_vel += -hit_dir * self_push * (1.0 - friction) * 60.0
 	if not blocked:
 		_add_meter(m.meter_gain)
 	contact.emit(blocked, m)

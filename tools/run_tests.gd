@@ -505,6 +505,18 @@ func _test_pushback_scaling() -> void:
 	var heavy_recoil := absf(f1._recoil_vel) / ((1.0 - f1._recoil_friction) * 60.0)
 	_check("open-space hit gives attacker a small SF6-like recoil", light_recoil > 0.0)
 	_check("attacker recoil scales light < medium < heavy", light_recoil < medium_recoil and medium_recoil < heavy_recoil)
+	# Corner pushback transfer: the wall eats the victim's slide and hands the attacker only
+	# part of it, so cornering still buys ground instead of ejecting the attacker further than
+	# an open-space hit would have moved the victim.
+	var lim: float = Arena.FIGHT_BOUNDS_HALF_WIDTH - Fighter.PUSHBOX_HALF
+	f2.position.x = lim
+	f1.position.x = lim - 0.7
+	f1._recoil_vel = 0.0
+	f1.mark_connected(false, heavy)
+	var corner_recoil := absf(f1._recoil_vel) / ((1.0 - f1._recoil_friction) * 60.0)
+	var heavy_slide := Fighter.slide_distance(heavy.knockback, Fighter.SLIDE_FRICTION[2], heavy.hitstun)
+	_check("corner hit recoils the attacker more than an open-space hit", corner_recoil > heavy_recoil)
+	_check("corner recoil stays under the slide the wall ate", corner_recoil < heavy_slide)
 	ctx["arena"].queue_free()
 
 func _test_lp_pushout() -> void:
@@ -1689,7 +1701,7 @@ func _test_hit_strength() -> void:
 	var f2: Fighter = ctx["f2"]
 	f1.position.x = -0.38
 	f2.position.x = 0.38
-	# Hit with LP (Light attack, base knockback = 3.2, dynamic friction = 0.86)
+	# Hit with LP (light attack -> SLIDE_FRICTION[0])
 	_step(ctx, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
 	for i in range(20):
 		_step(ctx, _neutral(), _neutral(), 1)
@@ -1700,8 +1712,11 @@ func _test_hit_strength() -> void:
 	_check("LP base knockback applied", initial_vel > 0.0)
 	_step(ctx, _neutral(), _neutral(), 1)
 	var next_vel := absf(f2.velocity.x)
-	# Decays at 0.86 (light friction) rather than the default 0.90
-	_check("light hitstun uses faster friction decay (0.86)", is_equal_approx(next_vel, initial_vel * 0.86))
+	# Lights decay faster than mediums/heavies for a short, crisp slide.
+	_check("light hitstun uses the light slide friction",
+		is_equal_approx(next_vel, initial_vel * Fighter.SLIDE_FRICTION[0]))
+	_check("slide friction rises with hit strength",
+		Fighter.SLIDE_FRICTION[0] < Fighter.SLIDE_FRICTION[1] and Fighter.SLIDE_FRICTION[1] < Fighter.SLIDE_FRICTION[2])
 	ctx["arena"].queue_free()
 
 func _test_kb_library() -> void:
