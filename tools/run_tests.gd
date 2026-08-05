@@ -2743,7 +2743,7 @@ func _test_blaze_complex_relay() -> void:
 		_step(early, _neutral(), _neutral(), 1)
 		early_max = maxi(early_max, eb.combo_count)
 	_check("early DP cancel intentionally truncates Ember Barrage",
-		early_max >= 4 and early_max < 6)
+		early_max == 4)
 	early["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
