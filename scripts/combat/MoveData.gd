@@ -40,6 +40,7 @@ extends Resource
 @export var hit_height: int = GameConst.HitHeight.AUTO
 @export var pushback_self: float = 0.4       # pushback applied to attacker on block
 @export var advance: float = 0.0             # forward self-movement while performing (lunges)
+@export var whiff_advance_frames: int = -1   # cap pre-contact lunge; -1 advances through active frames
 @export var launch: bool = false             # sends victim airborne (juggle)
 @export var launch_velocity: float = 7.0
 @export var meter_gain: int = 8              # attacker meter gained on hit

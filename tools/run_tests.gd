@@ -79,6 +79,10 @@ func _find_move(ch: CharacterData, id: String) -> MoveData:
 func _reach(m: MoveData) -> float:
 	return m.hit_offset.x + m.hit_size.x * 0.5
 
+func _max_active_reach(m: MoveData) -> float:
+	var advancing_frames := maxi(0, m.startup + m.active - 1)
+	return _reach(m) + m.advance * float(advancing_frames) / float(GameConst.TICK_RATE)
+
 ## True if P1 pressing `button` (with optional `dy` for crouch/jump) connects on an idle,
 ## non-blocking P2 standing `separation` apart. Builds and tears down its own arena.
 func _hits_at(button: int, dy: int, separation: float) -> bool:
@@ -392,7 +396,9 @@ func _test_blaze_button_roles() -> void:
 			heavy.recovery > max_medium_recovery)
 	# st.HK is the longest grounded callout / whiff-punish button.
 	_check("st.HK is the longest-reaching grounded read button",
-		_reach(st_hk) > _reach(st_hp) and _reach(st_hk) > _reach(cr_hk) and _reach(st_hk) > _reach(st_mk))
+		_max_active_reach(st_hk) > _max_active_reach(st_hp)
+		and _max_active_reach(st_hk) > _max_active_reach(cr_hk)
+		and _max_active_reach(st_hk) > _max_active_reach(st_mk))
 
 ## Live footsies scenarios (the automatable part of the targeted playtest pass): the ruler
 ## out-spaces its variation, the low variation beats a standing guard, and a committal heavy
@@ -2734,6 +2740,18 @@ func _test_blaze_complex_relay() -> void:
 		not blaze.get_move("st_mk").cancel_into.has("ember_barrage")
 		and not blaze.get_move("cr_mk").cancel_into.has("ember_barrage"))
 
+	var raw := _build()
+	var raw_attacker: Fighter = raw["f1"]
+	var raw_defender: Fighter = raw["f2"]
+	raw_attacker.position.x = -1.0
+	raw_defender.position.x = 1.0
+	var raw_hp := raw_defender.health
+	_p1_qcf(raw, GameConst.Btn.LP)
+	_step(raw, _neutral(), _neutral(), 80)
+	_check("raw Ember Barrage cannot chase from outside close range",
+		raw_defender.health == raw_hp)
+	raw["arena"].queue_free()
+
 	var full := _build()
 	var fa: Fighter = full["f1"]
 	var fb: Fighter = full["f2"]
@@ -2779,7 +2797,7 @@ func _test_blaze_complex_relay() -> void:
 	var heavy_hp := hb.health
 	var heavy_ok := _p1_heavy_relay(heavy)
 	_check("Heavy Relay reaches all 8 meterless hits",
-		heavy_ok and hb.combo_count >= 8 and hb.health < heavy_hp and hb.health > 0)
+		heavy_ok and hb.combo_count == 8 and hb.health < heavy_hp and hb.health > 0)
 	heavy["arena"].queue_free()
 
 	var inferno := _build()
@@ -2793,7 +2811,7 @@ func _test_blaze_complex_relay() -> void:
 	_p1_qcf(inferno, GameConst.Btn.HP)
 	inferno_ok = inferno_ok and _wait_for_combo_count(inferno, ib, 13, 120)
 	_check("Inferno Relay reaches all 13 hits",
-		inferno_ok and ib.combo_count >= 13 and ib.health > 0)
+		inferno_ok and ib.combo_count == 13 and ib.health > 0)
 	_check("Inferno Relay spends the full Super meter", ia.meter == 0)
 	inferno["arena"].queue_free()
 
@@ -2827,7 +2845,7 @@ func _test_blaze_complex_relay() -> void:
 	_p1_qcf(max_heat, 0)
 	_p1_qcf(max_heat, GameConst.Btn.HP)
 	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 14, 120)
-	_check("Max Heat reaches all 14 hits", max_ok and mb.combo_count >= 14)
+	_check("Max Heat reaches all 14 hits", max_ok and mb.combo_count == 14)
 	_check("Max Heat spends three Drive bars",
 		drive_after_drc == drive_before - Fighter.DRC_COST)
 	_check("Max Heat spends Super without a full-health KO",

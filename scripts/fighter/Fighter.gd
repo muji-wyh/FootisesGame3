@@ -723,7 +723,8 @@ func _step_attack(_inp: InputFrame) -> void:
 			return
 	elif (drive_rush_pending or (green_rush_pending and m.kind == GameConst.MoveKind.NORMAL)) and state_frame < m.startup + m.active:
 		velocity.x = facing * maxf(DRIVE_RUSH_ATTACK_SPEED, m.advance)
-	elif m.advance > 0.0 and state_frame < m.startup + m.active:
+	elif m.advance > 0.0 and state_frame < m.startup + m.active \
+			and (m.whiff_advance_frames < 0 or move_hits_done > 0 or state_frame <= m.whiff_advance_frames):
 		velocity.x = facing * m.advance   # ground lunge/advance
 	elif _dr_carry > 0:
 		# Drive Rush normal: keep sliding forward (decaying) so it closes the gap.

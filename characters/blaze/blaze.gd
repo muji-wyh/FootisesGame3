@@ -48,7 +48,7 @@ const NORMAL_TUNING := {
 	# the impact frame: the old box topped out at 1.06, i.e. entirely below the visible kick.
 	# Measure with tools/probe_hitheight.gd rather than eyeballing if the clip is swapped.
 	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.8, "hit_offset": Vector3(0.74, 1.10, 0.0), "hit_size": Vector3(0.54, 0.40, 0.68), "cancel_into": [], "hit_fx": HIT_FX + "Medium02.png"},
-	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "hit_offset": Vector3(0.82, 1.36, 0.0), "hit_size": Vector3(0.62, 0.56, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large02.png"},
+	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "advance": 0.1, "hit_offset": Vector3(0.82, 1.36, 0.0), "hit_size": Vector3(0.62, 0.56, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large02.png"},
 	# hit_offset.y is 0.95 (not the old 0.78) for the same reason as st.MK: KB_crouch_p_Jab_L
 	# puts the fist at y=1.07..1.10 across the active window, above the old 0.61..0.95 box. Its
 	# sibling cr.MP (same crouching-jab height) was already authored at 1.00.
@@ -171,7 +171,8 @@ static func build() -> CharacterData:
 		"motion": MotionParser.QCF, "startup": 5, "active": 30, "recovery": 20,
 		"damage": 16, "hits": 3, "hit_gap": 13, "hitstun": 19, "blockstun": 14,
 		"hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 2.4,
-		"advance": 4.2, "meter_gain": 8, "hit_fx": HIT_FX + "Effect01.png", "sfx": "lp",
+		"advance": 4.2, "whiff_advance_frames": 6,
+		"meter_gain": 8, "hit_fx": HIT_FX + "Effect01.png", "sfx": "lp",
 		"anim_limb": "arm_l", "anim_extend": 0.8, "anim_clip": "KB_p_OneTwoThree",
 		"hit_offset": Vector3(0.69, 1.45, 0.0),
 		"hit_size": Vector3(0.36, 0.42, 0.58),
