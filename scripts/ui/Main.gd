@@ -7,9 +7,11 @@ extends Node
 ## menus and drops straight into a Blaze vs Blaze training session. `tools/serve.py`
 ## rewrites extensionless paths to index.html so the bare "/testblaze" link resolves.
 const TESTBLAZE_LINK := "testblaze"
+const FIGHTING_ANIMSET_PRO_LINK := "testfightinganimsetpro"
 
 const MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
 const TRAINING_SCENE := "res://scenes/match/Training.tscn"
+const FIGHTING_ANIMSET_PRO_SCENE := "res://scenes/ui/GALLERY-FightingAnimsetPro.tscn"
 
 func _ready() -> void:
 	if OS.has_feature("headless"):
@@ -23,6 +25,8 @@ func _boot() -> void:
 ## The URL is a parameter (not read inside) so the headless suite can drive this
 ## without a browser.
 func apply_boot_link(url: String) -> String:
+	if url.contains(FIGHTING_ANIMSET_PRO_LINK):
+		return FIGHTING_ANIMSET_PRO_SCENE
 	if not url.contains(TESTBLAZE_LINK):
 		return MENU_SCENE
 	Game.mode = GameConst.Mode.TRAINING
