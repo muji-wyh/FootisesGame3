@@ -624,11 +624,20 @@ func _select_move_for(pressed: int, inp: InputFrame) -> MoveData:
 		for m in character.supers:
 			if (pressed & m.button) and meter >= m.meter_cost and _motion_ok(m):
 				return m
+		var best_special: MoveData = null
+		var best_age := 999
 		for m in character.specials:
 			if m.drive_cost > 0:
 				continue   # Overdrive variants handled above
-			if (pressed & m.button) and _motion_ok(m):
-				return m
+			if not (pressed & m.button):
+				continue
+			var age := 0 if m.motion.is_empty() else MotionParser.completion_age(
+				input_buffer, facing, m.motion)
+			if age >= 0 and age < best_age:
+				best_special = m
+				best_age = age
+		if best_special != null:
+			return best_special
 	# Normals: match button and the current stance, with a same-button fallback.
 	var fallback: MoveData = null
 	for m in character.normals:

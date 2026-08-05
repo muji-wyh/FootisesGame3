@@ -123,6 +123,13 @@ func _wait_for_combo_count(ctx: Dictionary, defender: Fighter, target: int,
 		_step(ctx, _neutral(), _neutral(), 1)
 	return defender.combo_count >= target
 
+func _max_combo_count(ctx: Dictionary, defender: Fighter, ticks: int) -> int:
+	var highest := defender.combo_count
+	for i in range(ticks):
+		_step(ctx, _neutral(), _neutral(), 1)
+		highest = maxi(highest, defender.combo_count)
+	return highest
+
 func _same_string_set(actual: Array, expected: Array) -> bool:
 	var lhs := actual.duplicate()
 	var rhs := expected.duplicate()
@@ -2740,6 +2747,24 @@ func _test_blaze_complex_relay() -> void:
 		not blaze.get_move("st_mk").cancel_into.has("ember_barrage")
 		and not blaze.get_move("cr_mk").cancel_into.has("ember_barrage"))
 
+	var qcf_priority := _build()
+	var priority_attacker: Fighter = qcf_priority["f1"]
+	_step(qcf_priority, _mk(1, 0), _neutral(), 1)
+	_p1_qcf(qcf_priority, GameConst.Btn.MP)
+	_check("236 + MP stays Flame Surge after a recent forward input",
+		priority_attacker.current_move != null
+		and priority_attacker.current_move.id == "flame_surge")
+	qcf_priority["arena"].queue_free()
+
+	var dp_priority := _build()
+	var dp_attacker: Fighter = dp_priority["f1"]
+	_p1_qcf(dp_priority, 0)
+	_p1_dp(dp_priority, GameConst.Btn.MP)
+	_check("623 + MP stays Cinder Rise with a stale QCF",
+		dp_attacker.current_move != null
+		and dp_attacker.current_move.id == "cinder_rise")
+	dp_priority["arena"].queue_free()
+
 	var raw := _build()
 	var raw_attacker: Fighter = raw["f1"]
 	var raw_defender: Fighter = raw["f2"]
@@ -2796,8 +2821,9 @@ func _test_blaze_complex_relay() -> void:
 	hb.position.x = 0.34
 	var heavy_hp := hb.health
 	var heavy_ok := _p1_heavy_relay(heavy)
+	var heavy_max := _max_combo_count(heavy, hb, 90)
 	_check("Heavy Relay reaches all 8 meterless hits",
-		heavy_ok and hb.combo_count == 8 and hb.health < heavy_hp and hb.health > 0)
+		heavy_ok and heavy_max == 8 and hb.health < heavy_hp and hb.health > 0)
 	heavy["arena"].queue_free()
 
 	var inferno := _build()
@@ -2810,8 +2836,9 @@ func _test_blaze_complex_relay() -> void:
 	_p1_qcf(inferno, 0)
 	_p1_qcf(inferno, GameConst.Btn.HP)
 	inferno_ok = inferno_ok and _wait_for_combo_count(inferno, ib, 13, 120)
+	var inferno_max := _max_combo_count(inferno, ib, 100)
 	_check("Inferno Relay reaches all 13 hits",
-		inferno_ok and ib.combo_count == 13 and ib.health > 0)
+		inferno_ok and inferno_max == 13 and ib.health > 0)
 	_check("Inferno Relay spends the full Super meter", ia.meter == 0)
 	inferno["arena"].queue_free()
 
@@ -2845,7 +2872,8 @@ func _test_blaze_complex_relay() -> void:
 	_p1_qcf(max_heat, 0)
 	_p1_qcf(max_heat, GameConst.Btn.HP)
 	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 14, 120)
-	_check("Max Heat reaches all 14 hits", max_ok and mb.combo_count == 14)
+	var max_heat_hits := _max_combo_count(max_heat, mb, 100)
+	_check("Max Heat reaches all 14 hits", max_ok and max_heat_hits == 14)
 	_check("Max Heat spends three Drive bars",
 		drive_after_drc == drive_before - Fighter.DRC_COST)
 	_check("Max Heat spends Super without a full-health KO",

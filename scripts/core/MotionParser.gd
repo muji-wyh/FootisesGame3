@@ -23,8 +23,14 @@ static func digits(buffer: InputBuffer, facing: int, window: int) -> Array[int]:
 ## element landed within the last `recent` ticks (so old motions don't linger).
 static func completed(buffer: InputBuffer, facing: int, seq: Array[int],
 		window: int = 16, recent: int = 8) -> bool:
+	return completion_age(buffer, facing, seq, window, recent) >= 0
+
+## Ticks since the sequence's final direction, or -1 when the motion is incomplete/stale.
+## Move selection uses this to prefer the motion completed closest to the button press.
+static func completion_age(buffer: InputBuffer, facing: int, seq: Array[int],
+		window: int = 16, recent: int = 8) -> int:
 	if seq.is_empty():
-		return false
+		return -1
 	var effective_window: int = maxi(window, seq.size() * 6)
 	var effective_recent: int = maxi(recent, 10)
 	var d: Array[int] = digits(buffer, facing, effective_window)
@@ -35,5 +41,6 @@ static func completed(buffer: InputBuffer, facing: int, seq: Array[int],
 			si += 1
 			last_match = i
 	if si < seq.size():
-		return false
-	return (d.size() - 1 - last_match) <= effective_recent
+		return -1
+	var age := d.size() - 1 - last_match
+	return age if age <= effective_recent else -1
