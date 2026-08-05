@@ -40,25 +40,25 @@ const NORMAL_CLIPS := {
 ## These relationships are locked in by _test_blaze_button_roles() in tools/run_tests.gd;
 ## retune the data and that test together if a button's role changes.
 const NORMAL_TUNING := {
-	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.6, "hit_offset": Vector3(0.57, 1.35, 0.0), "hit_size": Vector3(0.37, 0.62, 0.55), "cancel_into": ["flame_step_l"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak", "hit_fx": HIT_FX + "Thin01.png"},
-	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.3, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno"], "hit_fx": HIT_FX + "Medium01.png"},
-	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.38, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large01.png"},
-	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.3, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": ["flame_step_l"], "hit_fx": HIT_FX + "Thin02.png"},
+	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.6, "hit_offset": Vector3(0.57, 1.35, 0.0), "hit_size": Vector3(0.37, 0.62, 0.55), "cancel_into": ["flame_step_l", "ember_lift"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak", "hit_fx": HIT_FX + "Thin01.png"},
+	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.3, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno", "cinder_chain"], "hit_fx": HIT_FX + "Medium01.png"},
+	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.38, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large01.png"},
+	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.3, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": ["flame_step_l", "ember_lift"], "hit_fx": HIT_FX + "Thin02.png"},
 	# hit_offset.y is 1.10 (not the old 0.86) because KB_m_MidKick_R plants its foot at y=1.23 at
 	# the impact frame: the old box topped out at 1.06, i.e. entirely below the visible kick.
 	# Measure with tools/probe_hitheight.gd rather than eyeballing if the clip is swapped.
 	"st_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 51, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.8, "hit_offset": Vector3(0.74, 1.10, 0.0), "hit_size": Vector3(0.54, 0.40, 0.68), "cancel_into": [], "hit_fx": HIT_FX + "Medium02.png"},
-	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "hit_offset": Vector3(0.82, 1.36, 0.0), "hit_size": Vector3(0.62, 0.56, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large02.png"},
+	"st_hk": {"startup": 11, "active": 4, "recovery": 20, "damage": 84, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "hit_offset": Vector3(0.82, 1.36, 0.0), "hit_size": Vector3(0.62, 0.56, 0.72), "launch": false, "launch_velocity": 0.0, "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large02.png"},
 	# hit_offset.y is 0.95 (not the old 0.78) for the same reason as st.MK: KB_crouch_p_Jab_L
 	# puts the fist at y=1.07..1.10 across the active window, above the old 0.61..0.95 box. Its
 	# sibling cr.MP (same crouching-jab height) was already authored at 1.00.
-	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.4, "hit_offset": Vector3(0.58, 0.95, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": ["flame_step_l"], "hit_fx": HIT_FX + "Effect01.png"},
+	"cr_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 25, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.4, "hit_offset": Vector3(0.58, 0.95, 0.0), "hit_size": Vector3(0.37, 0.34, 0.55), "cancel_into": ["flame_step_l", "ember_lift"], "hit_fx": HIT_FX + "Effect01.png"},
 	# The shared crouch-medium box is much wider than this jab clip; keep it around the fist.
-	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.1, "hit_offset": Vector3(0.67, 1.08, 0.0), "hit_size": Vector3(0.42, 0.32, 0.60), "cancel_into": ["st_mp", "flame_surge", "flame_step_m", "super_inferno"], "hit_fx": HIT_FX + "Medium03.png"},
+	"cr_mp": {"startup": 6, "active": 3, "recovery": 12, "damage": 46, "hitstun": 16, "blockstun": 10, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.1, "hit_offset": Vector3(0.67, 1.08, 0.0), "hit_size": Vector3(0.42, 0.32, 0.60), "cancel_into": ["st_mp", "flame_surge", "flame_step_m", "super_inferno", "cinder_chain"], "hit_fx": HIT_FX + "Medium03.png"},
 	# Narrow uppercut column; its lower edge still overlaps the 1.15-high crouching hurtbox.
-	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "launch": false, "launch_velocity": 0.0, "hit_offset": Vector3(0.34, 1.48, 0.0), "hit_size": Vector3(0.44, 0.90, 0.64), "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno"], "hit_reaction_clip": "KB_Hit_m_MidTop_Med", "hit_fx": HIT_FX + "Flash01.png"},
-	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 3.1, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": ["cr_mk", "flame_step_l"], "hit_fx": HIT_FX + "Effect02.png"},
-	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.6, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": ["flame_surge", "flame_step_m", "super_inferno"], "hit_fx": HIT_FX + "Medium04.png"},
+	"cr_hp": {"startup": 7, "active": 5, "recovery": 22, "damage": 74, "hitstun": 22, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 5.6, "launch": false, "launch_velocity": 0.0, "hit_offset": Vector3(0.34, 1.48, 0.0), "hit_size": Vector3(0.44, 0.90, 0.64), "cancel_into": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"], "hit_reaction_clip": "KB_Hit_m_MidTop_Med", "hit_fx": HIT_FX + "Flash01.png"},
+	"cr_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 27, "hitstun": 13, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.LOW, "knockback": 3.1, "hit_offset": Vector3(0.56, 0.26, 0.0), "hit_size": Vector3(0.38, 0.32, 0.60), "cancel_into": ["cr_mk", "flame_step_l", "ember_lift"], "hit_fx": HIT_FX + "Effect02.png"},
+	"cr_mk": {"startup": 7, "active": 4, "recovery": 14, "damage": 49, "hitstun": 17, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.LOW, "knockback": 4.6, "hit_offset": Vector3(0.66, 0.24, 0.0), "hit_size": Vector3(0.48, 0.34, 0.64), "cancel_into": ["flame_surge", "flame_step_m", "super_inferno", "cinder_chain"], "hit_fx": HIT_FX + "Medium04.png"},
 	"cr_hk": {"startup": 9, "active": 4, "recovery": 22, "damage": 76, "hitstun": 20, "blockstun": 12, "hitstop": 12, "guard": GameConst.Guard.LOW, "knockback": 6.3, "hit_offset": Vector3(0.76, 0.22, 0.0), "hit_size": Vector3(0.60, 0.36, 0.68), "launch": true, "launch_velocity": 5.5, "cancel_into": ["super_inferno"], "hit_fx": HIT_FX + "Flash02.png"},
 	"air_lp": {"startup": 3, "active": 10, "recovery": 4, "damage": 27, "hitstun": 16, "blockstun": 10, "hitstop": 9, "guard": GameConst.Guard.OVERHEAD, "knockback": 3.1, "hit_offset": Vector3(0.45, 0.35, 0.0), "hit_size": Vector3(0.55, 0.45, 0.65), "hit_fx": HIT_FX + "Effect03.png"},
 	"air_mp": {"startup": 5, "active": 8, "recovery": 5, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.OVERHEAD, "knockback": 4.4, "hit_offset": Vector3(0.52, 0.38, 0.0), "hit_size": Vector3(0.65, 0.50, 0.65), "hit_fx": HIT_FX + "Medium05.png"},
@@ -142,7 +142,31 @@ static func build() -> CharacterData:
 		"anim_limb": "leg_r", "anim_extend": 0.8,
 		"anim_clip": "KB_m_KickUppercut_R",
 		"hit_offset": Vector3(0.46, 0.78, 0.0),
-		"hit_size": Vector3(0.44, 0.52, 0.66)}))
+		"hit_size": Vector3(0.44, 0.52, 0.66),
+		"cancel_into": ["super_inferno"]}))
+
+	c.add_move(CharacterKit.make_move({"id": "cinder_chain", "display_name": "Cinder Chain",
+		"kind": GameConst.MoveKind.SPECIAL, "button": GameConst.Btn.MP,
+		"motion": MotionParser.QCB, "startup": 7, "active": 30, "recovery": 24,
+		"damage": 24, "hits": 3, "hit_gap": 14, "hitstun": 19, "blockstun": 12,
+		"hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.6,
+		"advance": 4.8, "meter_gain": 10, "hit_fx": HIT_FX + "Effect08.png", "sfx": "mp",
+		"anim_limb": "arm_r", "anim_extend": 0.9,
+		"anim_clip": "KB_m_Jab_RLhookRMidKick_combo",
+		"hit_offset": Vector3(0.68, 0.98, 0.0),
+		"hit_size": Vector3(0.46, 0.48, 0.64),
+		"cancel_into": ["super_inferno"]}))
+
+	c.add_move(CharacterKit.make_move({"id": "furnace_hooks", "display_name": "Furnace Hooks",
+		"kind": GameConst.MoveKind.SPECIAL, "button": GameConst.Btn.HP,
+		"motion": MotionParser.QCB, "startup": 9, "active": 16, "recovery": 26,
+		"damage": 42, "hits": 2, "hit_gap": 14, "hitstun": 22, "blockstun": 13,
+		"hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.8,
+		"advance": 3.8, "meter_gain": 11, "hit_fx": HIT_FX + "Flash02.png", "sfx": "hp",
+		"anim_limb": "arm_r", "anim_extend": 1.0,
+		"anim_clip": "KB_p_DoubleHooks",
+		"hit_offset": Vector3(0.62, 1.02, 0.0),
+		"hit_size": Vector3(0.42, 0.50, 0.64)}))
 
 	# Ember Wheel: original corner-carry spin role, replacing the old generic tatsu. Its
 	# multi-hit launch carries to the corner, then cancels into the super for a juggle finish.
@@ -229,7 +253,8 @@ static func _rig() -> RigConfig:
 		"KB_crouch_p_LowKick_L": 0.17, "KB_crouch_p_LowKickRound_R": 0.28,
 		"KB_crouch_m_LowKickRound_R": 0.36, "KB_JumpPunch": 0.22, "KB_m_Hook_R": 0.45,
 		"KB_JumpKick": 0.57, "KB_p_MidKickFront_L": 0.21, "KB_p_HighKick_R_1": 0.23,
-		"KB_m_KickUppercut_R": 0.31, "KB_Superpunch": 0.50,
+		"KB_m_KickUppercut_R": 0.31, "KB_m_Jab_RLhookRMidKick_combo": 0.13,
+		"KB_p_DoubleHooks": 0.22, "KB_Superpunch": 0.50,
 	}
 	r.drive_rush_startup_clips = ["KB_SkipFwd_1", "KB_Dodge_R", "KB_WalkFwd1"]
 	r.drive_rush_clips = ["KB_SkipFwd_1", "KB_WalkFwd1"]

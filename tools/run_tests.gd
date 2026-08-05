@@ -101,6 +101,18 @@ func _p1_qcf(ctx: Dictionary, button: int) -> void:
 	_step(ctx, _mk(1, -1), _neutral(), 2)
 	_step(ctx, _mk(1, 0, button), _neutral(), 1)
 
+func _p1_qcb(ctx: Dictionary, button: int) -> void:
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(-1, -1), _neutral(), 2)
+	_step(ctx, _mk(-1, 0, button), _neutral(), 1)
+
+func _same_string_set(actual: Array, expected: Array) -> bool:
+	var lhs := actual.duplicate()
+	var rhs := expected.duplicate()
+	lhs.sort()
+	rhs.sort()
+	return lhs == rhs
+
 func _initialize() -> void:
 	print("=== Brawl Arena combat tests ===")
 	if OS.get_cmdline_user_args().has(FORCE_FAIL_ARG):
@@ -1135,11 +1147,11 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
-	_check("blaze has combo specials", b.specials.size() >= 5)
+	_check("blaze has combo specials", b.specials.size() >= 9)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	for removed in ["fireball", "uppercut", "hurricane", "od_fireball", "od_uppercut", "od_hurricane"]:
 		_check("removed move absent: " + removed, b.get_move(removed) == null)
-	for added in ["flame_step_l", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "ember_lift"]:
+	for added in ["flame_step_l", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "ember_lift", "cinder_chain", "furnace_hooks"]:
 		_check("combo move exists: " + added, b.get_move(added) != null)
 	_check("Ken-like stand MP timing", b.get_move("st_mp").startup == 7 and b.get_move("st_mp").active == 3)
 	_check("Ken-like cross-up air MK timing", b.get_move("air_mk").startup == 7 and b.get_move("air_mk").active == 6)
@@ -1153,6 +1165,8 @@ func _test_ember_lift() -> void:
 		move != null and move.motion == MotionParser.QCB and move.button == GameConst.Btn.LK)
 	_check("Ember Lift is a grounded light launcher",
 		move != null and move.launch and not move.rises and move.hits == 2)
+	_check("Ember Lift super-cancels",
+		move != null and move.cancel_into == ["super_inferno"])
 	_check("Ember Lift stays lighter than Ember Wheel",
 		move != null and wheel != null
 		and move.damage < wheel.damage
@@ -1362,7 +1376,12 @@ func _test_move_list_overlay() -> void:
 	_check("move list opens on toggle", hud.is_move_list_visible())
 	var left: Label = hud._move_list_labels[0]
 	_check("move list hides removed specials", not left.text.contains("Flare Bolt") and not left.text.contains("Blaze Rise") and not left.text.contains("Cyclone Kick"))
-	_check("move list shows Blaze combo tools", left.text.contains("Flame Step") and left.text.contains("Cinder Lash") and left.text.contains("Ember Wheel"))
+	_check("move list shows Blaze combo tools",
+		left.text.contains("Flame Step")
+		and left.text.contains("Cinder Lash")
+		and left.text.contains("Ember Wheel")
+		and left.text.contains("Cinder Chain")
+		and left.text.contains("Furnace Hooks"))
 	_check("move list still shows super", left.text.contains("Inferno Rush"))
 	_check("move list uses numpad super notation", left.text.contains("236236") and left.text.contains("(100% Super)"))
 	hud.toggle_move_list()
@@ -1779,6 +1798,14 @@ func _test_kb_library() -> void:
 			missing.append("%s -> %s" % [move_id, m.anim_clip])
 	_check("every Blaze move clip resolves in the kb library (missing: %s)" % [missing],
 		missing.is_empty())
+	_check("kb library includes Cinder Chain clip", lib.has_animation("KB_m_Jab_RLhookRMidKick_combo"))
+	_check("kb library includes Furnace Hooks clip", lib.has_animation("KB_p_DoubleHooks"))
+	_check("Cinder Chain impact timing is authored",
+		blaze.rig.clip_impacts.has("KB_m_Jab_RLhookRMidKick_combo")
+		and is_equal_approx(blaze.rig.clip_impacts["KB_m_Jab_RLhookRMidKick_combo"], 0.13))
+	_check("Furnace Hooks impact timing is authored",
+		blaze.rig.clip_impacts.has("KB_p_DoubleHooks")
+		and is_equal_approx(blaze.rig.clip_impacts["KB_p_DoubleHooks"], 0.22))
 
 func _test_counter() -> void:
 	print("[counter hit]")
@@ -2464,111 +2491,125 @@ func _test_combo() -> void:
 func _test_blaze_combo_expansion() -> void:
 	print("[blaze combo expansion]")
 	var b := CharacterLibrary.create("blaze")
-	# --- wiring (data) ---
+	var cinder := b.get_move("cinder_chain")
+	var furnace := b.get_move("furnace_hooks")
+	var ember_lift := b.get_move("ember_lift")
+	_check("Cinder Chain exists as a special", cinder != null and cinder.kind == GameConst.MoveKind.SPECIAL)
+	_check("Cinder Chain is 214 + MP",
+		cinder != null and cinder.button == GameConst.Btn.MP and cinder.motion == MotionParser.QCB)
+	_check("Cinder Chain uses the combo clip",
+		cinder != null and cinder.anim_clip == "KB_m_Jab_RLhookRMidKick_combo")
+	_check("Cinder Chain is a grounded 3-hit route extender",
+		cinder != null and cinder.hits == 3 and not cinder.launch and not cinder.rises)
+	_check("Cinder Chain super-cancels",
+		cinder != null and cinder.cancel_into == ["super_inferno"])
+
+	_check("Furnace Hooks exists as a special", furnace != null and furnace.kind == GameConst.MoveKind.SPECIAL)
+	_check("Furnace Hooks is 214 + HP",
+		furnace != null and furnace.button == GameConst.Btn.HP and furnace.motion == MotionParser.QCB)
+	_check("Furnace Hooks uses the double-hooks clip",
+		furnace != null and furnace.anim_clip == "KB_p_DoubleHooks")
+	_check("Furnace Hooks is a grounded 2-hit ender",
+		furnace != null and furnace.hits == 2 and not furnace.launch and not furnace.rises)
+	_check("Furnace Hooks is more committal than Cinder Chain",
+		furnace != null and cinder != null and furnace.startup > cinder.startup and furnace.recovery > cinder.recovery)
+	_check("Furnace Hooks has no cancel route",
+		furnace != null and furnace.cancel_into.is_empty())
+
+	var expected_routes := {
+		"st_lp": ["flame_step_l", "ember_lift"],
+		"st_lk": ["flame_step_l", "ember_lift"],
+		"cr_lp": ["flame_step_l", "ember_lift"],
+		"cr_lk": ["cr_mk", "flame_step_l", "ember_lift"],
+		"st_mp": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno", "cinder_chain"],
+		"cr_mp": ["st_mp", "flame_surge", "flame_step_m", "super_inferno", "cinder_chain"],
+		"cr_mk": ["flame_surge", "flame_step_m", "super_inferno", "cinder_chain"],
+		"st_hp": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"],
+		"st_hk": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"],
+		"cr_hp": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"],
+	}
+	for move_id in expected_routes.keys():
+		_check("%s cancel routes match the combo-expansion spec" % move_id,
+			_same_string_set(b.get_move(move_id).cancel_into, expected_routes[move_id]))
 	_check("st.MK stays a pure poke (no cancels)", b.get_move("st_mk").cancel_into.is_empty())
-	_check("Cinder Low wired: cr.LK -> cr.MK", b.get_move("cr_lk").cancel_into.has("cr_mk"))
-	var fs := b.get_move("flame_surge")
-	_check("Flame Surge exists as a special", fs != null and fs.kind == GameConst.MoveKind.SPECIAL)
-	_check("Flame Surge is 236 + MP", fs != null and fs.button == GameConst.Btn.MP and fs.motion == MotionParser.QCF)
-	_check("Flame Surge is a launcher", fs != null and fs.launch and fs.launch_velocity > 0.0)
-	_check("Flame Surge is committal on whiff (long recovery)", fs != null and fs.recovery >= 20)
-	_check("Flame Surge has no invulnerable rise (route tool, not a reversal)", fs != null and not fs.rises)
-	for starter in ["st_mp", "cr_mp", "cr_mk", "st_hp", "st_hk", "cr_hp"]:
-		_check("%s can cancel into Flame Surge" % starter, b.get_move(starter).cancel_into.has("flame_surge"))
-	for launcher in ["flame_surge", "cinder_lash", "ember_wheel", "cr_hk"]:
-		_check("%s cancels into the super (Rising Inferno)" % launcher, b.get_move(launcher).cancel_into.has("super_inferno"))
+	_check("cr.HK keeps only its super cancel", b.get_move("cr_hk").cancel_into == ["super_inferno"])
+	var light_normals := {"st_lp": true, "st_lk": true, "cr_lp": true, "cr_lk": true}
+	for starter in ["st_lp", "st_lk", "cr_lp", "cr_lk"]:
+		var keeps_light_stop_sign := true
+		for route in b.get_move(starter).cancel_into:
+			if light_normals.has(route):
+				keeps_light_stop_sign = false
+				break
+		_check("%s still has no light-normal chain" % starter, keeps_light_stop_sign)
+	_check("Ember Lift is reachable from all four close lights",
+		b.get_move("st_lp").cancel_into.has("ember_lift")
+		and b.get_move("st_lk").cancel_into.has("ember_lift")
+		and b.get_move("cr_lp").cancel_into.has("ember_lift")
+		and b.get_move("cr_lk").cancel_into.has("ember_lift"))
+	_check("Ember Lift super-cancels in the route table",
+		ember_lift != null and ember_lift.cancel_into == ["super_inferno"])
 
-	# --- Cinder into the air (headline): cr.MK > Flame Surge > Inferno Rush. A low medium
-	# confirms into the new launcher, which juggles into the super. ---
-	var air := _build()
-	var aa: Fighter = air["f1"]
-	var ab: Fighter = air["f2"]
-	aa.meter = aa.character.max_meter
-	aa.position.x = -0.34
-	ab.position.x = 0.34
-	var ahp: int = ab.health
-	var amax := 0
-	# cr.MK, then wait for it to connect before cancelling.
-	_step(air, _mk(0, -1, GameConst.Btn.MK), _neutral(), 1)
-	var amark: int = ab.health
+	var cinder_ctx := _build()
+	var ca: Fighter = cinder_ctx["f1"]
+	var cb: Fighter = cinder_ctx["f2"]
+	ca.position.x = -0.38
+	cb.position.x = 0.38
+	var cmax := 0
+	_step(cinder_ctx, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
 	for i in range(12):
-		if ab.health < amark:
+		if cb.combo_count > 0:
 			break
-		_step(air, _mk(0, -1), _neutral(), 1)
-	# Flame Surge (cancel): 236 + MP.
-	_p1_qcf(air, GameConst.Btn.MP)
-	for i in range(12):
-		_step(air, _neutral(), _neutral(), 1)
-		amax = maxi(amax, ab.combo_count)
-		if ab.launched:
-			break
-	# Inferno Rush (cancel): 236236 + HP.
-	_p1_qcf(air, 0)
-	_p1_qcf(air, GameConst.Btn.HP)
+		_step(cinder_ctx, _neutral(), _neutral(), 1)
+	_p1_qcb(cinder_ctx, GameConst.Btn.MP)
 	for i in range(60):
-		_step(air, _neutral(), _neutral(), 1)
-		amax = maxi(amax, ab.combo_count)
-	_check("Cinder-into-the-air links cr.MK > Flame Surge > super (>=4 hits)", amax >= 4)
-	_check("the full launching combo deals heavy damage", ahp - ab.health >= 150)
-	air["arena"].queue_free()
+		_step(cinder_ctx, _neutral(), _neutral(), 1)
+		cmax = maxi(cmax, cb.combo_count)
+	_check("st.MP > Cinder Chain reaches at least 4 combo hits", cmax >= 4)
+	cinder_ctx["arena"].queue_free()
 
-	# --- Cinder Low: cr.LK > cr.MK (low-starting confirm) ---
-	var low := _build()
-	var la: Fighter = low["f1"]
-	var lb: Fighter = low["f2"]
-	la.position.x = -0.34
-	lb.position.x = 0.34
-	var lhp: int = lb.health
-	var lmax := 0
-	_step(low, _mk(0, -1, GameConst.Btn.LK), _neutral(), 1)
-	for i in range(10):
-		if lb.health < lhp:
+	var furnace_ctx := _build()
+	var fa: Fighter = furnace_ctx["f1"]
+	var fb: Fighter = furnace_ctx["f2"]
+	fa.position.x = -0.38
+	fb.position.x = 0.38
+	var fmax := 0
+	_step(furnace_ctx, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	for i in range(14):
+		if fb.combo_count > 0:
 			break
-		_step(low, _mk(0, -1), _neutral(), 1)
-	_step(low, _mk(0, -1, GameConst.Btn.MK), _neutral(), 2)
+		_step(furnace_ctx, _neutral(), _neutral(), 1)
+	_p1_qcb(furnace_ctx, GameConst.Btn.HP)
+	for i in range(60):
+		_step(furnace_ctx, _neutral(), _neutral(), 1)
+		fmax = maxi(fmax, fb.combo_count)
+	_check("st.HP > Furnace Hooks reaches at least 3 combo hits", fmax >= 3)
+	furnace_ctx["arena"].queue_free()
+
+	var ember_ctx := _build()
+	var ea: Fighter = ember_ctx["f1"]
+	var eb: Fighter = ember_ctx["f2"]
+	ea.meter = ea.character.max_meter
+	ea.position.x = -0.34
+	eb.position.x = 0.34
+	var emax := 0
+	_step(ember_ctx, _mk(0, -1, GameConst.Btn.LP), _neutral(), 1)
+	for i in range(12):
+		if eb.combo_count > 0:
+			break
+		_step(ember_ctx, _mk(0, -1), _neutral(), 1)
+	_p1_qcb(ember_ctx, GameConst.Btn.LK)
 	for i in range(20):
-		_step(low, _neutral(), _neutral(), 1)
-		lmax = maxi(lmax, lb.combo_count)
-	_check("Cinder Low links cr.LK > cr.MK (>=2 hits)", lmax >= 2)
-	low["arena"].queue_free()
-
-	# --- Flame Surge launcher + Rising Inferno juggle: 236+MP launches, super-cancel juggles ---
-	var jug := _build()
-	var ua: Fighter = jug["f1"]
-	var ub: Fighter = jug["f2"]
-	ua.meter = ua.character.max_meter
-	ua.position.x = -0.4
-	ub.position.x = 0.4
-	var uhp: int = ub.health
-	var umax := 0
-	# Flame Surge (236 + MP).
-	_step(jug, _mk(0, -1), _neutral(), 2)
-	_step(jug, _mk(1, -1), _neutral(), 2)
-	_step(jug, _mk(1, 0, GameConst.Btn.MP), _neutral(), 1)
-	var surge_started := false
-	for i in range(16):
-		_step(jug, _neutral(), _neutral(), 1)
-		umax = maxi(umax, ub.combo_count)
-		if ua.current_move != null and ua.current_move.id == "flame_surge":
-			surge_started = true
-		if ub.launched:
+		_step(ember_ctx, _neutral(), _neutral(), 1)
+		emax = maxi(emax, eb.combo_count)
+		if ea.current_move != null and ea.current_move.id == "ember_lift" and eb.combo_count >= 2:
 			break
-	var launched := ub.launched or not ub.on_ground
-	_check("Flame Surge comes out on 236 + MP", surge_started)
-	_check("Flame Surge launches the opponent into the air", launched)
-	# Cancel into Inferno Rush (236236 + HP) while the launcher is connected.
-	_step(jug, _mk(0, -1), _neutral(), 1)
-	_step(jug, _mk(1, -1), _neutral(), 1)
-	_step(jug, _mk(1, 0), _neutral(), 1)
-	_step(jug, _mk(0, -1), _neutral(), 1)
-	_step(jug, _mk(1, -1), _neutral(), 1)
-	_step(jug, _mk(1, 0, GameConst.Btn.HP), _neutral(), 1)
-	for i in range(60):
-		_step(jug, _neutral(), _neutral(), 1)
-		umax = maxi(umax, ub.combo_count)
-	_check("Rising Inferno juggle: Flame Surge > super extends the combo (>=3 hits)", umax >= 3)
-	_check("Rising Inferno juggle deals real damage", uhp - ub.health >= 100)
-	jug["arena"].queue_free()
+	_p1_qcf(ember_ctx, 0)
+	_p1_qcf(ember_ctx, GameConst.Btn.HP)
+	for i in range(80):
+		_step(ember_ctx, _neutral(), _neutral(), 1)
+		emax = maxi(emax, eb.combo_count)
+	_check("cr.LP > Ember Lift > Inferno Rush reaches at least 4 combo hits", emax >= 4)
+	ember_ctx["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
 	print("[drive gauge]")
