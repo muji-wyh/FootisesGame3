@@ -106,6 +106,19 @@ func _p1_qcb(ctx: Dictionary, button: int) -> void:
 	_step(ctx, _mk(-1, -1), _neutral(), 2)
 	_step(ctx, _mk(-1, 0, button), _neutral(), 1)
 
+func _p1_dp(ctx: Dictionary, button: int) -> void:
+	_step(ctx, _mk(1, 0), _neutral(), 2)
+	_step(ctx, _mk(0, -1), _neutral(), 2)
+	_step(ctx, _mk(1, -1, button), _neutral(), 1)
+
+func _wait_for_combo_count(ctx: Dictionary, defender: Fighter, target: int,
+		limit: int = 90) -> bool:
+	for i in range(limit):
+		if defender.combo_count >= target:
+			return true
+		_step(ctx, _neutral(), _neutral(), 1)
+	return defender.combo_count >= target
+
 func _same_string_set(actual: Array, expected: Array) -> bool:
 	var lhs := actual.duplicate()
 	var rhs := expected.duplicate()
@@ -173,6 +186,7 @@ func _initialize() -> void:
 	_test_slowmo_director()
 	_test_combo()
 	_test_blaze_combo_expansion()
+	_test_blaze_complex_relay()
 	_test_drive_gauge()
 	_test_drive_rush()
 	_test_uppercut_rise()
@@ -1389,11 +1403,12 @@ func _test_move_list_overlay() -> void:
 	root.add_child(hud)
 	var blaze := CharacterLibrary.create("blaze")
 	hud.build(blaze, blaze)
-	_check("Blaze authors the three verified training combos",
-		blaze.combos.size() == 3
+	_check("Blaze authors the existing routes plus Quick Relay",
+		blaze.combos.size() == 4
 		and blaze.combos[0].contains("st.MP > 214 + MP")
 		and blaze.combos[1].contains("st.HP > 214 + HP")
-		and blaze.combos[2].contains("cr.LP > 214 + LK > 236236 + HP"))
+		and blaze.combos[2].contains("cr.LP > 214 + LK > 236236 + HP")
+		and blaze.combos[3].contains("st.LP > 236 + LP > 623 + MP"))
 	var empty_character := CharacterData.new()
 	empty_character.display_name = "Empty"
 	_check("combo list explains when a character has no authored routes",
@@ -1408,7 +1423,9 @@ func _test_move_list_overlay() -> void:
 		and left.text.contains("Cinder Lash")
 		and left.text.contains("Ember Wheel")
 		and left.text.contains("Cinder Chain")
-		and left.text.contains("Furnace Hooks"))
+		and left.text.contains("Furnace Hooks")
+		and left.text.contains("Ember Barrage")
+		and left.text.contains("Cinder Rise"))
 	_check("move list still shows super", left.text.contains("Inferno Rush"))
 	_check("move list uses numpad super notation", left.text.contains("236236") and left.text.contains("(100% Super)"))
 	hud.toggle_move_list()
@@ -1420,7 +1437,8 @@ func _test_move_list_overlay() -> void:
 	_check("combo list shows every authored Blaze combo",
 		left.text.contains("Cinder Chain Confirm")
 		and left.text.contains("Furnace Hooks Punish")
-		and left.text.contains("Ember Lift Super"))
+		and left.text.contains("Ember Lift Super")
+		and left.text.contains("Quick Relay"))
 	_check("combo columns wrap long routes within their width",
 		left.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
 		and left.get_minimum_size().x <= left.size.x)
@@ -2564,9 +2582,9 @@ func _test_blaze_combo_expansion() -> void:
 		furnace != null and furnace.cancel_into.is_empty())
 
 	var expected_routes := {
-		"st_lp": ["flame_step_l", "ember_lift"],
-		"st_lk": ["flame_step_l", "ember_lift"],
-		"cr_lp": ["flame_step_l", "ember_lift"],
+		"st_lp": ["flame_step_l", "ember_lift", "ember_barrage"],
+		"st_lk": ["flame_step_l", "ember_lift", "ember_barrage"],
+		"cr_lp": ["flame_step_l", "ember_lift", "ember_barrage"],
 		"cr_lk": ["cr_mk", "flame_step_l", "ember_lift"],
 		"st_mp": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno", "cinder_chain"],
 		"cr_mp": ["st_mp", "flame_surge", "flame_step_m", "super_inferno", "cinder_chain"],
@@ -2657,6 +2675,76 @@ func _test_blaze_combo_expansion() -> void:
 		emax = maxi(emax, eb.combo_count)
 	_check("cr.LP > Ember Lift > Inferno Rush reaches at least 4 combo hits", emax >= 4)
 	ember_ctx["arena"].queue_free()
+
+func _test_blaze_complex_relay() -> void:
+	print("[blaze complex relay]")
+	var blaze := CharacterLibrary.create("blaze")
+	var barrage := blaze.get_move("ember_barrage")
+	var rise := blaze.get_move("cinder_rise")
+
+	_check("Ember Barrage is 236 + LP",
+		barrage != null
+		and barrage.kind == GameConst.MoveKind.SPECIAL
+		and barrage.button == GameConst.Btn.LP
+		and barrage.motion == MotionParser.QCF)
+	_check("Ember Barrage uses the measured three-punch clip",
+		barrage != null
+		and barrage.anim_clip == "KB_p_OneTwoThree"
+		and barrage.hits == 3
+		and barrage.hit_gap == 13
+		and barrage.cancel_into == ["cinder_rise"])
+	_check("Cinder Rise is 623 + MP",
+		rise != null
+		and rise.kind == GameConst.MoveKind.SPECIAL
+		and rise.button == GameConst.Btn.MP
+		and rise.motion == MotionParser.DP)
+	_check("Cinder Rise uses the measured elbow-uppercut clip",
+		rise != null
+		and rise.anim_clip == "KB_m_Backelbow_Uppercut_R"
+		and rise.hits == 2
+		and rise.hit_gap == 9
+		and rise.launch
+		and rise.cancel_into == ["super_inferno"])
+	_check("only selected close checks enter the first relay stage",
+		blaze.get_move("st_lp").cancel_into.has("ember_barrage")
+		and blaze.get_move("st_lk").cancel_into.has("ember_barrage")
+		and blaze.get_move("cr_lp").cancel_into.has("ember_barrage")
+		and not blaze.get_move("cr_lk").cancel_into.has("ember_barrage"))
+	_check("mid-range rulers gain no relay cancel",
+		not blaze.get_move("st_mk").cancel_into.has("ember_barrage")
+		and not blaze.get_move("cr_mk").cancel_into.has("ember_barrage"))
+
+	var full := _build()
+	var fa: Fighter = full["f1"]
+	var fb: Fighter = full["f2"]
+	fa.position.x = -0.34
+	fb.position.x = 0.34
+	_step(full, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	var full_ok := _wait_for_combo_count(full, fb, 1)
+	_p1_qcf(full, GameConst.Btn.LP)
+	full_ok = full_ok and _wait_for_combo_count(full, fb, 4)
+	_p1_dp(full, GameConst.Btn.MP)
+	full_ok = full_ok and _wait_for_combo_count(full, fb, 6)
+	_check("late st.LP relay reaches all 6 hits", full_ok and fb.combo_count >= 6)
+	full["arena"].queue_free()
+
+	var early := _build()
+	var ea: Fighter = early["f1"]
+	var eb: Fighter = early["f2"]
+	ea.position.x = -0.34
+	eb.position.x = 0.34
+	_step(early, _mk(0, 0, GameConst.Btn.LP), _neutral(), 1)
+	_wait_for_combo_count(early, eb, 1)
+	_p1_qcf(early, GameConst.Btn.LP)
+	_wait_for_combo_count(early, eb, 2)
+	_p1_dp(early, GameConst.Btn.MP)
+	var early_max := eb.combo_count
+	for i in range(70):
+		_step(early, _neutral(), _neutral(), 1)
+		early_max = maxi(early_max, eb.combo_count)
+	_check("early DP cancel intentionally truncates Ember Barrage",
+		early_max >= 4 and early_max < 6)
+	early["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
 	print("[drive gauge]")
