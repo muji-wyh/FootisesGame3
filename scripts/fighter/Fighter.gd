@@ -57,6 +57,7 @@ const DRC_COST := 3000              # Drive spent by a Drive Rush Cancel (3 bars
 const CORNER_PUSHBACK_X := 6.0      # near-corner threshold for attacker recoil on hit
 const INPUT_BUFFER := 4             # ticks a buffered attack press waits to fire on the first actionable frame
 const MOVE_END_BUFFER := 20         # ticks an unconsumed press made during a move survives to fire when the move ends
+const MULTI_HIT_FOLLOWUP_STOP := 2  # ponytail: one shared rhythm; add per-move tuning only if playtests demand it
 const IMPACT_SHAKE_AMP := 0.02      # ponytail: one knob for the visual-only impact vibration (world units at the hit frame)
 const IMPACT_SHAKE_TICKS := 12.0    # ticks the vibration takes to decay back to centre
 const DRIVE_RUSH_CARRY := 6.2       # forward slide speed granted to the first normal out of a Drive Rush
@@ -833,6 +834,9 @@ func receive_attack(m: MoveData, attacker_facing: int, bonus_hitstun: int = 0) -
 	var stop := m.hitstop
 	if not blocked:
 		stop += _hitstop_bonus()
+	if m.hits > 1 and opponent != null and is_instance_valid(opponent) \
+			and opponent.current_move == m and opponent.move_hits_done > 0:
+		stop = mini(stop, MULTI_HIT_FOLLOWUP_STOP)
 	apply_hitstop(stop)
 	got_hit.emit(blocked)
 	return blocked
@@ -1233,6 +1237,8 @@ func mark_connected(blocked: bool, m: MoveData) -> void:
 	var stop := m.hitstop
 	if not blocked and opponent != null and is_instance_valid(opponent):
 		stop += opponent._hitstop_bonus()   # match the victim's heavier/counter freeze
+	if m.hits > 1 and move_hits_done > 1:
+		stop = mini(stop, MULTI_HIT_FOLLOWUP_STOP)
 	hitstop = stop
 
 	# Proportional pushback: base pushback scales with move's knockback

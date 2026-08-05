@@ -1361,6 +1361,7 @@ func _test_multihit() -> void:
 	var ctx := _build("blaze", "blaze")
 	var f1: Fighter = ctx["f1"]
 	var f2: Fighter = ctx["f2"]
+	var inferno := f1.character.get_move("super_inferno")
 	f1.meter = f1.character.max_meter
 	# Corner P2 so Blaze's advancing super keeps connecting after specials are removed.
 	f1.position.x = 5.2
@@ -1379,6 +1380,25 @@ func _test_multihit() -> void:
 	_check("super connected multiple times", hits[0] >= 2)
 	_check("multi-hit dealt cumulative damage", hp_before - f2.health >= 70)
 	ctx["arena"].queue_free()
+
+	var cadence := _build()
+	var attacker: Fighter = cadence["f1"]
+	var victim: Fighter = cadence["f2"]
+	attacker.current_move = inferno
+	attacker.state = Fighter.State.ATTACK
+	var smooth_cadence := true
+	for i in range(inferno.hits):
+		victim.receive_attack(inferno, attacker.facing)
+		var normal_stop := inferno.hitstop + victim._hitstop_bonus()
+		attacker.mark_connected(false, inferno)
+		var expected_stop := normal_stop if i == 0 else 2
+		smooth_cadence = smooth_cadence \
+			and attacker.hitstop == expected_stop \
+			and victim.hitstop == expected_stop
+		attacker.hitstop = 0
+		victim.hitstop = 0
+	_check("multi-hit opens with normal hit-stop, then follows a micro-stop rhythm", smooth_cadence)
+	cadence["arena"].queue_free()
 
 func _test_move_sfx() -> void:
 	print("[per-move sfx]")
