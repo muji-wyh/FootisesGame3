@@ -297,6 +297,11 @@ func _test_blaze_mp_hp_range() -> void:
 	_check("Ember Wheel (214+HK) hitbox fits the spin animation",
 		ember_wheel.hit_size.x <= 0.36 and ember_wheel.hit_size.y <= 0.44
 		and ember_wheel.hit_offset.x + ember_wheel.hit_size.x * 0.5 <= 0.76)
+	var furnace_hooks := blaze.get_move("furnace_hooks")
+	var furnace_bottom := furnace_hooks.hit_offset.y - furnace_hooks.hit_size.y * 0.5
+	var furnace_top := furnace_hooks.hit_offset.y + furnace_hooks.hit_size.y * 0.5
+	_check("Furnace Hooks (214+HP) hitbox covers the DoubleHooks hand height",
+		furnace_bottom <= 1.31 and furnace_top >= 1.51 and furnace_hooks.hit_size.y <= 0.50)
 	# Flame Surge is a cancel route, not a neutral tool, so its box has to stay a rising fist:
 	# it used to be the largest box in the kit outside the dedicated anti-air and out-reached
 	# st.MK, which let the launcher take over the spacing st.MK is supposed to rule. Cinder Lash

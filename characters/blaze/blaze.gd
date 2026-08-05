@@ -170,7 +170,7 @@ static func build() -> CharacterData:
 		"advance": 3.8, "meter_gain": 11, "hit_fx": HIT_FX + "Flash02.png", "sfx": "hp",
 		"anim_limb": "arm_r", "anim_extend": 1.0,
 		"anim_clip": "KB_p_DoubleHooks",
-		"hit_offset": Vector3(0.62, 1.02, 0.0),
+		"hit_offset": Vector3(0.62, 1.38, 0.0),
 		"hit_size": Vector3(0.42, 0.50, 0.64)}))
 
 	# Ember Wheel: original corner-carry spin role, replacing the old generic tatsu. Its
