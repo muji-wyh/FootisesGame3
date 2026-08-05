@@ -15,6 +15,8 @@ const DR_W := 270.0
 const DR_H := 6.0
 const MOVE_LIST_W := 560.0
 const MOVE_LIST_H := 540.0
+const REFERENCE_MOVES := "moves"
+const REFERENCE_COMBOS := "combos"
 const TRAIL_CATCHUP := 1.6      # recoverable-health trail units (fraction/sec) chasing real HP
 
 var _hp_fill := [null, null]
@@ -37,6 +39,11 @@ var _counter_label: Label
 var _move_list_panel: Panel
 var _move_list_scroll: ScrollContainer
 var _move_list_labels := [null, null]
+var _move_list_title: Label
+var _move_list_hint: Label
+var _move_list_body: Control
+var _move_list_characters := [null, null]
+var _move_list_mode := REFERENCE_MOVES
 var _counter_timer: int = 0
 var _dr_tint: ColorRect
 
@@ -263,29 +270,41 @@ func tick_counter() -> void:
 			_counter_label.text = ""
 
 func toggle_move_list() -> void:
-	if _move_list_panel:
-		_move_list_panel.visible = not _move_list_panel.visible
-		if _move_list_panel.visible and _move_list_scroll:
-			_move_list_scroll.scroll_vertical = 0
+	_toggle_reference_panel(REFERENCE_MOVES)
+
+func toggle_combo_list() -> void:
+	_toggle_reference_panel(REFERENCE_COMBOS)
 
 func is_move_list_visible() -> bool:
-	return _move_list_panel != null and _move_list_panel.visible
+	return _move_list_panel != null and _move_list_panel.visible and _move_list_mode == REFERENCE_MOVES
+
+func is_combo_list_visible() -> bool:
+	return _move_list_panel != null and _move_list_panel.visible and _move_list_mode == REFERENCE_COMBOS
+
+func _toggle_reference_panel(mode: String) -> void:
+	if _move_list_panel == null:
+		return
+	if _move_list_panel.visible and _move_list_mode == mode:
+		_move_list_panel.visible = false
+		return
+	_set_reference_mode(mode)
+	_move_list_panel.visible = true
+	_move_list_scroll.scroll_vertical = 0
 
 func _build_move_list(p1: CharacterData, p2: CharacterData) -> void:
+	_move_list_characters = [p1, p2]
 	_move_list_panel = Panel.new()
 	_move_list_panel.position = Vector2(BASE_W * 0.5 - MOVE_LIST_W * 0.5, 100.0)
 	_move_list_panel.size = Vector2(MOVE_LIST_W, MOVE_LIST_H)
 	_move_list_panel.visible = false
 	_root.add_child(_move_list_panel)
 
-	var title := _label(_move_list_panel, Vector2(24, 18), Vector2(MOVE_LIST_W - 48.0, 34), 28)
-	title.text = "MOVE LIST"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", Color(0.98, 0.9, 0.4))
+	_move_list_title = _label(_move_list_panel, Vector2(24, 18), Vector2(MOVE_LIST_W - 48.0, 34), 28)
+	_move_list_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_move_list_title.add_theme_color_override("font_color", Color(0.98, 0.9, 0.4))
 
-	var hint := _label(_move_list_panel, Vector2(24, 52), Vector2(MOVE_LIST_W - 48.0, 24), 16)
-	hint.text = "TAB: close  |  wheel / drag: scroll"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_move_list_hint = _label(_move_list_panel, Vector2(24, 52), Vector2(MOVE_LIST_W - 48.0, 24), 16)
+	_move_list_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	# Scrollable body so long move lists no longer overflow the panel. ScrollContainer
 	# handles the wheel, drag, scrollbar and clipping; we only feed it the content height.
@@ -295,24 +314,33 @@ func _build_move_list(p1: CharacterData, p2: CharacterData) -> void:
 	_move_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_move_list_panel.add_child(_move_list_scroll)
 
-	var body := Control.new()
-	_move_list_scroll.add_child(body)
+	_move_list_body = Control.new()
+	_move_list_scroll.add_child(_move_list_body)
 
 	var col_w := 240.0
 	var usable_w := _move_list_scroll.size.x - 18.0  # leave room for the vertical scrollbar
-	var left := _label(body, Vector2(2, 0), Vector2(col_w, 0), 18)
-	left.text = _move_list_text(p1)
-	var right := _label(body, Vector2(usable_w - col_w - 2.0, 0), Vector2(col_w, 0), 18)
-	right.text = _move_list_text(p2)
+	var left := _label(_move_list_body, Vector2(2, 0), Vector2(col_w, 0), 18)
+	var right := _label(_move_list_body, Vector2(usable_w - col_w - 2.0, 0), Vector2(col_w, 0), 18)
 	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-
-	var body_h := maxf(left.get_minimum_size().y, right.get_minimum_size().y)
-	left.size = Vector2(col_w, body_h)
-	right.size = Vector2(col_w, body_h)
-	body.custom_minimum_size = Vector2(0, body_h)  # x=0 so horizontal never scrolls
 
 	_move_list_labels[0] = left
 	_move_list_labels[1] = right
+	_set_reference_mode(REFERENCE_MOVES)
+
+func _set_reference_mode(mode: String) -> void:
+	_move_list_mode = mode
+	var shows_combos := mode == REFERENCE_COMBOS
+	_move_list_title.text = "COMBO LIST" if shows_combos else "MOVE LIST"
+	_move_list_hint.text = "%s: close  |  wheel / drag: scroll" % ("4" if shows_combos else "TAB")
+	for side in range(2):
+		var ch: CharacterData = _move_list_characters[side]
+		var label: Label = _move_list_labels[side]
+		label.text = _combo_list_text(ch) if shows_combos else _move_list_text(ch)
+	var body_h := maxf(_move_list_labels[0].get_minimum_size().y, _move_list_labels[1].get_minimum_size().y)
+	for side in range(2):
+		var label: Label = _move_list_labels[side]
+		label.size = Vector2(label.size.x, body_h)
+	_move_list_body.custom_minimum_size = Vector2(0, body_h)  # x=0 so horizontal never scrolls
 
 func _move_list_text(ch: CharacterData) -> String:
 	var lines := [ch.display_name.to_upper(), ""]
@@ -324,6 +352,16 @@ func _move_list_text(ch: CharacterData) -> String:
 		lines.append("%s" % m.display_name)
 		lines.append("%s" % _input_text(m))
 		lines.append("")
+	return "\n".join(lines).strip_edges()
+
+func _combo_list_text(ch: CharacterData) -> String:
+	var lines := [ch.display_name.to_upper(), ""]
+	if ch.combos.is_empty():
+		lines.append("No authored combos.")
+	else:
+		for combo in ch.combos:
+			lines.append(combo)
+			lines.append("")
 	return "\n".join(lines).strip_edges()
 
 func _input_text(m: MoveData) -> String:

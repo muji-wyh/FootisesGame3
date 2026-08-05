@@ -75,6 +75,11 @@ static func build() -> CharacterData:
 	c.color = Color(0.9, 0.33, 0.13)
 	c.accent = Color(1.0, 0.8, 0.25)
 	c.blurb = "Fiery rushdown. Ken-inspired normals, jump-ins, Drive Rush pressure, and a multi-hit super."
+	c.combos = PackedStringArray([
+		"Cinder Chain Confirm\nst.MP > 214 + MP",
+		"Furnace Hooks Punish\nst.HP > 214 + HP",
+		"Ember Lift Super\ncr.LP > 214 + LK > 236236 + HP",
+	])
 	c.max_health = 950
 	c.walk_speed = 3.6
 	c.back_speed = 2.9

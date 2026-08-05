@@ -40,6 +40,7 @@ var moves: Dictionary = {}            # id -> MoveData
 var normals: Array[MoveData] = []     # button-triggered
 var specials: Array[MoveData] = []    # motion + button
 var supers: Array[MoveData] = []      # motion + button, costs meter
+var combos: PackedStringArray = []    # authored training routes
 
 func add_move(m: MoveData) -> CharacterData:
 	moves[m.id] = m
