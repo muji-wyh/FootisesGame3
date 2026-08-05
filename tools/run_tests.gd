@@ -1384,20 +1384,11 @@ func _test_move_list_overlay() -> void:
 	root.add_child(hud)
 	var blaze := CharacterLibrary.create("blaze")
 	hud.build(blaze, blaze)
-	var has_combo_data := false
-	for property in blaze.get_property_list():
-		if property["name"] == "combos":
-			has_combo_data = true
-			break
-	var combos: Variant = blaze.get("combos") if has_combo_data else null
 	_check("Blaze authors the three verified training combos",
-		combos is PackedStringArray
-		and combos.size() == 3
-		and combos[0].contains("st.MP > 214 + MP")
-		and combos[1].contains("st.HP > 214 + HP")
-		and combos[2].contains("cr.LP > 214 + LK > 236236 + HP"))
-	var has_combo_list_api := hud.has_method("toggle_combo_list") and hud.has_method("is_combo_list_visible")
-	_check("HUD exposes a combo-list toggle", has_combo_list_api)
+		blaze.combos.size() == 3
+		and blaze.combos[0].contains("st.MP > 214 + MP")
+		and blaze.combos[1].contains("st.HP > 214 + HP")
+		and blaze.combos[2].contains("cr.LP > 214 + LK > 236236 + HP"))
 	var empty_character := CharacterData.new()
 	empty_character.display_name = "Empty"
 	_check("combo list explains when a character has no authored routes",
@@ -1417,27 +1408,26 @@ func _test_move_list_overlay() -> void:
 	_check("move list uses numpad super notation", left.text.contains("236236") and left.text.contains("(100% Super)"))
 	hud.toggle_move_list()
 	_check("move list closes on second toggle", not hud.is_move_list_visible())
-	if has_combo_list_api:
-		_check("combo list hidden by default", not bool(hud.call("is_combo_list_visible")))
-		hud.call("toggle_combo_list")
-		_check("combo list opens on toggle",
-			bool(hud.call("is_combo_list_visible")) and not hud.is_move_list_visible())
-		_check("combo list shows every authored Blaze combo",
-			left.text.contains("Cinder Chain Confirm")
-			and left.text.contains("Furnace Hooks Punish")
-			and left.text.contains("Ember Lift Super"))
-		_check("combo columns wrap long routes within their width",
-			left.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
-			and left.get_minimum_size().x <= left.size.x)
-		hud.toggle_move_list()
-		_check("move list replaces combo list in the shared panel",
-			hud.is_move_list_visible() and not bool(hud.call("is_combo_list_visible")))
-		hud.call("toggle_combo_list")
-		_check("combo list replaces move list in the shared panel",
-			bool(hud.call("is_combo_list_visible")) and not hud.is_move_list_visible())
-		hud.call("toggle_combo_list")
-		_check("combo list closes on second combo toggle",
-			not bool(hud.call("is_combo_list_visible")) and not hud.is_move_list_visible())
+	_check("combo list hidden by default", not hud.is_combo_list_visible())
+	hud.toggle_combo_list()
+	_check("combo list opens on toggle",
+		hud.is_combo_list_visible() and not hud.is_move_list_visible())
+	_check("combo list shows every authored Blaze combo",
+		left.text.contains("Cinder Chain Confirm")
+		and left.text.contains("Furnace Hooks Punish")
+		and left.text.contains("Ember Lift Super"))
+	_check("combo columns wrap long routes within their width",
+		left.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+		and left.get_minimum_size().x <= left.size.x)
+	hud.toggle_move_list()
+	_check("move list replaces combo list in the shared panel",
+		hud.is_move_list_visible() and not hud.is_combo_list_visible())
+	hud.toggle_combo_list()
+	_check("combo list replaces move list in the shared panel",
+		hud.is_combo_list_visible() and not hud.is_move_list_visible())
+	hud.toggle_combo_list()
+	_check("combo list closes on second combo toggle",
+		not hud.is_combo_list_visible() and not hud.is_move_list_visible())
 	hud.queue_free()
 
 func _test_multihit() -> void:
