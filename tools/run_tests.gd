@@ -1403,12 +1403,12 @@ func _test_move_list_overlay() -> void:
 	root.add_child(hud)
 	var blaze := CharacterLibrary.create("blaze")
 	hud.build(blaze, blaze)
-	_check("Blaze authors the existing routes plus Quick Relay",
-		blaze.combos.size() == 4
-		and blaze.combos[0].contains("st.MP > 214 + MP")
-		and blaze.combos[1].contains("st.HP > 214 + HP")
-		and blaze.combos[2].contains("cr.LP > 214 + LK > 236236 + HP")
-		and blaze.combos[3].contains("st.LP > 236 + LP > 623 + MP"))
+	_check("Blaze authors all seven verified training combos",
+		blaze.combos.size() == 7
+		and blaze.combos[3].contains("Quick Relay")
+		and blaze.combos[4].contains("Heavy Relay")
+		and blaze.combos[5].contains("Inferno Relay")
+		and blaze.combos[6].contains("Max Heat"))
 	var empty_character := CharacterData.new()
 	empty_character.display_name = "Empty"
 	_check("combo list explains when a character has no authored routes",
@@ -1438,7 +1438,10 @@ func _test_move_list_overlay() -> void:
 		left.text.contains("Cinder Chain Confirm")
 		and left.text.contains("Furnace Hooks Punish")
 		and left.text.contains("Ember Lift Super")
-		and left.text.contains("Quick Relay"))
+		and left.text.contains("Quick Relay")
+		and left.text.contains("Heavy Relay")
+		and left.text.contains("Inferno Relay")
+		and left.text.contains("Max Heat"))
 	_check("combo columns wrap long routes within their width",
 		left.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
 		and left.get_minimum_size().x <= left.size.x)
@@ -2589,7 +2592,7 @@ func _test_blaze_combo_expansion() -> void:
 		"st_mp": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno", "cinder_chain"],
 		"cr_mp": ["st_mp", "flame_surge", "flame_step_m", "super_inferno", "cinder_chain"],
 		"cr_mk": ["flame_surge", "flame_step_m", "super_inferno", "cinder_chain"],
-		"st_hp": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"],
+		"st_hp": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks", "ember_barrage"],
 		"st_hk": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"],
 		"cr_hp": ["flame_surge", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"],
 	}
@@ -2676,6 +2679,23 @@ func _test_blaze_combo_expansion() -> void:
 	_check("cr.LP > Ember Lift > Inferno Rush reaches at least 4 combo hits", emax >= 4)
 	ember_ctx["arena"].queue_free()
 
+func _p1_heavy_relay(ctx: Dictionary) -> bool:
+	var defender: Fighter = ctx["f2"]
+	_step(ctx, _mk(0, -1, GameConst.Btn.MP), _neutral(), 1)
+	if not _wait_for_combo_count(ctx, defender, 1):
+		return false
+	_step(ctx, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	if not _wait_for_combo_count(ctx, defender, 2):
+		return false
+	_step(ctx, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	if not _wait_for_combo_count(ctx, defender, 3):
+		return false
+	_p1_qcf(ctx, GameConst.Btn.LP)
+	if not _wait_for_combo_count(ctx, defender, 6):
+		return false
+	_p1_dp(ctx, GameConst.Btn.MP)
+	return _wait_for_combo_count(ctx, defender, 8)
+
 func _test_blaze_complex_relay() -> void:
 	print("[blaze complex relay]")
 	var blaze := CharacterLibrary.create("blaze")
@@ -2745,6 +2765,75 @@ func _test_blaze_complex_relay() -> void:
 	_check("early DP cancel intentionally truncates Ember Barrage",
 		early_max == 4)
 	early["arena"].queue_free()
+
+	_check("st.HP enters Ember Barrage without changing the medium rulers",
+		blaze.get_move("st_hp").cancel_into.has("ember_barrage")
+		and not blaze.get_move("st_mk").cancel_into.has("ember_barrage")
+		and not blaze.get_move("cr_mk").cancel_into.has("ember_barrage"))
+
+	var heavy := _build()
+	var ha: Fighter = heavy["f1"]
+	var hb: Fighter = heavy["f2"]
+	ha.position.x = -0.34
+	hb.position.x = 0.34
+	var heavy_hp := hb.health
+	var heavy_ok := _p1_heavy_relay(heavy)
+	_check("Heavy Relay reaches all 8 meterless hits",
+		heavy_ok and hb.combo_count >= 8 and hb.health < heavy_hp and hb.health > 0)
+	heavy["arena"].queue_free()
+
+	var inferno := _build()
+	var ia: Fighter = inferno["f1"]
+	var ib: Fighter = inferno["f2"]
+	ia.position.x = -0.34
+	ib.position.x = 0.34
+	ia.meter = ia.character.max_meter
+	var inferno_ok := _p1_heavy_relay(inferno)
+	_p1_qcf(inferno, 0)
+	_p1_qcf(inferno, GameConst.Btn.HP)
+	inferno_ok = inferno_ok and _wait_for_combo_count(inferno, ib, 13, 120)
+	_check("Inferno Relay reaches all 13 hits",
+		inferno_ok and ib.combo_count >= 13 and ib.health > 0)
+	_check("Inferno Relay spends the full Super meter", ia.meter == 0)
+	inferno["arena"].queue_free()
+
+	var max_heat := _build()
+	var ma: Fighter = max_heat["f1"]
+	var mb: Fighter = max_heat["f2"]
+	ma.position.x = -0.34
+	mb.position.x = 0.34
+	ma.meter = ma.character.max_meter
+	var drive_before := ma.drive
+	_step(max_heat, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	var max_ok := _wait_for_combo_count(max_heat, mb, 1)
+	_step(max_heat, _mk(0, 0, GameConst.Btn.LP | GameConst.Btn.MP), _neutral(), 1)
+	var entered_drc := false
+	for i in range(36):
+		_step(max_heat, _neutral(), _neutral(), 1)
+		if ma.state == Fighter.State.DRIVE_RUSH:
+			entered_drc = true
+			break
+	var drive_after_drc := ma.drive
+	_step(max_heat, _mk(0, -1, GameConst.Btn.MP), _neutral(), 1)
+	max_ok = max_ok and entered_drc and _wait_for_combo_count(max_heat, mb, 2)
+	_step(max_heat, _mk(0, 0, GameConst.Btn.MP), _neutral(), 1)
+	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 3)
+	_step(max_heat, _mk(0, 0, GameConst.Btn.HP), _neutral(), 1)
+	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 4)
+	_p1_qcf(max_heat, GameConst.Btn.LP)
+	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 7)
+	_p1_dp(max_heat, GameConst.Btn.MP)
+	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 9)
+	_p1_qcf(max_heat, 0)
+	_p1_qcf(max_heat, GameConst.Btn.HP)
+	max_ok = max_ok and _wait_for_combo_count(max_heat, mb, 14, 120)
+	_check("Max Heat reaches all 14 hits", max_ok and mb.combo_count >= 14)
+	_check("Max Heat spends three Drive bars",
+		drive_after_drc == drive_before - Fighter.DRC_COST)
+	_check("Max Heat spends Super without a full-health KO",
+		ma.meter == 0 and mb.health > 0)
+	_check("Max Heat never crosses through the defender", ma.position.x < mb.position.x)
+	max_heat["arena"].queue_free()
 
 func _test_drive_gauge() -> void:
 	print("[drive gauge]")

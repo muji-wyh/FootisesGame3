@@ -42,7 +42,7 @@ const NORMAL_CLIPS := {
 const NORMAL_TUNING := {
 	"st_lp": {"startup": 4, "active": 3, "recovery": 9, "damage": 27, "hitstun": 16, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.6, "hit_offset": Vector3(0.57, 1.35, 0.0), "hit_size": Vector3(0.37, 0.62, 0.55), "cancel_into": ["flame_step_l", "ember_lift", "ember_barrage"], "hit_reaction_clip": "KB_Hit_m_HighRight_Weak", "hit_fx": HIT_FX + "Thin01.png"},
 	"st_mp": {"startup": 7, "active": 3, "recovery": 16, "damage": 48, "hitstun": 18, "blockstun": 11, "hitstop": 10, "guard": GameConst.Guard.MID, "knockback": 4.3, "advance": 1.0, "hit_offset": Vector3(0.58, 1.0, 0.0), "hit_size": Vector3(0.38, 0.42, 0.62), "cancel_into": ["st_hp", "flame_surge", "flame_step_m", "cinder_lash", "super_inferno", "cinder_chain"], "hit_fx": HIT_FX + "Medium01.png"},
-	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "advance": 1.4, "hit_offset": Vector3(0.59, 1.38, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large01.png"},
+	"st_hp": {"startup": 9, "active": 4, "recovery": 18, "damage": 78, "hitstun": 21, "blockstun": 13, "hitstop": 12, "guard": GameConst.Guard.MID, "knockback": 6.0, "advance": 1.8, "hit_offset": Vector3(0.59, 1.38, 0.0), "hit_size": Vector3(0.39, 0.50, 0.68), "cancel_into": ["flame_surge", "flame_step_m", "flame_step_h", "cinder_lash", "ember_wheel", "super_inferno", "cinder_chain", "furnace_hooks", "ember_barrage"], "hit_reaction_clip": "KB_Hit_m_HighRight_Med", "hit_fx": HIT_FX + "Large01.png"},
 	"st_lk": {"startup": 5, "active": 3, "recovery": 9, "damage": 29, "hitstun": 14, "blockstun": 9, "hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 3.3, "hit_offset": Vector3(0.66, 0.72, 0.0), "hit_size": Vector3(0.46, 0.34, 0.62), "cancel_into": ["flame_step_l", "ember_lift", "ember_barrage"], "hit_fx": HIT_FX + "Thin02.png"},
 	# hit_offset.y is 1.10 (not the old 0.86) because KB_m_MidKick_R plants its foot at y=1.23 at
 	# the impact frame: the old box topped out at 1.06, i.e. entirely below the visible kick.
@@ -80,6 +80,9 @@ static func build() -> CharacterData:
 		"Furnace Hooks Punish\nst.HP > 214 + HP",
 		"Ember Lift Super\ncr.LP > 214 + LK > 236236 + HP",
 		"Quick Relay\nst.LP > 236 + LP > 623 + MP",
+		"Heavy Relay\ncr.MP > st.MP > st.HP > 236 + LP > 623 + MP",
+		"Inferno Relay\ncr.MP > st.MP > st.HP > 236 + LP > 623 + MP > 236236 + HP",
+		"Max Heat\nst.MP > DRC > cr.MP > st.MP > st.HP > 236 + LP > 623 + MP > 236236 + HP",
 	])
 	c.max_health = 950
 	c.walk_speed = 3.6
@@ -168,7 +171,7 @@ static func build() -> CharacterData:
 		"motion": MotionParser.QCF, "startup": 5, "active": 30, "recovery": 20,
 		"damage": 16, "hits": 3, "hit_gap": 13, "hitstun": 19, "blockstun": 14,
 		"hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 2.4,
-		"advance": 1.8, "meter_gain": 8, "hit_fx": HIT_FX + "Effect01.png", "sfx": "lp",
+		"advance": 4.2, "meter_gain": 8, "hit_fx": HIT_FX + "Effect01.png", "sfx": "lp",
 		"anim_limb": "arm_l", "anim_extend": 0.8, "anim_clip": "KB_p_OneTwoThree",
 		"hit_offset": Vector3(0.69, 1.45, 0.0),
 		"hit_size": Vector3(0.36, 0.42, 0.58),
@@ -229,7 +232,7 @@ static func build() -> CharacterData:
 		"button": GameConst.Btn.HP, "motion": MotionParser.QCF_QCF, "meter_cost": 100,
 		"startup": 8, "active": 22, "recovery": 44, "damage": 52, "hits": 5, "hit_gap": 4,
 		"hitstun": 18, "blockstun": 16, "chip": 6, "hitstop": 12, "guard": GameConst.Guard.MID,
-		"knockback": 7.4, "advance": 7.0, "launch": true, "launch_velocity": 7.0, "meter_gain": 0,
+		"knockback": 7.4, "advance": 7.0, "launch": true, "launch_velocity": 2.0, "meter_gain": 0,
 		"hit_fx": HIT_FX + "Flash03.png", "sfx": "super", "anim_limb": "leg_r", "anim_extend": 1.0, "anim_clip": "KB_Superpunch",
 		"hit_offset": Vector3(0.38, 1.02, 0.0), "hit_size": Vector3(0.28, 0.58, 0.36)}))
 
