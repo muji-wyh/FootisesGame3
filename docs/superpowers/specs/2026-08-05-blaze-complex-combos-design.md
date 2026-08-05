@@ -10,7 +10,7 @@ animation-backed multi-hit specials, and Inferno Rush.
 
 - Add two specials from the FightingAnimsetPro gallery:
   - `Ember Barrage` (`236 + LP`) uses `KB_p_OneTwoThree`.
-  - `Cinder Vault` (`214 + MK`) uses `KB_m_MidRabbitKick_R_combo`.
+  - `Cinder Rise` (`623 + MP`) uses `KB_m_Backelbow_Uppercut_R`.
 - Reuse `MoveData.cancel_into`, the existing motion parser, multi-hit handling, DRC, and super.
 - Add the verified routes to training shortcut `4`.
 - Do not add a combo manager, rekka state, chain-only move type, or custom per-hit timeline.
@@ -31,14 +31,14 @@ uniform multi-hit cadence closely enough without engine changes.
 from confirming into the next stage. It is committal and punishable when used raw or
 completed on block.
 
-### Cinder Vault
+### Cinder Rise
 
-`Cinder Vault` is a delayed two-kick launcher using the measured right-foot peaks around
-`0.25s` and `1.03s`. It is slower, has long recovery, and uses a compact shared hitbox measured
-from both kick poses. The first kick starts the launch and the second kick juggles before the
-super cancel.
+`Cinder Rise` is a two-hit back-elbow-to-uppercut launcher using the measured right-hand peaks
+around `0.28s` and `0.57s`. It has long recovery and uses a compact shared hitbox measured from
+both impact poses. The elbow starts the launch and the uppercut juggles before the super cancel.
+Its `623 + MP` input adds execution without adding a new move-selection rule.
 
-`Ember Barrage` cancels into `Cinder Vault`; `Cinder Vault` cancels into Inferno Rush.
+`Ember Barrage` cancels into `Cinder Rise`; `Cinder Rise` cancels into Inferno Rush.
 
 ## Cancel Graph and Routes
 
@@ -47,7 +47,7 @@ The new branch is:
 ```text
 close check or punish chain
     -> Ember Barrage
-        -> Cinder Vault
+        -> Cinder Rise
             -> Inferno Rush
 ```
 
@@ -57,10 +57,10 @@ shorter conversion; no new last-hit-only cancel rule is added.
 
 Training lists these routes after deterministic verification:
 
-- `Quick Relay`: `st.LP > 236 + LP > 214 + MK` — 6 hits, meterless.
-- `Heavy Relay`: `cr.MP > st.MP > st.HP > 236 + LP > 214 + MK` — 8 hits, meterless.
-- `Inferno Relay`: `cr.MP > st.MP > st.HP > 236 + LP > 214 + MK > 236236 + HP` — 13 hits.
-- `Max Heat`: `st.MP > DRC > cr.MP > st.MP > st.HP > 236 + LP > 214 + MK > 236236 + HP`
+- `Quick Relay`: `st.LP > 236 + LP > 623 + MP` — 6 hits, meterless.
+- `Heavy Relay`: `cr.MP > st.MP > st.HP > 236 + LP > 623 + MP` — 8 hits, meterless.
+- `Inferno Relay`: `cr.MP > st.MP > st.HP > 236 + LP > 623 + MP > 236236 + HP` — 13 hits.
+- `Max Heat`: `st.MP > DRC > cr.MP > st.MP > st.HP > 236 + LP > 623 + MP > 236236 + HP`
   — 14 hits and three Drive bars.
 
 ## Footsies Constraints
@@ -69,7 +69,7 @@ Training lists these routes after deterministic verification:
 - `cr.MK` gains no new cancel target.
 - The long meterless route starts from close buttons or the existing committed heavy chain,
   not from Blaze's default poke.
-- Raw Barrage has short reach. Raw Vault has long recovery.
+- Raw Barrage has short reach. Raw Rise has long recovery and no invulnerability.
 - The relay is all mid strikes and ends punishable on block; it adds conversion depth, not a
   low/overhead pressure tree.
 - DRC remains the only way to prepend the extra normal sequence, so the longest route cashes
@@ -80,7 +80,7 @@ Training lists these routes after deterministic verification:
 Each special keeps normal first-hit hit-stop and shorter follow-up stops, preserving the
 existing rhythmic multi-hit behavior. Add measured first-impact fractions to Blaze's
 `RigConfig.clip_impacts`; tune startup and `hit_gap` so the simulation contacts follow the
-visible punch and kick beats.
+visible punch, elbow, and uppercut beats.
 
 The implementation measures both candidate clips' striking bones before finalizing hitboxes.
 Use the smallest fixed box that covers their authored impact poses; do not add per-hit hitbox
@@ -91,7 +91,7 @@ data unless measurement proves a shared box cannot stay accurate.
 Headless checks cover:
 
 - move inputs, clips, hit counts, cadence, cancel targets, and recovery bounds;
-- all hits of Barrage and Vault connecting at close range;
+- all hits of Barrage and Rise connecting at close range;
 - early versus delayed cancel behavior;
 - the 8-hit meterless relay;
 - the 13-hit super relay and 14-hit DRC route;
