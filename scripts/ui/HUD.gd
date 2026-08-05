@@ -321,6 +321,8 @@ func _build_move_list(p1: CharacterData, p2: CharacterData) -> void:
 	var usable_w := _move_list_scroll.size.x - 18.0  # leave room for the vertical scrollbar
 	var left := _label(_move_list_body, Vector2(2, 0), Vector2(col_w, 0), 18)
 	var right := _label(_move_list_body, Vector2(usable_w - col_w - 2.0, 0), Vector2(col_w, 0), 18)
+	left.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	right.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 	_move_list_labels[0] = left

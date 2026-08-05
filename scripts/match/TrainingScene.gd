@@ -159,7 +159,7 @@ func _build_training_overlay() -> void:
 	label.add_theme_color_override("font_color", Color(0.76, 0.9, 1.0))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 5)
-	label.text = "TRAINING: idle dummy  |  TAB moves  |  1 hitboxes  |  2 slow 30%  |  3 frame meter  |  ESC menu"
+	label.text = "TRAINING: idle dummy  |  TAB moves  |  1 hitboxes  |  2 slow 30%  |  3 frame meter  |  4 combos  |  ESC menu"
 	_training_overlay.add_child(label)
 	_frame_meter = FrameMeter.new()
 	_frame_meter.visible = false
@@ -222,6 +222,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if event.keycode == KEY_3:
 			toggle_frame_meter()
+			return
+		if event.keycode == KEY_4:
+			hud.toggle_combo_list()
 			return
 	super._unhandled_input(event)
 

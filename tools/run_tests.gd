@@ -908,6 +908,19 @@ func _test_training_mode() -> void:
 	_check("training resources stay full", scene.f1.meter == scene.f1.character.max_meter and scene.f1.drive == scene.f1.character.max_drive)
 	scene.f2.combo_changed.emit(2, 99)
 	_check("training combo HUD updates live", scene.hud._combo_label[0].text.contains("2 HITS") and scene.hud._combo_label[0].modulate.a > 0.9)
+	var has_combo_hint := false
+	for child in scene._training_overlay.get_children():
+		if child is Label and child.text.contains("4 combos"):
+			has_combo_hint = true
+			break
+	_check("training shortcut hint includes combo list", has_combo_hint)
+	var combo_key := InputEventKey.new()
+	combo_key.keycode = KEY_4
+	combo_key.pressed = true
+	scene._unhandled_input(combo_key)
+	_check("training key 4 opens the combo list", scene.hud.is_combo_list_visible())
+	scene._unhandled_input(combo_key)
+	_check("training key 4 closes the combo list", not scene.hud.is_combo_list_visible())
 	# Hitbox viewer (1): it has to draw the very AABBs the simulation collides with, otherwise
 	# it is worse than useless -- a viewer that lies sends tuning in the wrong direction.
 	_check("training hitbox viewer starts hidden", not scene.is_box_view_visible())
@@ -1413,6 +1426,9 @@ func _test_move_list_overlay() -> void:
 			left.text.contains("Cinder Chain Confirm")
 			and left.text.contains("Furnace Hooks Punish")
 			and left.text.contains("Ember Lift Super"))
+		_check("combo columns wrap long routes within their width",
+			left.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+			and left.get_minimum_size().x <= left.size.x)
 		hud.toggle_move_list()
 		_check("move list replaces combo list in the shared panel",
 			hud.is_move_list_visible() and not bool(hud.call("is_combo_list_visible")))
