@@ -2765,6 +2765,15 @@ func _test_blaze_complex_relay() -> void:
 		and dp_attacker.current_move.id == "cinder_rise")
 	dp_priority["arena"].queue_free()
 
+	var repeated_qcf := _build()
+	var repeated_qcf_attacker: Fighter = repeated_qcf["f1"]
+	_p1_qcf(repeated_qcf, 0)
+	_p1_qcf(repeated_qcf, GameConst.Btn.MP)
+	_check("236236 + MP uses the newest QCF completion",
+		repeated_qcf_attacker.current_move != null
+		and repeated_qcf_attacker.current_move.id == "flame_surge")
+	repeated_qcf["arena"].queue_free()
+
 	var raw := _build()
 	var raw_attacker: Fighter = raw["f1"]
 	var raw_defender: Fighter = raw["f2"]

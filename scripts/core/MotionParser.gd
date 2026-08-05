@@ -34,13 +34,16 @@ static func completion_age(buffer: InputBuffer, facing: int, seq: Array[int],
 	var effective_window: int = maxi(window, seq.size() * 6)
 	var effective_recent: int = maxi(recent, 10)
 	var d: Array[int] = digits(buffer, facing, effective_window)
-	var si: int = 0
-	var last_match: int = -1
-	for i in range(d.size()):
-		if si < seq.size() and d[i] == seq[si]:
-			si += 1
-			last_match = i
-	if si < seq.size():
-		return -1
-	var age := d.size() - 1 - last_match
-	return age if age <= effective_recent else -1
+	for end_index in range(d.size() - 1, -1, -1):
+		if d[end_index] != seq[seq.size() - 1]:
+			continue
+		var age := d.size() - 1 - end_index
+		if age > effective_recent:
+			return -1
+		var si := seq.size() - 2
+		for i in range(end_index - 1, -1, -1):
+			if si >= 0 and d[i] == seq[si]:
+				si -= 1
+		if si < 0:
+			return age
+	return -1
