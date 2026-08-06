@@ -1681,6 +1681,35 @@ func _test_animated_rig() -> void:
 		and imported_mesh.mesh.surface_get_material(0) == imported_material)
 	imported_mesh.free()
 
+	var fixture_root := Node3D.new()
+	fixture_root.name = "AnimationlessModel"
+	var fixture_armature := Node3D.new()
+	fixture_armature.name = "Armature"
+	fixture_root.add_child(fixture_armature)
+	fixture_armature.owner = fixture_root
+	var fixture_skeleton := Skeleton3D.new()
+	fixture_skeleton.name = "Skeleton3D"
+	fixture_armature.add_child(fixture_skeleton)
+	fixture_skeleton.owner = fixture_root
+	var fixture_scene := PackedScene.new()
+	fixture_scene.pack(fixture_root)
+	var fixture_path := "user://animationless_model.tscn"
+	ResourceSaver.save(fixture_scene, fixture_path)
+	fixture_root.free()
+	var fixture_character := CharacterData.new()
+	fixture_character.model_path = fixture_path
+	fixture_character.rig = RigConfig.new()
+	fixture_character.rig.state_clips = {"idle": "idle"}
+	var fixture_rig := AnimatedFighterRig.new()
+	fixture_rig.build(fixture_character)
+	_check("animationless FBX gets a correctly rooted AnimationPlayer",
+		fixture_rig._player != null
+		and fixture_rig._skel != null
+		and fixture_rig._player.get_parent() == fixture_rig._skel.get_parent()
+		and fixture_rig._player.root_node == NodePath(".."))
+	fixture_rig.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(fixture_path))
+
 	var blaze := CharacterLibrary.create("blaze")
 	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
 		print("  SKIP: model assets not present (clean clone)")

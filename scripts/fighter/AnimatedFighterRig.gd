@@ -46,10 +46,14 @@ func build(character: CharacterData) -> void:
 	_model.rotation_degrees = character.model_euler_deg + Vector3(0, character.model_face_deg, 0)
 	_model.scale = Vector3.ONE * character.model_scale
 
+	_skel = _find(_model, "Skeleton3D") as Skeleton3D
 	_player = _find(_model, "AnimationPlayer") as AnimationPlayer
 	if _player == null:
-		return
-	_skel = _find(_model, "Skeleton3D") as Skeleton3D
+		_player = AnimationPlayer.new()
+		_player.name = "AnimationPlayer"
+		var player_parent: Node = _skel.get_parent() if _skel else _model
+		player_parent.add_child(_player)
+		_player.root_node = NodePath("..")
 
 	_graft_animations()
 	_ground_and_tint(character)
