@@ -170,7 +170,6 @@ func _initialize() -> void:
 	_test_ember_lift()
 	_test_animation_ownership()
 	_test_animation_gallery2()
-	_test_vfx_gallery()
 	_test_move_list_overlay()
 	_test_multihit()
 	_test_move_sfx()
@@ -209,6 +208,7 @@ func _initialize() -> void:
 	_test_drive_rush_carry()
 	_test_system_amplifies_neutral()
 	_test_hud_combo_and_fx()
+	await _test_vfx_gallery()
 	_finish()
 
 func _finish() -> void:
@@ -1389,6 +1389,7 @@ func _test_animation_gallery2() -> void:
 	fighter_gallery.free()
 
 func _test_vfx_gallery() -> void:
+	await process_frame
 	print("[VFX impact gallery]")
 	var scene_path := "res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"
 	var cartoon_scene_path := "res://scenes/ui/GALLERY-CartoonFXPack.tscn"
@@ -1399,7 +1400,7 @@ func _test_vfx_gallery() -> void:
 	_check("main menu links CartoonFXPack gallery", menu_source.contains(cartoon_scene_path))
 	if ResourceLoader.exists(cartoon_scene_path):
 		var cartoon_gallery := (load(cartoon_scene_path) as PackedScene).instantiate()
-		cartoon_gallery._ready()
+		root.add_child(cartoon_gallery)
 		var preview_cards := cartoon_gallery.find_children("Preview_*", "MeshInstance3D", true, false)
 		var first_row_count := 0
 		for card in preview_cards:
