@@ -69,13 +69,12 @@ func _spawn(ps: PackedScene, lib: AnimationLibrary, clip: String, pos: Vector3) 
 		else:
 			m.queue_free()
 
-	var ap := _find(model, "AnimationPlayer") as AnimationPlayer
-	if ap:
-		ap.add_animation_library(_cfg.lib_name, lib)
-		var anim := lib.get_animation(clip)
-		anim.loop_mode = Animation.LOOP_LINEAR     # loop every clip in the gallery
-		ap.play(_cfg.lib_name + "/" + clip, -1.0, _animation_speed)
-		ap.seek(randf() * anim.length, true)        # desync so the grid isn't in lockstep
+	var ap := AnimatedFighterRig.ensure_animation_player(model)
+	ap.add_animation_library(_cfg.lib_name, lib)
+	var anim := lib.get_animation(clip)
+	anim.loop_mode = Animation.LOOP_LINEAR     # loop every clip in the gallery
+	ap.play(_cfg.lib_name + "/" + clip, -1.0, _animation_speed)
+	ap.seek(randf() * anim.length, true)        # desync so the grid isn't in lockstep
 
 	var label := Label3D.new()
 	label.text = clip

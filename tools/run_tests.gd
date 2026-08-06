@@ -1321,6 +1321,36 @@ func _test_animation_gallery2() -> void:
 	_check("main menu gallery buttons fit the 720p viewport",
 		menu_stack != null and menu_stack.get_combined_minimum_size().y <= 720.0)
 	menu.free()
+	var fighting_gallery := (load(fighting_scene_path) as PackedScene).instantiate()
+	fighting_gallery._cfg = RigConfig.new()
+	fighting_gallery._cfg.lib_name = "test"
+	var fixture_root := Node3D.new()
+	fixture_root.name = "AnimationlessGalleryModel"
+	var fixture_armature := Node3D.new()
+	fixture_armature.name = "Armature"
+	fixture_root.add_child(fixture_armature)
+	fixture_armature.owner = fixture_root
+	var fixture_skeleton := Skeleton3D.new()
+	fixture_skeleton.name = "Skeleton3D"
+	fixture_armature.add_child(fixture_skeleton)
+	fixture_skeleton.owner = fixture_root
+	var fixture_scene := PackedScene.new()
+	fixture_scene.pack(fixture_root)
+	fixture_root.free()
+	var fixture_library := AnimationLibrary.new()
+	fixture_library.add_animation("idle", Animation.new())
+	fighting_gallery._spawn(
+		fixture_scene, fixture_library, "idle", Vector3.ZERO)
+	var gallery_model := fighting_gallery.get_node(
+		"AnimationlessGalleryModel")
+	var gallery_player := gallery_model.get_node_or_null(
+		"Armature/AnimationPlayer") as AnimationPlayer
+	_check("FightingAnimsetPro animates animationless display models",
+		gallery_player != null
+		and gallery_player.root_node == NodePath("..")
+		and gallery_player.has_animation("test/idle")
+		and gallery_player.current_animation == "test/idle")
+	fighting_gallery.free()
 	if not ResourceLoader.exists(hit_scene_path):
 		return
 	var gallery := (load(hit_scene_path) as PackedScene).instantiate()

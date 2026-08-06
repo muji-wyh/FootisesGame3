@@ -47,13 +47,7 @@ func build(character: CharacterData) -> void:
 	_model.scale = Vector3.ONE * character.model_scale
 
 	_skel = _find(_model, "Skeleton3D") as Skeleton3D
-	_player = _find(_model, "AnimationPlayer") as AnimationPlayer
-	if _player == null:
-		_player = AnimationPlayer.new()
-		_player.name = "AnimationPlayer"
-		var player_parent: Node = _skel.get_parent() if _skel else _model
-		player_parent.add_child(_player)
-		_player.root_node = NodePath("..")
+	_player = ensure_animation_player(_model)
 
 	_graft_animations()
 	_ground_and_tint(character)
@@ -397,6 +391,18 @@ static func apply_materials(mesh: MeshInstance3D, cfg: RigConfig, tint: Color, f
 		else:
 			mat.albedo_color = flat
 		mesh.set_surface_override_material(s, mat)
+
+static func ensure_animation_player(model: Node3D) -> AnimationPlayer:
+	var player := _find(model, "AnimationPlayer") as AnimationPlayer
+	if player != null:
+		return player
+	var skeleton := _find(model, "Skeleton3D") as Skeleton3D
+	player = AnimationPlayer.new()
+	player.name = "AnimationPlayer"
+	var player_parent: Node = skeleton.get_parent() if skeleton != null else model
+	player_parent.add_child(player)
+	player.root_node = NodePath("..")
+	return player
 
 ## Ground the model so the boot SOLES sit on the floor, using the actual animated idle
 ## stance. Key insight: the model's REST pose is authored standing on the ground, so the
