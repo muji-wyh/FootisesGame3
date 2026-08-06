@@ -88,7 +88,7 @@ static func build() -> CharacterData:
 	c.walk_speed = 3.6
 	c.back_speed = 2.9
 	c.jump_velocity = 12.6
-	c.model_path = ASSETS + "maskman.fbx"
+	c.model_path = ASSETS + "robot2_blaze.fbx"
 	c.model_scale = 1.0
 	c.model_face_deg = 90.0
 	c.rig = _rig()
@@ -293,8 +293,8 @@ static func _rig() -> RigConfig:
 	}
 	r.drive_rush_startup_clips = ["KB_SkipFwd_1", "KB_Dodge_R", "KB_WalkFwd1"]
 	r.drive_rush_clips = ["KB_SkipFwd_1", "KB_WalkFwd1"]
-	r.surface_textures = {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
-	r.tex_dir = ASSETS + "tex/"
+	r.surface_textures = {}
+	r.tex_dir = ""
 	r.material_roughness = 0.7
 	r.lod_keep = "LOD1"
 	r.hit_fallback = "KB_Hit_p_MidFront_Weak"

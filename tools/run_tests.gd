@@ -1218,6 +1218,12 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
+	_check("Blaze selects the Robot2 Maskman reskin",
+		b.model_path == "res://characters/blaze/assets/robot2_blaze.fbx")
+	_check("Robot2 keeps its imported material",
+		b.rig.surface_textures.is_empty()
+		and b.rig.tex_dir == ""
+		and b.rig.lod_keep == "LOD1")
 	_check("blaze has combo specials", b.specials.size() >= 9)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	for removed in ["fireball", "uppercut", "hurricane", "od_fireball", "od_uppercut", "od_hurricane"]:
@@ -1660,6 +1666,21 @@ func _root_y_delta(anim: Animation) -> float:
 
 func _test_animated_rig() -> void:
 	print("[animated rig]")
+	var imported_material := StandardMaterial3D.new()
+	imported_material.albedo_color = Color(0.2, 0.4, 0.8)
+	var imported_box := BoxMesh.new()
+	imported_box.material = imported_material
+	var imported_mesh := MeshInstance3D.new()
+	imported_mesh.mesh = imported_box
+	var imported_cfg := RigConfig.new()
+	imported_cfg.surface_textures = {}
+	AnimatedFighterRig.apply_materials(
+		imported_mesh, imported_cfg, Color.RED, Color.ORANGE)
+	_check("empty texture mapping preserves the imported FBX material",
+		imported_mesh.get_surface_override_material(0) == null
+		and imported_mesh.mesh.surface_get_material(0) == imported_material)
+	imported_mesh.free()
+
 	var blaze := CharacterLibrary.create("blaze")
 	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
 		print("  SKIP: model assets not present (clean clone)")

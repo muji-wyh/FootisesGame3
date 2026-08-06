@@ -371,6 +371,8 @@ func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
 ## Static, reusable: texture a mesh per surface using the config's surface->texture map with
 ## `tint`, falling back to `flat` if a texture is missing. Used by the rig and the gallery.
 static func apply_materials(mesh: MeshInstance3D, cfg: RigConfig, tint: Color, flat: Color) -> void:
+	if cfg.surface_textures.is_empty():
+		return
 	for s in range(mesh.mesh.get_surface_count()):
 		var smat := mesh.mesh.surface_get_material(s)
 		var mname: String = ""
