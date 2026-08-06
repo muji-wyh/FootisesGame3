@@ -198,14 +198,14 @@ func _add_environment() -> void:
 	floor.material_override = fmat
 	add_child(floor)
 
-func _build_ui(count: int) -> void:
+func _build_ui(count: int, item_name: String = "clips") -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var title := Label.new()
 	title.position = Vector2(24, 16)
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.35))
-	title.text = "%s  -  %d clips" % [_gallery_title, count]
+	title.text = "%s  -  %d %s" % [_gallery_title, count, item_name]
 	layer.add_child(title)
 	var hint := Label.new()
 	hint.position = Vector2(24, 56)

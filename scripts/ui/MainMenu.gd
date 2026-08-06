@@ -62,6 +62,10 @@ func _ready() -> void:
 	b_gallery4.pressed.connect(func(): Game.goto_scene("res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"))
 	vb.add_child(b_gallery4)
 
+	var b_gallery5 := _button("GALLERY-CartoonFXPack")
+	b_gallery5.pressed.connect(func(): Game.goto_scene("res://scenes/ui/GALLERY-CartoonFXPack.tscn"))
+	vb.add_child(b_gallery5)
+
 	var b3 := _button("QUIT")
 	b3.pressed.connect(func(): get_tree().quit())
 	vb.add_child(b3)

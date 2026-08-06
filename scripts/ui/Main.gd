@@ -9,11 +9,13 @@ extends Node
 const TESTBLAZE_LINK := "testblaze"
 const FIGHTING_ANIMSET_PRO_LINK := "testfightinganimsetpro"
 const VFX_IMPACT_AND_HIT_LINK := "testvfximpactandhit"
+const CARTOON_FX_PACK_LINK := "testcartoonfxpack"
 
 const MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
 const TRAINING_SCENE := "res://scenes/match/Training.tscn"
 const FIGHTING_ANIMSET_PRO_SCENE := "res://scenes/ui/GALLERY-FightingAnimsetPro.tscn"
 const VFX_IMPACT_AND_HIT_SCENE := "res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"
+const CARTOON_FX_PACK_SCENE := "res://scenes/ui/GALLERY-CartoonFXPack.tscn"
 
 func _ready() -> void:
 	if OS.has_feature("headless"):
@@ -31,6 +33,8 @@ func apply_boot_link(url: String) -> String:
 		return FIGHTING_ANIMSET_PRO_SCENE
 	if url.contains(VFX_IMPACT_AND_HIT_LINK):
 		return VFX_IMPACT_AND_HIT_SCENE
+	if url.contains(CARTOON_FX_PACK_LINK):
+		return CARTOON_FX_PACK_SCENE
 	if not url.contains(TESTBLAZE_LINK):
 		return MENU_SCENE
 	Game.mode = GameConst.Mode.TRAINING

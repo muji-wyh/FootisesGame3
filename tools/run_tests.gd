@@ -1180,6 +1180,19 @@ func _test_boot_deep_link() -> void:
 			and String(game.get("p1_char_id")) == ""
 			and String(game.get("p2_char_id")) == "")
 
+	for url in ["http://localhost:8090/testcartoonfxpack",
+			"http://localhost:8090/#testcartoonfxpack",
+			"http://localhost:8090/?testcartoonfxpack"]:
+		game.set("mode", GameConst.Mode.LOCAL_2P)
+		game.set("p1_char_id", "")
+		game.set("p2_char_id", "")
+		_check("%s boots the CartoonFXPack gallery" % url,
+			main.apply_boot_link(url) == "res://scenes/ui/GALLERY-CartoonFXPack.tscn")
+		_check("%s leaves the match config untouched" % url,
+			int(game.get("mode")) == GameConst.Mode.LOCAL_2P
+			and String(game.get("p1_char_id")) == ""
+			and String(game.get("p2_char_id")) == "")
+
 	# Path, hash and query spellings all resolve, so the link survives whichever host serves it.
 	for url in ["http://localhost:8090/testblaze", "http://localhost:8090/#testblaze",
 			"http://localhost:8090/?testblaze"]:
@@ -1378,9 +1391,77 @@ func _test_animation_gallery2() -> void:
 func _test_vfx_gallery() -> void:
 	print("[VFX impact gallery]")
 	var scene_path := "res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"
+	var cartoon_scene_path := "res://scenes/ui/GALLERY-CartoonFXPack.tscn"
 	_check("VFXImpactAndHit gallery scene exists", ResourceLoader.exists(scene_path))
+	_check("CartoonFXPack gallery scene exists", ResourceLoader.exists(cartoon_scene_path))
 	var menu_source := FileAccess.get_file_as_string("res://scripts/ui/MainMenu.gd")
 	_check("main menu links VFXImpactAndHit gallery", menu_source.contains(scene_path))
+	_check("main menu links CartoonFXPack gallery", menu_source.contains(cartoon_scene_path))
+	if ResourceLoader.exists(cartoon_scene_path):
+		var cartoon_gallery := (load(cartoon_scene_path) as PackedScene).instantiate()
+		cartoon_gallery._ready()
+		var preview_cards := cartoon_gallery.find_children("Preview_*", "MeshInstance3D", true, false)
+		var first_row_count := 0
+		for card in preview_cards:
+			if is_zero_approx((card as MeshInstance3D).position.z):
+				first_row_count += 1
+		_check("CartoonFXPack gallery separates its seven-column preview rows",
+			first_row_count == 7
+			and float(cartoon_gallery.get("_spacing_z")) >= 4.0
+			and float(cartoon_gallery.get("_orbit_distance")) >= 15.0)
+		_check("CartoonFXPack gallery builds all 22 preview cards",
+			preview_cards.size() == 22)
+		var final_card := (
+			preview_cards.back() as MeshInstance3D
+			if not preview_cards.is_empty()
+			else null
+		)
+		var row_center_x := (
+			float(cartoon_gallery.get("_columns") - 1)
+			* float(cartoon_gallery.get("_spacing_x"))
+			* 0.5
+		)
+		_check("CartoonFXPack gallery centers its incomplete final row",
+			final_card != null and is_equal_approx(final_card.position.x, row_center_x))
+		var labels := cartoon_gallery.find_children("*", "Label", true, false)
+		var uses_texture_count := false
+		for label in labels:
+			if "22 textures" in (label as Label).text:
+				uses_texture_count = true
+		_check("CartoonFXPack gallery labels its assets as textures", uses_texture_count)
+		var texture_root := "res://assets/cartoon_fx_pack/textures"
+		var exported_textures: Array[String] = cartoon_gallery._paths_from_files(
+			PackedStringArray([
+				"Effect01.png.import",
+				"Medium01.png.remap",
+				"Thin01.png",
+				"ignore.txt",
+			]))
+		_check("CartoonFXPack gallery maps exported listings back to PNG resources",
+			exported_textures == [
+				texture_root + "/Effect01.png",
+				texture_root + "/Medium01.png",
+				texture_root + "/Thin01.png",
+			])
+		var texture_paths: Array[String] = cartoon_gallery._texture_paths()
+		_check("CartoonFXPack gallery imports all 22 textures", texture_paths.size() == 22)
+		var textures_load := true
+		for path in texture_paths:
+			textures_load = textures_load and load(path) is Texture2D
+		_check("CartoonFXPack gallery textures load", textures_load)
+		var preview: MeshInstance3D = cartoon_gallery._spawn_texture(
+			texture_root + "/Effect02.png", Vector3.ZERO)
+		var material := preview.material_override as ShaderMaterial
+		var quad := preview.mesh as QuadMesh
+		var shader_code := material.shader.code if material != null and material.shader != null else ""
+		_check("CartoonFXPack gallery normalizes dark alpha masks in billboard previews",
+			preview != null and material != null and quad != null
+			and quad.size.x > quad.size.y
+			and material.get_shader_parameter("preview_texture") is Texture2D
+			and shader_code.contains("blend_add")
+			and shader_code.contains("MODELVIEW_MATRIX")
+			and shader_code.contains("smoothstep"))
+		cartoon_gallery.free()
 	if not ResourceLoader.exists(scene_path):
 		return
 	var gallery := (load(scene_path) as PackedScene).instantiate()
