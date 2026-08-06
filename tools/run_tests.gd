@@ -1167,6 +1167,19 @@ func _test_boot_deep_link() -> void:
 			and String(game.get("p1_char_id")) == ""
 			and String(game.get("p2_char_id")) == "")
 
+	for url in ["http://localhost:8090/testvfximpactandhit",
+			"http://localhost:8090/#testvfximpactandhit",
+			"http://localhost:8090/?testvfximpactandhit"]:
+		game.set("mode", GameConst.Mode.LOCAL_2P)
+		game.set("p1_char_id", "")
+		game.set("p2_char_id", "")
+		_check("%s boots the VFXImpactAndHit gallery" % url,
+			main.apply_boot_link(url) == "res://scenes/ui/GALLERY-VFXImpactAndHit.tscn")
+		_check("%s leaves the match config untouched" % url,
+			int(game.get("mode")) == GameConst.Mode.LOCAL_2P
+			and String(game.get("p1_char_id")) == ""
+			and String(game.get("p2_char_id")) == "")
+
 	# Path, hash and query spellings all resolve, so the link survives whichever host serves it.
 	for url in ["http://localhost:8090/testblaze", "http://localhost:8090/#testblaze",
 			"http://localhost:8090/?testblaze"]:

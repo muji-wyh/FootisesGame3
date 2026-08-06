@@ -8,10 +8,12 @@ extends Node
 ## rewrites extensionless paths to index.html so the bare "/testblaze" link resolves.
 const TESTBLAZE_LINK := "testblaze"
 const FIGHTING_ANIMSET_PRO_LINK := "testfightinganimsetpro"
+const VFX_IMPACT_AND_HIT_LINK := "testvfximpactandhit"
 
 const MENU_SCENE := "res://scenes/ui/MainMenu.tscn"
 const TRAINING_SCENE := "res://scenes/match/Training.tscn"
 const FIGHTING_ANIMSET_PRO_SCENE := "res://scenes/ui/GALLERY-FightingAnimsetPro.tscn"
+const VFX_IMPACT_AND_HIT_SCENE := "res://scenes/ui/GALLERY-VFXImpactAndHit.tscn"
 
 func _ready() -> void:
 	if OS.has_feature("headless"):
@@ -27,6 +29,8 @@ func _boot() -> void:
 func apply_boot_link(url: String) -> String:
 	if url.contains(FIGHTING_ANIMSET_PRO_LINK):
 		return FIGHTING_ANIMSET_PRO_SCENE
+	if url.contains(VFX_IMPACT_AND_HIT_LINK):
+		return VFX_IMPACT_AND_HIT_SCENE
 	if not url.contains(TESTBLAZE_LINK):
 		return MENU_SCENE
 	Game.mode = GameConst.Mode.TRAINING
