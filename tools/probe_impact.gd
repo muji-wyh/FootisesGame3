@@ -16,8 +16,8 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var ch := CharacterLibrary.create(args[0] if args.size() > 0 else "blaze")
 	var model := (load(ch.model_path) as PackedScene).instantiate() as Node3D
-	var ap := _find(model, "AnimationPlayer") as AnimationPlayer
 	var skel := _find(model, "Skeleton3D") as Skeleton3D
+	var ap := AnimatedFighterRig.ensure_animation_player(model, skel)
 	ap.add_animation_library("kb", AnimatedFighterRig.build_library(ch.rig))
 	root.add_child(model)
 	ap.clear_caches()

@@ -143,6 +143,10 @@ func _initialize() -> void:
 		_check("forced harness failure", false)
 		_finish()
 		return
+	_test_ultron_roster()
+	_test_preserve_imported_materials()
+	_test_animationless_model_gets_player()
+	_test_ultron_animated_rig()
 	_test_walk()
 	_test_pushbox_spacing()
 	_test_visible_spacing_limit()
@@ -1213,7 +1217,7 @@ func _test_boot_deep_link() -> void:
 
 func _test_blaze_roster() -> void:
 	print("[blaze roster]")
-	_check("roster is exactly [blaze]", CharacterLibrary.ids() == ["blaze"])
+	_check("roster is exactly [blaze, ultron]", CharacterLibrary.ids() == ["blaze", "ultron"])
 	var b := CharacterLibrary.create("blaze")
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
@@ -1226,6 +1230,92 @@ func _test_blaze_roster() -> void:
 		_check("combo move exists: " + added, b.get_move(added) != null)
 	_check("Ken-like stand MP timing", b.get_move("st_mp").startup == 7 and b.get_move("st_mp").active == 3)
 	_check("Ken-like cross-up air MK timing", b.get_move("air_mk").startup == 7 and b.get_move("air_mk").active == 6)
+
+func _test_ultron_roster() -> void:
+	print("[ultron roster]")
+	_check("ultron is registered", CharacterLibrary.ids() == ["blaze", "ultron"])
+	_check("ultron display name is registered", CharacterLibrary.display_name("ultron") == "Ultron")
+	var blaze := CharacterLibrary.create("blaze")
+	var ultron := CharacterLibrary.create("ultron")
+	_check("ultron has its own identity",
+		ultron.id == "ultron" and ultron.display_name == "Ultron")
+	_check("ultron uses its own model",
+		ultron.model_path == "res://characters/ultron/assets/ultron.fbx")
+	_check("ultron copies Blaze gameplay",
+		ultron.max_health == blaze.max_health
+		and ultron.walk_speed == blaze.walk_speed
+		and _same_string_set(ultron.moves.keys(), blaze.moves.keys()))
+	_check("ultron preserves its embedded materials",
+		ultron.rig != null and ultron.rig.get("preserve_materials") == true)
+
+func _test_preserve_imported_materials() -> void:
+	print("[embedded materials]")
+	var character := CharacterData.new()
+	character.color = Color.RED
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color.GREEN
+	var box := BoxMesh.new()
+	box.material = material
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = box
+	var rig := AnimatedFighterRig.new()
+	rig._cfg = RigConfig.new()
+	rig._cfg.preserve_materials = true
+	rig._model = Node3D.new()
+	rig.add_child(rig._model)
+	rig._model.add_child(mesh)
+	rig._ground_and_tint(character)
+	_check("self-contained FBX material remains active",
+		mesh.get_active_material(0) == material)
+	mesh.set_surface_override_material(0, null)
+	rig.free()
+
+func _test_animationless_model_gets_player() -> void:
+	print("[animationless model]")
+	var model := Node3D.new()
+	var armature := Node3D.new()
+	armature.name = "Armature"
+	model.add_child(armature)
+	armature.owner = model
+	var skeleton := Skeleton3D.new()
+	skeleton.name = "Skeleton3D"
+	armature.add_child(skeleton)
+	skeleton.owner = model
+	var scene := PackedScene.new()
+	scene.pack(model)
+	var path := "user://animationless_model.tscn"
+	ResourceSaver.save(scene, path)
+	model.free()
+	var character := CharacterData.new()
+	character.model_path = path
+	character.rig = RigConfig.new()
+	var rig := AnimatedFighterRig.new()
+	root.add_child(rig)
+	rig.build(character)
+	_check("animationless model receives a skeleton-relative AnimationPlayer",
+		rig._player != null and rig._player.get_parent() == rig._skel.get_parent())
+	rig.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+func _test_ultron_animated_rig() -> void:
+	print("[ultron animated rig]")
+	var ultron := CharacterLibrary.create("ultron")
+	if not ResourceLoader.exists(ultron.model_path):
+		print("  SKIP: Ultron model asset not present (clean clone)")
+		return
+	var rig := AnimatedFighterRig.new()
+	root.add_child(rig)
+	rig.build(ultron)
+	var mesh := AnimatedFighterRig._find(rig._model, "MeshInstance3D") as MeshInstance3D
+	var material := mesh.get_active_material(0) as StandardMaterial3D if mesh else null
+	_check("ultron real FBX builds with Blaze animations",
+		rig.ok
+		and rig._skel != null
+		and rig._skel.get_bone_count() == 85
+		and rig._player.has_animation("kb/KB_Idle_1"))
+	_check("ultron real FBX keeps its embedded PBR material",
+		material != null and material.albedo_texture != null)
+	rig.queue_free()
 
 func _test_ember_lift() -> void:
 	print("[ember lift]")

@@ -31,6 +31,7 @@ extends Resource
 @export var drive_rush_clips: Array[String] = []   # fallback chain for the DRIVE_RUSH state
 
 ## Materials: a mesh-surface-name substring -> texture base name, loaded from tex_dir/<name>.png.
+@export var preserve_materials: bool = false
 @export var surface_textures: Dictionary = {}
 @export var tex_dir: String = ""
 @export var material_roughness: float = 0.7

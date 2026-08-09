@@ -7,6 +7,7 @@ extends RefCounted
 
 const REGISTRY := {
 	"blaze": preload("res://characters/blaze/blaze.gd"),
+	"ultron": preload("res://characters/ultron/ultron.gd"),
 }
 
 static func ids() -> Array[String]:

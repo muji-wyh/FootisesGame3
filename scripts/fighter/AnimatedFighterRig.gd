@@ -46,10 +46,8 @@ func build(character: CharacterData) -> void:
 	_model.rotation_degrees = character.model_euler_deg + Vector3(0, character.model_face_deg, 0)
 	_model.scale = Vector3.ONE * character.model_scale
 
-	_player = _find(_model, "AnimationPlayer") as AnimationPlayer
-	if _player == null:
-		return
 	_skel = _find(_model, "Skeleton3D") as Skeleton3D
+	_player = ensure_animation_player(_model, _skel)
 
 	_graft_animations()
 	_ground_and_tint(character)
@@ -358,7 +356,7 @@ func _ground_and_tint(character: CharacterData) -> void:
 		keep = meshes[0]
 	for m in meshes:
 		m.visible = (m == keep)
-	if keep:
+	if keep and not _cfg.preserve_materials:
 		_apply_materials(keep, character)
 	# Grounding happens once the idle pose is available (see _reground_to_pose). At
 	# position.y = 0 the model is already standing on the floor in its rest pose.
@@ -427,6 +425,15 @@ func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 		out.append(node)
 	for c in node.get_children():
 		_collect_meshes(c, out)
+
+static func ensure_animation_player(model: Node3D, skeleton: Skeleton3D = null) -> AnimationPlayer:
+	var player := _find(model, "AnimationPlayer") as AnimationPlayer
+	if player == null:
+		player = AnimationPlayer.new()
+		player.name = "AnimationPlayer"
+		var player_parent: Node = skeleton.get_parent() if skeleton != null else model
+		player_parent.add_child(player)
+	return player
 
 static func _find(node: Node, klass: String) -> Node:
 	if node.is_class(klass):
