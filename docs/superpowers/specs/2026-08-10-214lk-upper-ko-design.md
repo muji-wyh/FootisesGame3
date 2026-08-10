@@ -29,6 +29,10 @@ Remove the now-unused `hit_gap`. Do not add a move-specific animation system or 
 global upper-knockdown list: `AnimatedFighterRig` already resolves authored hit reactions
 during airborne `HITSTUN`, and global changes would affect unrelated launchers.
 
+The simulation intentionally uses `knockback` for both hit movement and half-strength guard
+pushback. Guarded Ember Lift therefore creates a larger spacing reset as part of this tuning;
+its blockstun and recovery remain unchanged.
+
 `KB_UpperKO_Flip` starts on impact and runs until landing transitions the fighter into the
 existing knockdown/get-up flow.
 
@@ -38,9 +42,10 @@ Update the existing Ember Lift checks to require:
 
 - `hits == 1`,
 - the requested reaction clip,
-- the stronger hitstop, knockback, and launch thresholds,
+- exact preserved timing, movement, hitbox, knockback, and launch values,
 - one direct `214+LK` connection produces exactly one hit,
 - the victim records `KB_UpperKO_Flip`,
+- a guarded `214+LK` produces the intentional spacing reset without damage or launch,
 - the existing `cr.LP > 214+LK > Super` route still connects.
 
 Run the full headless suite, then Web-export and visually confirm the kick reads as a violent
