@@ -140,14 +140,15 @@ static func build() -> CharacterData:
 		"hit_offset": Vector3(0.70, 1.02, 0.0), "hit_size": Vector3(0.40, 0.46, 0.48),
 		"cancel_into": ["super_inferno"]}))
 
-	# Ember Lift: close light launcher. Blaze stays grounded; only the victim is popped up.
+	# Ember Lift: one close, violent kick launch. Blaze stays grounded; the victim flips away.
 	c.add_move(CharacterKit.make_move({"id": "ember_lift", "display_name": "Ember Lift",
 		"kind": GameConst.MoveKind.SPECIAL, "button": GameConst.Btn.LK,
 		"motion": MotionParser.QCB, "startup": 6, "active": 10, "recovery": 18,
-		"damage": 24, "hits": 2, "hit_gap": 4, "hitstun": 18, "blockstun": 10,
-		"hitstop": 9, "guard": GameConst.Guard.MID, "knockback": 2.8,
-		"advance": 2.2, "launch": true, "launch_velocity": 4.8,
-		"meter_gain": 8, "hit_fx": HIT_FX + "Effect05.png", "sfx": "lk",
+		"damage": 48, "hits": 1, "hitstun": 18, "blockstun": 10,
+		"hitstop": 14, "guard": GameConst.Guard.MID, "knockback": 11.0,
+		"advance": 2.2, "launch": true, "launch_velocity": 7.5,
+		"meter_gain": 16, "hit_reaction_clip": "KB_UpperKO_Flip",
+		"hit_fx": HIT_FX + "Effect05.png", "sfx": "lk",
 		"anim_limb": "leg_r", "anim_extend": 0.8,
 		"anim_clip": "KB_m_KickUppercut_R",
 		"hit_offset": Vector3(0.46, 0.78, 0.0),

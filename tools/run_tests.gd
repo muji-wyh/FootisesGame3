@@ -1324,15 +1324,24 @@ func _test_ember_lift() -> void:
 	var wheel := blaze.get_move("ember_wheel")
 	_check("Ember Lift is 214 + LK",
 		move != null and move.motion == MotionParser.QCB and move.button == GameConst.Btn.LK)
-	_check("Ember Lift is a grounded light launcher",
-		move != null and move.launch and not move.rises and move.hits == 2)
+	_check("Ember Lift is a grounded single-hit launcher",
+		move != null and move.launch and not move.rises and move.hits == 1)
+	_check("Ember Lift uses the requested upper-KO flip reaction",
+		move != null and move.hit_reaction_clip == "KB_UpperKO_Flip")
+	_check("Ember Lift delivers one preserved heavy impact",
+		move != null
+		and move.damage == 48
+		and move.meter_gain == 16
+		and move.hitstop >= 14
+		and move.knockback >= 11.0
+		and is_equal_approx(move.launch_velocity, 7.5))
 	_check("Ember Lift super-cancels",
 		move != null and move.cancel_into == ["super_inferno"])
-	_check("Ember Lift stays lighter than Ember Wheel",
+	_check("Ember Lift stays lower-reward and safer than Ember Wheel",
 		move != null and wheel != null
-		and move.damage < wheel.damage
-		and move.launch_velocity < wheel.launch_velocity
-		and move.recovery < wheel.recovery)
+		and move.damage * move.hits < wheel.damage * wheel.hits
+		and move.recovery < wheel.recovery
+		and move.advance < wheel.advance)
 	_check("Ember Lift reach is strictly less than Ember Wheel reach",
 		move != null and wheel != null
 		and _reach(move) < _reach(wheel))
@@ -1345,6 +1354,27 @@ func _test_ember_lift() -> void:
 	_check("214 + LK starts Ember Lift",
 		fighter.current_move != null and fighter.current_move.id == "ember_lift")
 	ctx["arena"].queue_free()
+
+	var launch := _build()
+	var attacker: Fighter = launch["f1"]
+	var victim: Fighter = launch["f2"]
+	attacker.position.x = -0.34
+	victim.position.x = 0.34
+	_p1_qcb(launch, GameConst.Btn.LK)
+	var max_hits := 0
+	var saw_flip := false
+	var saw_violent_launch := false
+	for i in range(90):
+		_step(launch, _neutral(), _neutral(), 1)
+		max_hits = maxi(max_hits, victim.combo_count)
+		if victim.combo_count == 1:
+			saw_flip = saw_flip or victim.hit_reaction_clip == "KB_UpperKO_Flip"
+			saw_violent_launch = saw_violent_launch or (
+				victim.velocity.y >= 7.5 and absf(victim.velocity.x) >= 11.0)
+	_check("direct 214 + LK connects exactly once", max_hits == 1)
+	_check("direct 214 + LK records the upper-KO flip", saw_flip)
+	_check("direct 214 + LK violently launches the victim", saw_violent_launch)
+	launch["arena"].queue_free()
 
 	var heavy := _build()
 	var heavy_fighter: Fighter = heavy["f1"]
@@ -2329,6 +2359,9 @@ func _test_reaction_clips() -> void:
 	_check("heavy high front -> m HighFront Stagger", arig._resolve_hit_clip(f) == "KB_Hit_m_HighFront_Stagger")
 	f.hit_reaction_clip = "KB_Hit_m_HighRight_Med"
 	_check("authored st.HK reaction overrides context", arig._resolve_hit_clip(f) == "KB_Hit_m_HighRight_Med")
+	f.hit_reaction_clip = "KB_UpperKO_Flip"
+	_check("upper-KO flip is grafted and selectable",
+		arig._resolve_hit_clip(f) == "KB_UpperKO_Flip")
 	f.hit_reaction_clip = ""
 	# Low has no Front/Stagger -> degrade to an existing Low clip.
 	f.hit_strength = 2

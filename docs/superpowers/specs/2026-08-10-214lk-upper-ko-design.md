@@ -21,8 +21,8 @@ Use the existing `MoveData` fields only. Change `ember_lift` to:
 | `damage` | `48` | Preserve the old two-hit move's total damage |
 | `meter_gain` | `16` | Preserve the old two-hit move's total meter gain |
 | `hitstop` | `14` | Give the single impact a heavy pause |
-| `knockback` | `9.0` | Produce clear horizontal kickback |
-| `launch_velocity` | `10.5` | Produce a high, forceful upper launch |
+| `knockback` | `11.0` | Produce the violent horizontal kick-away |
+| `launch_velocity` | `7.5` | Keep the flip readable instead of sending it off-screen |
 | `hit_reaction_clip` | `KB_UpperKO_Flip` | Play the requested victim animation while airborne |
 
 Remove the now-unused `hit_gap`. Do not add a move-specific animation system or alter the
