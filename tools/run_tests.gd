@@ -1335,20 +1335,23 @@ func _test_ember_lift() -> void:
 		and move.hitstop >= 14
 		and is_equal_approx(move.knockback, 11.0)
 		and is_equal_approx(move.launch_velocity, 7.5))
-	_check("Ember Lift preserves its timing, movement, and hitbox",
+	_check("Ember Lift preserves startup, total commitment, and movement speed",
 		move != null
 		and move.startup == 6
-		and move.active == 10
-		and move.recovery == 18
-		and is_equal_approx(move.advance, 2.2)
-		and move.hit_offset.is_equal_approx(Vector3(0.46, 0.78, 0.0))
-		and move.hit_size.is_equal_approx(Vector3(0.44, 0.52, 0.66)))
+		and move.active == 1
+		and move.recovery == 27
+		and move.total_frames() == 34
+		and is_equal_approx(move.advance, 2.2))
+	_check("Ember Lift hitbox follows the kick-uppercut arc",
+		move != null
+		and move.hit_offset.is_equal_approx(Vector3(0.44, 1.45, 0.0))
+		and move.hit_size.is_equal_approx(Vector3(0.56, 1.14, 0.66)))
 	_check("Ember Lift super-cancels",
 		move != null and move.cancel_into == ["super_inferno"])
-	_check("Ember Lift stays lower-reward and safer than Ember Wheel",
+	_check("Ember Lift stays lower-reward and less committal than Ember Wheel",
 		move != null and wheel != null
 		and move.damage * move.hits < wheel.damage * wheel.hits
-		and move.recovery < wheel.recovery
+		and move.total_frames() < wheel.total_frames()
 		and move.advance < wheel.advance)
 	_check("Ember Lift reach is strictly less than Ember Wheel reach",
 		move != null and wheel != null
@@ -1362,6 +1365,17 @@ func _test_ember_lift() -> void:
 	_check("214 + LK starts Ember Lift",
 		fighter.current_move != null and fighter.current_move.id == "ember_lift")
 	ctx["arena"].queue_free()
+
+	var whiff := _build()
+	var whiff_fighter: Fighter = whiff["f1"]
+	_p1_qcb(whiff, GameConst.Btn.LK)
+	var live_hitbox_ticks := 0
+	for i in range(move.total_frames() + 2):
+		if whiff_fighter.has_active_hitbox():
+			live_hitbox_ticks += 1
+		_step(whiff, _neutral(), _neutral(), 1)
+	_check("whiffed 214 + LK hitbox ends with the upward kick", live_hitbox_ticks == 1)
+	whiff["arena"].queue_free()
 
 	var launch := _build()
 	var attacker: Fighter = launch["f1"]

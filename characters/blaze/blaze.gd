@@ -143,7 +143,7 @@ static func build() -> CharacterData:
 	# Ember Lift: one close, violent kick launch. Blaze stays grounded; the victim flips away.
 	c.add_move(CharacterKit.make_move({"id": "ember_lift", "display_name": "Ember Lift",
 		"kind": GameConst.MoveKind.SPECIAL, "button": GameConst.Btn.LK,
-		"motion": MotionParser.QCB, "startup": 6, "active": 10, "recovery": 18,
+		"motion": MotionParser.QCB, "startup": 6, "active": 1, "recovery": 27,
 		"damage": 48, "hits": 1, "hitstun": 18, "blockstun": 10,
 		"hitstop": 14, "guard": GameConst.Guard.MID, "knockback": 11.0,
 		"advance": 2.2, "launch": true, "launch_velocity": 7.5,
@@ -151,8 +151,9 @@ static func build() -> CharacterData:
 		"hit_fx": HIT_FX + "Effect05.png", "sfx": "lk",
 		"anim_limb": "leg_r", "anim_extend": 0.8,
 		"anim_clip": "KB_m_KickUppercut_R",
-		"hit_offset": Vector3(0.46, 0.78, 0.0),
-		"hit_size": Vector3(0.44, 0.52, 0.66),
+		# At impact the foot is at x=0.16, y=2.02; this box forms the vertical kick column.
+		"hit_offset": Vector3(0.44, 1.45, 0.0),
+		"hit_size": Vector3(0.56, 1.14, 0.66),
 		"cancel_into": ["super_inferno"]}))
 
 	c.add_move(CharacterKit.make_move({"id": "cinder_chain", "display_name": "Cinder Chain",
