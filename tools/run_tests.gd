@@ -1218,11 +1218,11 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
-	_check("Blaze selects the Robot2 Maskman reskin",
-		b.model_path == "res://characters/blaze/assets/robot2_blaze.fbx")
-	_check("Robot2 keeps its imported material",
-		b.rig.surface_textures.is_empty()
-		and b.rig.tex_dir == ""
+	_check("Blaze selects the Maskman model",
+		b.model_path == "res://characters/blaze/assets/maskman.fbx")
+	_check("Maskman is textured per surface",
+		b.rig.surface_textures == {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
+		and b.rig.tex_dir == "res://characters/blaze/assets/tex/"
 		and b.rig.lod_keep == "LOD1")
 	_check("blaze has combo specials", b.specials.size() >= 9)
 	_check("blaze has 1 super", b.supers.size() == 1)
