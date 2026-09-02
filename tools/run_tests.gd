@@ -1222,6 +1222,12 @@ func _test_blaze_roster() -> void:
 	_check("blaze display name", b.display_name == "Blaze")
 	_check("blaze jump is tuned higher", b.jump_velocity > 12.0)
 	_check("blaze model scale is valid", b.model_scale > 0.0)
+	_check("Blaze selects the Maskman model",
+		b.model_path == "res://characters/blaze/assets/maskman.fbx")
+	_check("Maskman is textured per surface",
+		b.rig.surface_textures == {"Cialo": "body", "Glowa": "head", "Eye": "eye", "MaskM": "mask"}
+		and b.rig.tex_dir == "res://characters/blaze/assets/tex/"
+		and b.rig.lod_keep == "LOD1")
 	_check("blaze has combo specials", b.specials.size() >= 9)
 	_check("blaze has 1 super", b.supers.size() == 1)
 	for removed in ["fireball", "uppercut", "hurricane", "od_fireball", "od_uppercut", "od_hurricane"]:
@@ -1482,6 +1488,36 @@ func _test_animation_gallery2() -> void:
 	_check("main menu gallery buttons fit the 720p viewport",
 		menu_stack != null and menu_stack.get_combined_minimum_size().y <= 720.0)
 	menu.free()
+	var fighting_gallery := (load(fighting_scene_path) as PackedScene).instantiate()
+	fighting_gallery._cfg = RigConfig.new()
+	fighting_gallery._cfg.lib_name = "test"
+	var fixture_root := Node3D.new()
+	fixture_root.name = "AnimationlessGalleryModel"
+	var fixture_armature := Node3D.new()
+	fixture_armature.name = "Armature"
+	fixture_root.add_child(fixture_armature)
+	fixture_armature.owner = fixture_root
+	var fixture_skeleton := Skeleton3D.new()
+	fixture_skeleton.name = "Skeleton3D"
+	fixture_armature.add_child(fixture_skeleton)
+	fixture_skeleton.owner = fixture_root
+	var fixture_scene := PackedScene.new()
+	fixture_scene.pack(fixture_root)
+	fixture_root.free()
+	var fixture_library := AnimationLibrary.new()
+	fixture_library.add_animation("idle", Animation.new())
+	fighting_gallery._spawn(
+		fixture_scene, fixture_library, "idle", Vector3.ZERO)
+	var gallery_model := fighting_gallery.get_node(
+		"AnimationlessGalleryModel")
+	var gallery_player := gallery_model.get_node_or_null(
+		"Armature/AnimationPlayer") as AnimationPlayer
+	_check("FightingAnimsetPro animates animationless display models",
+		gallery_player != null
+		and gallery_player.root_node == NodePath("..")
+		and gallery_player.has_animation("test/idle")
+		and gallery_player.current_animation == "test/idle")
+	fighting_gallery.free()
 	if not ResourceLoader.exists(hit_scene_path):
 		return
 	var gallery := (load(hit_scene_path) as PackedScene).instantiate()
@@ -1827,6 +1863,50 @@ func _root_y_delta(anim: Animation) -> float:
 
 func _test_animated_rig() -> void:
 	print("[animated rig]")
+	var imported_material := StandardMaterial3D.new()
+	imported_material.albedo_color = Color(0.2, 0.4, 0.8)
+	var imported_box := BoxMesh.new()
+	imported_box.material = imported_material
+	var imported_mesh := MeshInstance3D.new()
+	imported_mesh.mesh = imported_box
+	var imported_cfg := RigConfig.new()
+	imported_cfg.surface_textures = {}
+	AnimatedFighterRig.apply_materials(
+		imported_mesh, imported_cfg, Color.RED, Color.ORANGE)
+	_check("empty texture mapping preserves the imported FBX material",
+		imported_mesh.get_surface_override_material(0) == null
+		and imported_mesh.mesh.surface_get_material(0) == imported_material)
+	imported_mesh.free()
+
+	var fixture_root := Node3D.new()
+	fixture_root.name = "AnimationlessModel"
+	var fixture_armature := Node3D.new()
+	fixture_armature.name = "Armature"
+	fixture_root.add_child(fixture_armature)
+	fixture_armature.owner = fixture_root
+	var fixture_skeleton := Skeleton3D.new()
+	fixture_skeleton.name = "Skeleton3D"
+	fixture_armature.add_child(fixture_skeleton)
+	fixture_skeleton.owner = fixture_root
+	var fixture_scene := PackedScene.new()
+	fixture_scene.pack(fixture_root)
+	var fixture_path := "user://animationless_model.tscn"
+	ResourceSaver.save(fixture_scene, fixture_path)
+	fixture_root.free()
+	var fixture_character := CharacterData.new()
+	fixture_character.model_path = fixture_path
+	fixture_character.rig = RigConfig.new()
+	fixture_character.rig.state_clips = {"idle": "idle"}
+	var fixture_rig := AnimatedFighterRig.new()
+	fixture_rig.build(fixture_character)
+	_check("animationless FBX gets a correctly rooted AnimationPlayer",
+		fixture_rig._player != null
+		and fixture_rig._skel != null
+		and fixture_rig._player.get_parent() == fixture_rig._skel.get_parent()
+		and fixture_rig._player.root_node == NodePath(".."))
+	fixture_rig.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(fixture_path))
+
 	var blaze := CharacterLibrary.create("blaze")
 	if blaze.model_path == "" or not ResourceLoader.exists(blaze.model_path):
 		print("  SKIP: model assets not present (clean clone)")

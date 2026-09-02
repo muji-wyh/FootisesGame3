@@ -369,6 +369,8 @@ func _apply_materials(mesh: MeshInstance3D, character: CharacterData) -> void:
 ## Static, reusable: texture a mesh per surface using the config's surface->texture map with
 ## `tint`, falling back to `flat` if a texture is missing. Used by the rig and the gallery.
 static func apply_materials(mesh: MeshInstance3D, cfg: RigConfig, tint: Color, flat: Color) -> void:
+	if cfg.surface_textures.is_empty():
+		return
 	for s in range(mesh.mesh.get_surface_count()):
 		var smat := mesh.mesh.surface_get_material(s)
 		var mname: String = ""
@@ -389,6 +391,19 @@ static func apply_materials(mesh: MeshInstance3D, cfg: RigConfig, tint: Color, f
 		else:
 			mat.albedo_color = flat
 		mesh.set_surface_override_material(s, mat)
+
+static func ensure_animation_player(model: Node3D, skeleton: Skeleton3D = null) -> AnimationPlayer:
+	var player := _find(model, "AnimationPlayer") as AnimationPlayer
+	if player != null:
+		return player
+	if skeleton == null:
+		skeleton = _find(model, "Skeleton3D") as Skeleton3D
+	player = AnimationPlayer.new()
+	player.name = "AnimationPlayer"
+	var player_parent: Node = skeleton.get_parent() if skeleton != null else model
+	player_parent.add_child(player)
+	player.root_node = NodePath("..")
+	return player
 
 ## Ground the model so the boot SOLES sit on the floor, using the actual animated idle
 ## stance. Key insight: the model's REST pose is authored standing on the ground, so the
@@ -425,15 +440,6 @@ func _collect_meshes(node: Node, out: Array[MeshInstance3D]) -> void:
 		out.append(node)
 	for c in node.get_children():
 		_collect_meshes(c, out)
-
-static func ensure_animation_player(model: Node3D, skeleton: Skeleton3D = null) -> AnimationPlayer:
-	var player := _find(model, "AnimationPlayer") as AnimationPlayer
-	if player == null:
-		player = AnimationPlayer.new()
-		player.name = "AnimationPlayer"
-		var player_parent: Node = skeleton.get_parent() if skeleton != null else model
-		player_parent.add_child(player)
-	return player
 
 static func _find(node: Node, klass: String) -> Node:
 	if node.is_class(klass):
